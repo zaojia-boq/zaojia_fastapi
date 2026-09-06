@@ -407,6 +407,67 @@
     });
   }
 
+  /* ===================== 表格列宽拖拽 ===================== */
+  function bindColResize() {
+    const tables = $$('.tbl-resizable');
+    if (!tables.length) return;
+
+    const pageKey = 'zj-colw-' + (location.pathname || 'page').replace(/[^a-z0-9]/gi, '_');
+    let saved = {};
+    try { saved = JSON.parse(localStorage.getItem(pageKey) || '{}'); } catch (e) {}
+
+    tables.forEach(table => {
+      const cols = $$('colgroup col', table);
+      const ths = $$('thead th', table);
+
+      // 恢复保存的列宽
+      ths.forEach((th, i) => {
+        const name = th.dataset.col || ('col' + i);
+        if (saved[name] && cols[i]) {
+          cols[i].style.width = saved[name] + 'px';
+        }
+      });
+
+      // 为每个 th 添加拖拽 handle
+      ths.forEach((th, i) => {
+        if (i >= ths.length - 1) return; // 最后一列不加 handle
+        const resizer = document.createElement('div');
+        resizer.className = 'col-resizer';
+        resizer.title = '拖拽调整列宽';
+        th.appendChild(resizer);
+
+        let startX = 0, startW = 0, col = cols[i];
+
+        resizer.addEventListener('mousedown', e => {
+          e.preventDefault();
+          e.stopPropagation();
+          startX = e.pageX;
+          startW = col ? col.offsetWidth : th.offsetWidth;
+          resizer.classList.add('active');
+          document.body.classList.add('col-resizing');
+
+          const onMove = ev => {
+            const dx = ev.pageX - startX;
+            const newW = Math.max(40, startW + dx);
+            if (col) col.style.width = newW + 'px';
+          };
+          const onUp = () => {
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+            resizer.classList.remove('active');
+            document.body.classList.remove('col-resizing');
+            // 保存列宽
+            const name = th.dataset.col || ('col' + i);
+            if (col) saved[name] = col.offsetWidth;
+            try { localStorage.setItem(pageKey, JSON.stringify(saved)); } catch (e) {}
+          };
+          document.addEventListener('mousemove', onMove);
+          document.addEventListener('mouseup', onUp);
+        });
+      });
+    });
+  }
+
   /* ===================== 初始化 ===================== */
   function init() {
     initTheme();
@@ -417,6 +478,7 @@
     bindImportFlow();
     bindBatchActions();
     bindMatchFilter();
+    bindColResize();
   }
 
   if (document.readyState === 'loading') {

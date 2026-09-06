@@ -6,8 +6,8 @@
   <meta name="description" content="工程造价数据库 —— 多省多批次清单导入、标准化、聚合分析与单价分析">
   <title>{% block title %}造价数据库{% endblock %} · 深空科技</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%234D7CFE'/><text x='16' y='23' font-size='19' text-anchor='middle' fill='white' font-family='sans-serif'>造</text></svg>">
-  <link rel="stylesheet" href="/static/css/tokens.css">
-  <link rel="stylesheet" href="/static/css/components.css">
+  <link rel="stylesheet" href="/static/css/tokens.css?v=20260906b">
+  <link rel="stylesheet" href="/static/css/components.css?v=20260906b">
   <script>
     // 主题预置：先于 CSS 生效，避免首屏闪白（FOUC）
     (function () {
@@ -58,7 +58,8 @@
   <!-- ======= 主区 ======= -->
   <div class="main">
 
-    <!-- 顶栏 -->
+    <!-- 顶栏（子模板可设 hide_topbar=true 隐藏） -->
+    {% if not hide_topbar %}
     <div class="topbar">
       <div class="crumb">{{ title }}</div>
       <div class="topbar-right">
@@ -68,6 +69,7 @@
         <button class="icon-btn" id="themeToggle" title="切换深浅色" aria-label="切换深浅色">&#9790;</button>
       </div>
     </div>
+    {% endif %}
 
     <!-- 内容 -->
     <div class="content">

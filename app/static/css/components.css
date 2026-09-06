@@ -226,6 +226,15 @@ tbody tr:hover{background:var(--tbl-hover);}
 .code{font-family:"SF Mono",Consolas,"Courier New",monospace;font-size:12.5px;letter-spacing:.3px;}
 .code .p9{color:var(--c-text);font-weight:700;}
 .code .p3{color:var(--c-text-3);}
+
+/* ---------- 可拖拽列宽表格 ---------- */
+.tbl-resizable{table-layout:fixed;}
+.tbl-resizable thead th{position:relative;user-select:none;}
+.tbl-resizable .td-wrap{white-space:normal;word-break:break-word;line-height:1.5;vertical-align:top;padding-top:8px;padding-bottom:8px;}
+.col-resizer{position:absolute;top:0;right:0;width:6px;height:100%;cursor:col-resize;user-select:none;z-index:2;}
+.col-resizer:hover,.col-resizer.active{background:var(--c-accent);opacity:.4;}
+body.col-resizing{cursor:col-resize !important;user-select:none !important;}
+body.col-resizing *{cursor:col-resize !important;}
 .mono{font-variant-numeric:tabular-nums;}
 
 /* ---------- 标签 ---------- */
@@ -255,6 +264,17 @@ tbody tr:hover{background:var(--tbl-hover);}
 .inp:focus{border-color:var(--c-accent);box-shadow:0 0 0 3px var(--c-accent-soft);}
 select.inp{cursor:pointer;appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--c-text-3) 50%),linear-gradient(135deg,var(--c-text-3) 50%,transparent 50%);background-position:calc(100% - 15px) 15px,calc(100% - 10px) 15px;background-size:5px 5px,5px 5px;background-repeat:no-repeat;}
 .filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;align-items:end;}
+
+/* ---------- 大搜索框（检索页主入口） ---------- */
+.hero-search{display:flex;gap:10px;margin-bottom:20px;}
+.hero-search-inp{
+  flex:1;height:52px;padding:0 18px;border-radius:var(--r-md);
+  border:1.5px solid var(--c-card-border);background:var(--c-card);
+  color:var(--c-text);font-size:16px;font-family:var(--font);outline:0;
+  transition:all var(--dur) var(--ease);
+}
+.hero-search-inp:focus{border-color:var(--c-accent);box-shadow:0 0 0 4px var(--c-accent-soft);}
+.hero-search-btn{height:52px;padding:0 28px;font-size:15px;font-weight:600;}
 
 /* ---------- 分段控件 ---------- */
 .seg{display:inline-flex;background:var(--c-app-bg);border:1px solid var(--c-card-border);border-radius:var(--r-pill);padding:3px;gap:2px;}

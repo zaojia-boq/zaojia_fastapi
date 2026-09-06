@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}清单检索{% endblock %}
+{% set hide_topbar = true %}
 
 {% macro keep(p=1) -%}
 /search?kw={{ params.kw|urlencode }}&amp;major={{ params.major|urlencode }}&amp;code={{ params.code|urlencode }}&amp;name={{ params.name|urlencode }}&amp;source={{ params.source|urlencode }}&amp;anomaly={{ params.anomaly|urlencode }}&amp;status={{ params.status|urlencode }}&amp;page={{ p }}
@@ -21,13 +22,17 @@
     </div>
   </div>
 
+  <!-- ======= 大搜索框（统计信息下，主入口）======= -->
+  <form class="hero-search" method="get" action="/search">
+    <input class="hero-search-inp" name="kw" value="{{ params.kw }}"
+           placeholder="搜索清单名称 / 编码 / 项目特征 / 来源工程…" autofocus>
+    <button class="btn btn-primary hero-search-btn" type="submit">检索</button>
+  </form>
+
   <!-- ======= 筛选区（GET 表单，条件可分享/可回退）======= -->
   <div class="card mb">
     <form class="filters" method="get" action="/search">
-      <div class="field">
-        <label for="f-kw">关键词</label>
-        <input class="inp" id="f-kw" name="kw" value="{{ params.kw }}" placeholder="名称 / 编码 / 特征 / 工程">
-      </div>
+      <input type="hidden" name="kw" value="{{ params.kw }}">
       <div class="field">
         <label for="f-major">专业工程</label>
         <select class="inp" id="f-major" name="major">
@@ -93,12 +98,24 @@
 
     {% if rows %}
     <div class="tbl-wrap">
-      <table>
+      <table class="tbl-resizable">
+        <colgroup>
+          <col style="width:130px">
+          <col style="width:200px">
+          <col style="width:280px">
+          <col style="width:55px">
+          <col style="width:75px">
+          <col style="width:95px">
+          <col style="width:95px">
+          <col style="width:130px">
+          <col style="width:75px">
+          <col style="width:75px">
+        </colgroup>
         <thead>
           <tr>
-            <th>清单编码</th><th>项目名称</th><th>项目特征描述</th><th>单位</th>
-            <th class="td-num">工程量</th><th class="td-num">综合单价（元）</th><th class="td-num">合价（元）</th>
-            <th>来源工程</th><th>期间</th><th>状态</th>
+            <th data-col="code">清单编码</th><th data-col="name">项目名称</th><th data-col="feature">项目特征描述</th><th data-col="unit">单位</th>
+            <th class="td-num" data-col="qty">工程量</th><th class="td-num" data-col="rate">综合单价（元）</th><th class="td-num" data-col="total">合价（元）</th>
+            <th data-col="source">来源工程</th><th data-col="period">期间</th><th data-col="status">状态</th>
           </tr>
         </thead>
         <tbody>
@@ -108,13 +125,13 @@
               <span class="dot" style="background:{{ r.majorColor }};margin-right:6px" title="{{ r.majorName }}"></span>
               <span class="code">{{ r.code }}</span>
             </td>
-            <td>{{ r.name }}</td>
-            <td class="muted">{{ r.feature }}</td>
+            <td class="td-wrap">{{ r.name }}</td>
+            <td class="muted td-wrap">{{ r.feature }}</td>
             <td>{{ r.unit }}</td>
             <td class="td-num">{{ r.qty }}</td>
             <td class="td-num">{{ r.rate }}</td>
             <td class="td-num">{{ r.total }}</td>
-            <td>{{ r.source }}</td>
+            <td class="td-wrap">{{ r.source }}</td>
             <td>{{ r.period or '—' }}</td>
             <td>
               {% if r.stCls == 'ok' %}<span class="chip ok">{{ r.stLabel }}</span>

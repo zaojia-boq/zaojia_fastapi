@@ -119,12 +119,12 @@ class TestPageContent:
         assert "清单条目总数" in content
 
     def test_search_has_table(self, auth_client):
-        """清单检索页应包含搜索和筛选结构。"""
+        """清单检索页应包含大搜索框和筛选结构。"""
         r = auth_client.get("/search")
         assert r.status_code == 200
         content = r.text
         assert "清单检索" in content
-        assert 'id="f-kw"' in content
+        assert "hero-search" in content
         assert 'method="get"' in content
 
     def test_price_has_kpis(self, auth_client):
@@ -324,11 +324,19 @@ class TestTemplateInheritance:
             assert "nav-item" in r.text, f"{path} missing nav items"
 
     def test_all_pages_have_topbar(self, auth_client):
-        for path in ["/dashboard", "/search", "/price", "/import"]:
+        # search 页面设计为隐藏顶栏（大搜索框布局），其余页面应有顶栏
+        for path in ["/dashboard", "/price", "/import"]:
             r = auth_client.get(path)
             assert r.status_code == 200
-            assert "topbar" in r.text, f"{path} missing topbar"
+            assert 'class="topbar"' in r.text, f"{path} missing topbar"
             assert "themeToggle" in r.text, f"{path} missing theme toggle"
+
+    def test_search_hides_topbar(self, auth_client):
+        """清单检索页应隐藏顶栏（采用大搜索框布局）。"""
+        r = auth_client.get("/search")
+        assert r.status_code == 200
+        assert 'class="topbar"' not in r.text
+        assert "hero-search" in r.text
 
     def test_all_pages_have_content_block(self, auth_client):
         for path in ["/dashboard", "/search", "/price", "/import"]:
