@@ -18,8 +18,8 @@ from sqlalchemy.orm import sessionmaker
 from app.config import settings
 from app.models.base_mixin import Base  # 统一 Base，共享 metadata
 
-# 数据库 URL：测试时优先用 test_database_url
-_db_url = settings.test_database_url or settings.database_url
+# 数据库 URL：直接用生产/开发库；测试隔离由 conftest.py 的 dependency_overrides 完成
+_db_url = settings.database_url
 
 engine = create_engine(
     _db_url,
