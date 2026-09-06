@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+{% block title %}数据概览{% endblock %}
+{% block content %}
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">数据概览</h1>
+      <div class="page-desc">
+        全库口径 · 更新于 {{ meta.updatedAt }} ·
+        {% if kpi.projectCount %}涵盖 {{ kpi.projectCount }} 个工程{% else %}暂无工程数据{% endif %} ·
+        共 {{ kpi.batchCount }} 个导入批次
+      </div>
+    </div>
+    <div class="page-actions">
+      <a class="btn btn-sec" href="/batches">批次管理</a>
+      <a class="btn btn-primary" href="/import">＋ 新增批次</a>
+    </div>
+  </div>
+
+  {% if not data_error %}
+  <!-- ======= KPI ======= -->
+  <div class="grid g4">
+    <div class="card kpi">
+      <div class="kpi-bar"></div>
+      <div class="kpi-top">
+        <div class="kpi-ico" style="color:var(--c-accent)">&#9643;</div>
+        <div class="kpi-label">清单条目总数</div>
+      </div>
+      <div class="kpi-val">{{ "{:,}".format(kpi.total) }}</div>
+      <div class="kpi-foot">
+        <span class="trend flat">全库</span><span>有效条目（已排除软删）</span>
+      </div>
+    </div>
+    <div class="card kpi">
+      <div class="kpi-bar k-ok"></div>
+      <div class="kpi-top">
+        <div class="kpi-ico" style="color:var(--c-ok)">&#10003;</div>
+        <div class="kpi-label">已标准化条目</div>
+      </div>
+      <div class="kpi-val">{{ "{:,}".format(kpi.std) }}</div>
+      <div class="kpi-foot"><span class="trend up">标准化率 {{ kpi.stdRate }}%</span><span>含 std_name</span></div>
+    </div>
+    <div class="card kpi">
+      <div class="kpi-bar k-info"></div>
+      <div class="kpi-top">
+        <div class="kpi-ico" style="color:var(--c-info)">&#9681;</div>
+        <div class="kpi-label">单价样本量</div>
+      </div>
+      <div class="kpi-val">{{ "{:,}".format(kpi.price) }}</div>
+      <div class="kpi-foot"><span class="trend flat">覆盖 {{ kpi.priceRate }}%</span><span>存在 unit_rate_num</span></div>
+    </div>
+    <div class="card kpi">
+      <div class="kpi-bar k-warn"></div>
+      <div class="kpi-top">
+        <div class="kpi-ico" style="color:var(--c-warn)">&#8771;</div>
+        <div class="kpi-label">待归类确认</div>
+      </div>
+      <div class="kpi-val">{{ "{:,}".format(kpi.pending) }}</div>
+      <div class="kpi-foot"><span class="trend down">未关联物料字典</span><span>需人工判定</span></div>
+    </div>
+  </div>
+
+  <!-- ======= 月度入库量 + 专业分布 ======= -->
+  <div class="grid g21">
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title">月度入库量</div>
+          <div class="card-sub">按清单条目数统计（条）· 近 12 个自然月</div>
+        </div>
+        <div class="right"><span class="chip">清单条目</span></div>
+      </div>
+      {% set maxm = months|map(attribute='value')|max %}
+      {% if maxm %}
+      <div class="bars">
+        {% for m in months %}
+        <div class="bar-col" title="{{ m.month }}：{{ m.value }} 条">
+          <div class="bar-slot">
+            <div class="bar" style="height:{{ (m.value / maxm * 100) if maxm else 0 }}%"></div>
+          </div>
+          <div class="bar-val">{{ m.value if m.value else '' }}</div>
+          <div class="bar-x">{{ m.label }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty">
+        <div class="ico">&#128197;</div>
+        <div class="t">近 12 个月无入库记录</div>
+        <div class="s">清单条目缺少价格期间（price_period），导入时请填写价格期</div>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">专业分布</div>
+        <div class="right"><span class="chip">按编码前 2 位</span></div>
+      </div>
+      {% if donut %}
+      <div class="donut-wrap">
+        <div class="donut">
+          <svg width="150" height="150" viewBox="0 0 150 150" role="img" aria-label="专业分布环形图">
+            {% set C = 364.42 %}
+            {% set acc = namespace(v=0) %}
+            {% for d in donut %}
+              {% set seg = (d.value / kpi.total * C) if kpi.total else 0 %}
+              <circle cx="75" cy="75" r="58" fill="none" stroke="{{ d.color }}" stroke-width="16"
+                      stroke-dasharray="{{ '%.2f'|format(seg) }} {{ '%.2f'|format(C - seg) }}"
+                      stroke-dashoffset="{{ '%.2f'|format(-acc.v) }}"></circle>
+              {% set acc.v = acc.v + seg %}
+            {% endfor %}
+          </svg>
+          <div class="donut-center"><b>{{ "{:,}".format(kpi.total) }}</b><span>条目总数</span></div>
+        </div>
+        <div class="legend">
+          {% for d in donut %}
+          <div>
+            <i style="background:{{ d.color }}"></i><span>{{ d.name }}</span>
+            <span class="v">{{ "{:,}".format(d.value) }}</span>
+            <span class="p">{{ d.pct }}%</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% else %}
+      <div class="empty">
+        <div class="ico">&#9673;</div>
+        <div class="t">暂无可分类条目</div>
+        <div class="s">条目缺少清单编码（item_code），无法判定专业归属</div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ======= 标准化进度 + 待办 ======= -->
+  <div class="grid g21">
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">标准化推进进度</div>
+        <div class="right"><span class="chip">目标 80%</span></div>
+      </div>
+      {% for p in progress %}
+      <div style="margin-bottom:14px">
+        <div class="row" style="justify-content:space-between;margin-bottom:6px">
+          <span class="small">{{ p.label }}</span>
+          <span class="small"><b>{{ p.pct }}%</b> <span class="muted">· {{ "{:,}".format(p.value) }} 条</span></span>
+        </div>
+        <div class="prog"><i style="width:{{ p.pct }}%"></i></div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">待办事项</div>
+        <div class="right"><span class="chip">按真实计数生成</span></div>
+      </div>
+      {% if todos %}
+        {% for t in todos %}
+        <div class="todo">
+          <div class="todo-ico">{{ t.icon }}</div>
+          <div>
+            <div class="todo-t">{{ t.title }}</div>
+            <div class="todo-s">{{ t.sub }}</div>
+          </div>
+          <div class="todo-act"><a class="btn btn-sec btn-sm" href="{{ t.href }}">{{ t.actionLabel }}</a></div>
+        </div>
+        {% endfor %}
+      {% else %}
+      <div class="empty">
+        <div class="ico">&#10003;</div>
+        <div class="t">暂无待办</div>
+        <div class="s">所有批次已审核、条目已归类、无异常标记</div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ======= 最近批次 ======= -->
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title">最近导入批次</div>
+      <div class="right"><a class="btn btn-ghost btn-sm" href="/batches">全部批次</a></div>
+    </div>
+    {% if batches %}
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr><th>批次名称</th><th>数据性质</th><th class="td-num">入库行数</th>
+              <th class="td-num">异常行</th><th>价格期</th><th>导入时间</th></tr>
+        </thead>
+        <tbody>
+          {% for b in batches %}
+          <tr>
+            <td><a href="/batches">{{ b.name }}</a></td>
+            <td><span class="{{ b.typeChip }}">{{ b.typeLabel }}</span></td>
+            <td class="td-num">{{ "{:,}".format(b.imported) }}</td>
+            <td class="td-num">{{ b.anomaly }}</td>
+            <td>{{ b.period or '—' }}</td>
+            <td class="muted">{{ b.at }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty">
+      <div class="ico">&#8673;</div>
+      <div class="t">尚未导入任何批次</div>
+      <div class="s"><a href="/import">前往导入向导</a>，支持多省多格式清单批量入库</div>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+{% endblock %}

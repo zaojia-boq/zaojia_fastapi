@@ -1,0 +1,110 @@
+/* =====================================================================
+   造价数据库 · 深空科技设计 Token（单一事实来源）
+   深空科技方案 C（基线视觉规格继承 demo/style-lab/index.html）
+   - 深色为默认（深空科技驾驶舱），浅色为可选皮肤
+   - 组件样式一律引用本文件的变量，禁止裸色值
+   ===================================================================== */
+
+/* ---------- 基础排版 / 间距 / 动效（深浅共用） ---------- */
+:root,
+[data-theme="dark"],
+[data-theme="c"]{
+  /* 字号阶梯 */
+  --fs-display: 34px; --fs-h1: 24px; --fs-h2: 18px; --fs-h3: 15px;
+  --fs-body: 14px; --fs-sm: 13px; --fs-xs: 12px;
+
+  /* 间距 */
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:20px;
+  --sp-6:24px; --sp-8:32px;
+
+  /* 动效 */
+  --dur: 220ms; --ease: cubic-bezier(.25,.1,.25,1);
+  --sidebar-w: 232px;
+
+  /* 字体栈（不内嵌，系统降级；Windows 下命中微软雅黑/Segoe UI） */
+  --font: "PingFang SC","Microsoft YaHei","Segoe UI",-apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;
+
+  /* ---------- 深色（深空科技）底色与文字 ---------- */
+  --c-app-bg:#0B0F1A;
+  --c-side-bg:linear-gradient(180deg,#121829 0%,#0E1423 100%);
+  --c-side-text:#7E88A8;
+  --c-side-text-active:#FFFFFF;
+  --c-side-active-bg:rgba(77,124,254,.16);
+  --c-side-active-bar:#4D7CFE;
+  --c-side-hover:rgba(255,255,255,.05);
+  --c-side-border:rgba(255,255,255,.06);
+  --c-top-bg:rgba(18,24,41,.85);
+  --c-top-border:rgba(255,255,255,.07);
+  --c-card:#141A29;
+  --c-card-border:rgba(255,255,255,.07);
+  --c-text:#E8ECF6; --c-text-2:#96A0BC; --c-text-3:#6B7695;
+  --c-sep:rgba(255,255,255,.06);
+
+  /* 强调与语义色 */
+  --c-accent:#4D7CFE; --c-accent-soft:rgba(77,124,254,.14); --c-accent-text:#FFFFFF;
+  --c-ok:#34D399; --c-warn:#FBBF24; --c-err:#F87171; --c-info:#22D3EE; --c-purple:#A78BFA;
+
+  /* 圆角 / 阴影 / 几何 */
+  --r-sm:8px; --r-md:12px; --r-lg:16px; --r-pill:999px;
+  --sh-1:0 2px 12px rgba(0,0,0,.35);
+  --sh-2:0 10px 30px rgba(0,0,0,.45);
+  --row-h:44px; --card-pad:20px; --grid-gap:16px;
+  --side-icon-bg:rgba(255,255,255,.05); --side-icon-active:#4D7CFE;
+  --chip-radius:6px;
+
+  /* 表格 */
+  --tbl-head-bg:rgba(255,255,255,.03); --tbl-zebra:rgba(255,255,255,.015); --tbl-hover:rgba(77,124,254,.10);
+
+  /* 渐变（集中定义，组件只引用） */
+  --brand-grad:linear-gradient(135deg,#4D7CFE,#22D3EE);
+  --avatar-grad:linear-gradient(135deg,#4D7CFE,#A78BFA);
+  --kpi-grad:linear-gradient(90deg,var(--c-accent),var(--c-info));
+  --kpi-grad-ok:linear-gradient(90deg,var(--c-ok),var(--c-info));
+  --kpi-grad-info:linear-gradient(90deg,var(--c-info),var(--c-accent));
+  --kpi-grad-warn:linear-gradient(90deg,var(--c-warn),var(--c-err));
+  --bar-grad:linear-gradient(180deg,#6E9BFF,#4D7CFE);
+
+  /* 发光（深空科技质感；浅色模式下置空） */
+  --glow-bar:0 0 14px var(--c-accent);
+  --glow-card:var(--sh-1);
+  --glow-soft:0 0 16px rgba(77,124,254,.45);
+  --glow-strong:0 0 12px rgba(77,124,254,.55);
+  --glow-text:0 0 24px rgba(77,124,254,.35);
+
+  color-scheme: dark;
+}
+
+/* ---------- 浅色皮肤（可选，跟随系统/手动切换） ---------- */
+[data-theme="light"]{
+  --c-app-bg:#F4F6FB;
+  --c-side-bg:#FFFFFF;
+  --c-side-text:#5B6478;
+  --c-side-text-active:#161E33;
+  --c-side-active-bg:rgba(77,124,254,.12);
+  --c-side-active-bar:#4D7CFE;
+  --c-side-hover:rgba(16,24,40,.04);
+  --c-side-border:rgba(16,24,40,.07);
+  --c-top-bg:rgba(255,255,255,.85);
+  --c-top-border:rgba(16,24,40,.07);
+  --c-card:#FFFFFF;
+  --c-card-border:rgba(16,24,40,.08);
+  --c-text:#161E33; --c-text-2:#475069; --c-text-3:#8A93A8;
+  --c-sep:rgba(16,24,40,.07);
+
+  --c-accent:#3B6BE8; --c-accent-soft:rgba(59,107,232,.12); --c-accent-text:#FFFFFF;
+  --c-ok:#0FA968; --c-warn:#C9820A; --c-err:#E04545; --c-info:#0E9FB0; --c-purple:#7C5CE0;
+
+  --sh-1:0 1px 3px rgba(16,24,40,.06),0 1px 2px rgba(16,24,40,.04);
+  --sh-2:0 8px 24px rgba(16,24,40,.10);
+  --side-icon-bg:rgba(16,24,40,.04);
+  --tbl-head-bg:rgba(16,24,40,.02); --tbl-zebra:rgba(16,24,40,.02); --tbl-hover:rgba(77,124,254,.08);
+
+  /* 浅色下去掉发光，避免“荧光感” */
+  --glow-bar:none;
+  --glow-card:var(--sh-1);
+  --glow-soft:none;
+  --glow-strong:none;
+  --glow-text:none;
+
+  color-scheme: light;
+}

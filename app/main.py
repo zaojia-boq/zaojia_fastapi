@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """造价数据门户 —— FastAPI 入口。
 
-阶段1（当前）：独立账号 + 健康检查 + 纯函数验证 + 前端 demo 静态挂载。
+阶段1（当前）：独立账号 + 健康检查 + 纯函数验证 + 前端页面。
 阶段2：对接易达 ECMS OA SSO，替换认证层。
 """
 import os
@@ -11,36 +11,42 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
 
 from app.config import settings
-from app.core.security import get_current_user, require_role, ROLE_ADMIN, ROLE_ESTIMATOR, ROLE_VIEWER
-from app.core.audit import audit_log
+from app.core.security import get_current_user, require_role, ROLE_ADMIN
+from app.core.audit import audit_log, AuditMiddleware
 
 app = FastAPI(
     title=settings.app_name,
     description="工程造价数据库 —— 多省多批次清单导入、标准化、聚合分析、单价分析",
-    version="0.1.0",
+    version="0.4.0",
 )
 
-# 静态文件：前端 demo（深空科技方案）/ 后续模板资源
+# 审计中间件（所有写操作落审计日志）
+app.add_middleware(AuditMiddleware)
+
+# 静态文件
 _STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 if os.path.isdir(_STATIC_DIR):
     app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")
 
+# ------------------------------------------------------------------
+# 系统路由
+# ------------------------------------------------------------------
 
 @app.get("/", tags=["系统"])
 async def root():
-    """根路径跳转到前端 demo（深空科技方案）。"""
-    return RedirectResponse(url="/static/demo/index.html")
+    """根路径跳转到数据概览页。"""
+    return RedirectResponse(url="/dashboard")
 
 
 @app.get("/health", tags=["系统"])
 async def health():
     """健康检查。"""
-    return {"status": "ok", "app": settings.app_name, "version": "0.1.0"}
+    return {"status": "ok", "app": settings.app_name, "version": "0.4.0"}
 
 
 @app.get("/api/me", tags=["认证"])
 async def me(user=Depends(get_current_user)):
-    """当前用户信息（开发期占位）。"""
+    """当前用户信息。"""
     return user
 
 
@@ -57,6 +63,34 @@ async def audit_test(user=Depends(require_role(ROLE_ADMIN))):
     return {"ok": True, "audit": entry}
 
 
+# ------------------------------------------------------------------
+# API 路由（M2-M4）
+# ------------------------------------------------------------------
+from app.api.import_api import router as import_router
+from app.api.query import router as query_router
+from app.api.batch import router as batch_router
+from app.api.price import router as price_router
+from app.api.match import router as match_router
+from app.api.quality import router as quality_router
+from app.api.batch_operation import router as batch_op_router
+from app.api.cost_catalog import router as cost_catalog_router
+
+app.include_router(import_router)
+app.include_router(query_router)
+app.include_router(batch_router)
+app.include_router(price_router)
+app.include_router(match_router)
+app.include_router(quality_router)
+app.include_router(batch_op_router)
+app.include_router(cost_catalog_router)
+
+# ------------------------------------------------------------------
+# 页面路由（M2.5 / M2.6）
+# ------------------------------------------------------------------
+from app.api.pages import router as pages_router
+app.include_router(pages_router)
+
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app.main:app", host="127.0.0.1", port=8000, reload=True)
+    uvicorn.run("app.main:app", host="127.0.0.1", port=8777, reload=True)

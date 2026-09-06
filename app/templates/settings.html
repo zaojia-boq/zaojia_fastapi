@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}系统设置{% endblock %}
+{% block content %}
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">系统设置</h1>
+      <div class="page-desc">外观与匹配参数 · 阈值与 data/ 纯函数层同源，改动须同步 pure_tests</div>
+    </div>
+  </div>
+
+  <div class="grid g21">
+    <div class="card">
+      <div class="card-head"><div class="card-title">外观主题</div></div>
+      <div class="field mb">
+        <label for="setTheme">配色方案</label>
+        <select class="inp" id="setTheme">
+          {% for t in themes %}
+          <option value="{{ t.id }}" {% if defaults.theme == t.id %}selected{% endif %}>{{ t.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label>深浅模式</label>
+        <div class="seg" id="setMode">
+          <button data-mode="dark" class="on">深色</button>
+          <button data-mode="light">浅色</button>
+        </div>
+      </div>
+      <div class="note mt"><span>&#9432;</span><div>
+        主题与深浅模式保存在浏览器本地（localStorage），刷新后保持。
+        首次访问默认跟随操作系统偏好。
+      </div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><div class="card-title">匹配与判定阈值</div>
+        <div class="right"><span class="chip">同源常量</span></div>
+      </div>
+      <div class="field mb">
+        <label for="setAuto">自动回填阈值（Top-1 分数 ≥）</label>
+        <input class="inp" id="setAuto" type="number" step="0.5" min="0" max="100" value="{{ defaults.autoThr }}">
+      </div>
+      <div class="field mb">
+        <label for="setCand">候选展示下限（分数 ≥）</label>
+        <input class="inp" id="setCand" type="number" step="0.5" min="0" max="100" value="{{ defaults.candThr }}">
+      </div>
+      <div class="field mb">
+        <label for="setDev">单价异常偏离阈值（±%）</label>
+        <input class="inp" id="setDev" type="number" step="1" min="1" max="100" value="{{ defaults.deviationThr }}">
+      </div>
+      <div class="field">
+        <label for="setMin">异常判定最小样本数</label>
+        <input class="inp" id="setMin" type="number" step="1" min="1" value="{{ defaults.minSample }}">
+      </div>
+      <div class="note mt"><span>&#9432;</span><div>
+        以上阈值与 <b>data/match_score.py</b>、<b>data/price_calc.py</b> 保持一致。
+        修改后须同步运行 <span class="mono">pytest pure_tests/</span> 验证不破坏既有断言。
+      </div></div>
+    </div>
+  </div>
+
+  <div class="grid g21">
+    <div class="card">
+      <div class="card-head"><div class="card-title">默认统计口径</div></div>
+      <div class="field mb">
+        <label for="setRegion">默认地区</label>
+        <select class="inp" id="setRegion">
+          {% for r in regions %}
+          <option value="{{ r.id }}" {% if defaults.region == r.id %}selected{% endif %}>{{ r.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <label class="row" style="gap:8px;align-items:flex-start">
+        <input type="checkbox" id="setConfirm" {% if defaults.requireConfirm %}checked{% endif %}>
+        <span>匹配结果一律需人工确认后才回填（关闭将允许自动回填，<b>不建议</b>）</span>
+      </label>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><div class="card-title">数据分层与数据性质</div>
+        <div class="right"><span class="chip">data/field_spec.py</span></div>
+      </div>
+      <div class="stat-line">
+        <span class="muted">数据性质（写入时必填）</span>
+        <b class="mono">{{ field_layers.source_types|join(' / ') }}</b>
+      </div>
+      <div class="sep"></div>
+      <div class="note"><span>&#9432;</span><div>
+        <b>A 类</b>字段（原始导入值）可重建；<b>B 类</b>字段（标准化 / 物料归类 / 异常判定）
+        为人工标注，<b>不可重建</b>，任何导入都不得静默覆盖。
+      </div></div>
+      <div class="note warn mt"><span>&#9888;</span><div>
+        本页设置仅保存在浏览器本地，不影响服务端计算。
+        服务端阈值以 <span class="mono">data/</span> 常量为准。
+      </div></div>
+    </div>
+  </div>
+{% endblock %}

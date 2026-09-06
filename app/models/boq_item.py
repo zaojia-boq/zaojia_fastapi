@@ -179,3 +179,54 @@ class BoqItem(Base, BizIdMixin, TimestampMixin):
 
     def __repr__(self):
         return f"<BoqItem id={self.id} biz_id={self.biz_id} item_name={self.item_name!r}>"
+
+
+# ------------------------------------------------------------------
+# match_key 自动计算（M1.2，before_insert / before_update 事件）
+# ------------------------------------------------------------------
+_MATCH_KEY_FIELDS = {
+    "material_dict_id", "std_name", "std_spec", "item_code",
+    "item_code_version", "unit_std", "item_name", "item_feature",
+}
+
+
+def _compute_and_set(target):
+    """计算 match_key / match_key_source / aggregate_id 并写入目标对象。"""
+    match_key, source = compute_match_key(
+        item_code=target.item_code or "",
+        item_name=target.item_name or "",
+        item_feature=target.item_feature or "",
+        unit_std=target.unit_std or "",
+        std_name=target.std_name or "",
+        std_spec=target.std_spec or "",
+        material_dict_id=target.material_dict_id,
+        item_code_version=target.item_code_version or "unknown",
+    )
+    target.match_key = match_key
+    target.match_key_source = source
+    # aggregate_id：dict 模式用 dict:<id>，其他模式用 match_key
+    if source == "dict" and target.material_dict_id:
+        target.aggregate_id = f"dict:{target.material_dict_id}"
+    else:
+        target.aggregate_id = match_key
+
+
+@event.listens_for(BoqItem, "before_insert")
+def _boq_before_insert(mapper, connection, target):
+    """insert 时自动计算 match_key，并保存 item_code_raw。"""
+    if target.item_code and not getattr(target, "item_code_raw", None):
+        target.item_code_raw = target.item_code
+    _compute_and_set(target)
+
+
+@event.listens_for(BoqItem, "before_update")
+def _boq_before_update(mapper, connection, target):
+    """update 时：仅当 match_key 依赖字段变化才重新计算。"""
+    from sqlalchemy import inspect
+    state = inspect(target)
+    changed = {
+        attr.key for attr in state.attrs
+        if state.attrs[attr.key].history.has_changes()
+    }
+    if changed & _MATCH_KEY_FIELDS:
+        _compute_and_set(target)

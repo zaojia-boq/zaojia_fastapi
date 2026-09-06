@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}页面错误{% endblock %}
+{% block content %}
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">{{ title }}</h1>
+      <div class="page-desc">渲染过程中发生异常，已停止输出任何统计值。</div>
+    </div>
+    <div class="page-actions">
+      <a class="btn btn-sec" href="javascript:history.back()">返回上一页</a>
+      <a class="btn btn-primary" href="/dashboard">回到数据概览</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="empty">
+      <div class="ico">&#9888;</div>
+      <div class="t">{{ message }}</div>
+      {% if detail %}<div class="s mono">{{ detail }}</div>{% endif %}
+      <div class="s">为避免展示错误或推测的数值，本页未渲染任何数据。</div>
+    </div>
+  </div>
+{% endblock %}

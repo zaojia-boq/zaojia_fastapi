@@ -1,0 +1,3 @@
+﻿sequence,item_code,item_code_raw,item_name,item_feature,unit,unit_std,quantity,unit_rate,total,std_name,std_spec,data_source_type,anomaly_flag,source_sheet,active,orphaned
+2,010101001001,010101001001,挖一般土方,土壤类别:二类土,m3,m³,100,50.5,5050,,,completed,normal,Sheet,True,False
+3,010101002001,010101002001,挖沟槽土方,土壤类别:三类土,m3,m³,50,60,3000,,,completed,normal,Sheet,True,False

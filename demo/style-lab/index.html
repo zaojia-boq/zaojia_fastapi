@@ -1,0 +1,1332 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="c">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>造价数据库 · 深空科技方案 Demo</title>
+<style>
+/* =====================================================================
+   造价数据库 · 深空科技方案 Demo
+   方案 C · 参考站酷案例 #12 话语科技智慧系统
+   4 种业务场景 = 同一套深色驾驶舱风格 + 不同业务页面
+   ===================================================================== */
+
+/* ---------- 共用基础 Token ---------- */
+:root{
+  --fs-display: 34px; --fs-h1: 24px; --fs-h2: 18px; --fs-h3: 15px;
+  --fs-body: 14px; --fs-sm: 13px; --fs-xs: 12px;
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:20px; --sp-6:24px; --sp-8:32px;
+  --dur: 220ms; --ease: cubic-bezier(.25,.1,.25,1);
+  --sidebar-w: 232px;
+  --font: "PingFang SC","Microsoft YaHei","Segoe UI",-apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;
+}
+
+/* ================= 主题 A · 深蓝侧栏 · 经典层次 =================
+   参考案例 #1 Firecall CRM（深导航+浅工作区，字体大小/颜色层次突出）
+            #9 ICBC 货仓（深色导航 + 工作区单一强调色，对比清晰）
+   ================================================================= */
+
+/* ================= 主题 B · 极简白 · 卡片工作台 =================
+   参考案例 #13 Tinky（卡片式，美观与实用平衡）
+            #17 房地产管理系统（白底灰字极简，无多余信息）
+            #15 会员仪表板（扁平化，去冗余装饰）
+   ================================================================= */
+
+/* ================= 主题 C · 深空科技 · 数据驾驶舱 =================
+   参考案例 #12 话语科技智慧系统（深色背景 + 浅色文字 + 实心多色图标
+   + 重点阴影突出，科技感与时尚感）
+   ================================================================= */
+[data-theme="c"]{
+  --c-app-bg:#0B0F1A;
+  --c-side-bg:linear-gradient(180deg,#121829 0%,#0E1423 100%);
+  --c-side-text:#7E88A8;
+  --c-side-text-active:#FFFFFF;
+  --c-side-active-bg:rgba(77,124,254,.16);
+  --c-side-active-bar:#4D7CFE;
+  --c-side-hover:rgba(255,255,255,.05);
+  --c-side-border:rgba(255,255,255,.06);
+  --c-top-bg:rgba(18,24,41,.85);
+  --c-top-border:rgba(255,255,255,.07);
+  --c-card:#141A29;
+  --c-card-border:rgba(255,255,255,.07);
+  --c-text:#E8ECF6; --c-text-2:#96A0BC; --c-text-3:#6B7695;
+  --c-sep:rgba(255,255,255,.06);
+  --c-accent:#4D7CFE; --c-accent-soft:rgba(77,124,254,.14); --c-accent-text:#FFFFFF;
+  --c-ok:#34D399; --c-warn:#FBBF24; --c-err:#F87171; --c-info:#22D3EE; --c-purple:#A78BFA;
+  --r-sm:8px; --r-md:12px; --r-lg:16px; --r-pill:999px;
+  --sh-1:0 2px 12px rgba(0,0,0,.35);
+  --sh-2:0 10px 30px rgba(0,0,0,.45);
+  --row-h:44px; --card-pad:20px; --grid-gap:16px;
+  --side-icon-bg:rgba(255,255,255,.05); --side-icon-active:#4D7CFE;
+  --kpi-bar:1; --kpi-shadow:1; --card-shadow:1;
+  --tbl-head-bg:rgba(255,255,255,.03); --tbl-zebra:rgba(255,255,255,.015); --tbl-hover:rgba(77,124,254,.10);
+  --chip-radius:6px;
+}
+
+/* ================= 主题 D · 蓝绿渐变 · 明快业务 =================
+   参考案例 #14 教育机构 CRM（跨色相蓝绿渐变，双主色）
+            #10 BOSS CMS（图形化表达 + 明丽配色 + 阴影）
+            #18 SCRM（活泼明亮配色，愉悦心情）
+   ================================================================= */
+
+/* ---------- Reset ---------- */
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;}
+body{
+  font-family:var(--font); font-size:var(--fs-body); line-height:1.5;
+  color:var(--c-text); background:var(--c-app-bg);
+  -webkit-font-smoothing:antialiased; overflow:hidden;
+  transition:background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+::-webkit-scrollbar{width:10px;height:10px;}
+::-webkit-scrollbar-thumb{background:var(--c-text-3);border-radius:8px;border:3px solid transparent;background-clip:content-box;opacity:.4;}
+::-webkit-scrollbar-track{background:transparent;}
+
+/* ---------- 布局骨架 ---------- */
+.app{display:flex;height:100vh;overflow:hidden;}
+
+/* ---------- 侧栏 ---------- */
+.sidebar{
+  width:var(--sidebar-w); flex:0 0 var(--sidebar-w);
+  background:var(--c-side-bg); color:var(--c-side-text);
+  display:flex; flex-direction:column;
+  border-right:1px solid var(--c-side-border);
+  transition:background var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.brand{
+  height:60px; display:flex; align-items:center; gap:10px;
+  padding:0 18px; flex:0 0 60px;
+}
+.brand-logo{
+  width:30px;height:30px;border-radius:9px;flex:0 0 30px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:15px;font-weight:700;color:#fff;
+}
+[data-theme="c"] .brand-logo{background:linear-gradient(135deg,#4D7CFE,#22D3EE);box-shadow:0 0 16px rgba(77,124,254,.5);}
+.brand-name{font-size:15px;font-weight:700;letter-spacing:.2px;}
+.brand-sub{font-size:11px;color:var(--c-side-text);opacity:.7;margin-top:-2px;}
+
+.side-scroll{flex:1;overflow-y:auto;padding:8px 10px 16px;}
+.side-group{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--c-side-text);opacity:.55;padding:14px 12px 6px;}
+.nav-item{
+  display:flex;align-items:center;gap:10px;
+  padding:0 12px;height:38px;border-radius:var(--r-md);
+  cursor:pointer;position:relative;margin-bottom:2px;
+  font-size:13.5px;color:var(--c-side-text);
+  transition:all var(--dur) var(--ease);white-space:nowrap;
+}
+.nav-item:hover{background:var(--c-side-hover);color:var(--c-side-text-active);}
+.nav-item.active{
+  background:var(--c-side-active-bg); color:var(--c-side-text-active); font-weight:600;
+}
+.nav-item.active::before{
+  content:"";position:absolute;left:0;top:9px;bottom:9px;width:3px;border-radius:0 3px 3px 0;
+  background:var(--c-side-active-bar);
+}
+.nav-ico{width:20px;height:20px;flex:0 0 20px;display:flex;align-items:center;justify-content:center;border-radius:6px;font-size:13px;}
+.nav-item.active .nav-ico{background:var(--side-icon-active);color:#fff;}
+[data-theme="c"] .nav-item.active .nav-ico{box-shadow:0 0 12px rgba(77,124,254,.55);}
+.nav-badge{margin-left:auto;font-size:11px;padding:1px 6px;border-radius:var(--r-pill);background:var(--c-err);color:#fff;font-weight:600;}
+.side-foot{padding:12px;border-top:1px solid var(--c-side-border);display:flex;align-items:center;gap:10px;}
+.avatar{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:600;flex:0 0 32px;}
+[data-theme="c"] .avatar{background:linear-gradient(135deg,#4D7CFE,#A78BFA);}
+.side-foot .nm{font-size:13px;font-weight:600;}
+.side-foot .rl{font-size:11px;color:var(--c-side-text);opacity:.75;}
+
+/* ---------- 主区 ---------- */
+.main{flex:1;display:flex;flex-direction:column;min-width:0;}
+.topbar{
+  height:60px;flex:0 0 60px;display:flex;align-items:center;gap:16px;padding:0 24px;
+  background:var(--c-top-bg);border-bottom:1px solid var(--c-top-border);
+  backdrop-filter:saturate(160%) blur(12px);
+  transition:background var(--dur) var(--ease),border-color var(--dur) var(--ease);
+}
+.crumb{font-size:13px;color:var(--c-text-3);}
+.crumb b{color:var(--c-text);font-weight:600;font-size:15px;}
+.search{
+  margin-left:auto;display:flex;align-items:center;gap:8px;
+  height:34px;padding:0 12px;border-radius:var(--r-pill);
+  background:var(--c-app-bg);border:1px solid var(--c-card-border);
+  width:280px;color:var(--c-text-3);font-size:13px;transition:all var(--dur) var(--ease);
+}
+.search:focus-within{border-color:var(--c-accent);box-shadow:0 0 0 3px var(--c-accent-soft);}
+.search input{border:0;background:transparent;outline:0;font-size:13px;color:var(--c-text);flex:1;font-family:var(--font);}
+.search input::placeholder{color:var(--c-text-3);}
+.boq-search{
+  display:flex;align-items:center;gap:12px;
+  height:52px;padding:0 18px;border-radius:var(--r-md);
+  background:var(--c-card);border:1px solid var(--c-card-border);
+  margin-bottom:var(--sp-6);
+  transition:all var(--dur) var(--ease);
+}
+.boq-search:focus-within{
+  border-color:var(--c-accent);
+  box-shadow:0 0 0 4px var(--c-accent-soft), 0 0 18px rgba(77,124,254,.25);
+}
+.boq-search-ico{font-size:22px;color:var(--c-text-2);line-height:1;}
+.boq-search input{
+  border:0;background:transparent;outline:0;flex:1;
+  font-size:15px;color:var(--c-text);font-family:var(--font);
+}
+.boq-search input::placeholder{color:var(--c-text-3);}
+.topbar .icon-btn:first-of-type{margin-left:auto;}
+.icon-btn{
+  width:34px;height:34px;border-radius:var(--r-pill);border:1px solid var(--c-card-border);
+  background:transparent;color:var(--c-text-2);cursor:pointer;display:flex;align-items:center;justify-content:center;
+  font-size:15px;transition:all var(--dur) var(--ease);
+}
+.icon-btn:hover{background:var(--c-accent-soft);color:var(--c-accent);border-color:var(--c-accent);}
+
+.content{flex:1;overflow-y:auto;padding:var(--sp-6);}
+.page{display:none;animation:fadeUp var(--dur) var(--ease);}
+.page.active{display:block;}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+
+.page-head{display:flex;align-items:flex-end;gap:12px;margin-bottom:var(--sp-6);flex-wrap:wrap;}
+.page-title{font-size:var(--fs-display);font-weight:700;letter-spacing:-.5px;line-height:1.2;}
+.page-desc{font-size:var(--fs-sm);color:var(--c-text-2);margin-top:4px;}
+.page-actions{margin-left:auto;display:flex;gap:10px;}
+
+/* ---------- 按钮 ---------- */
+.btn{
+  height:34px;padding:0 16px;border-radius:var(--r-sm);border:1px solid transparent;
+  font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;
+  transition:all var(--dur) var(--ease);font-family:var(--font);white-space:nowrap;
+}
+.btn-primary{background:var(--c-accent);color:var(--c-accent-text);}
+.btn-primary:hover{filter:brightness(1.08);transform:translateY(-1px);box-shadow:var(--sh-2);}
+.btn-sec{background:transparent;color:var(--c-text-2);border-color:var(--c-card-border);}
+.btn-sec:hover{background:var(--c-accent-soft);color:var(--c-accent);border-color:var(--c-accent);}
+.btn-ghost{background:transparent;color:var(--c-text-2);}
+.btn-ghost:hover{background:var(--c-accent-soft);color:var(--c-accent);}
+.btn-sm{height:28px;padding:0 10px;font-size:12px;}
+
+/* ---------- 卡片 ---------- */
+.card{
+  background:var(--c-card);border:1px solid var(--c-card-border);
+  border-radius:var(--r-lg);padding:var(--card-pad);
+  transition:all var(--dur) var(--ease);position:relative;overflow:hidden;
+}
+[data-theme="c"] .card{box-shadow:var(--sh-1);}
+.card:hover{box-shadow:var(--sh-2);}
+.card-head{display:flex;align-items:center;gap:10px;margin-bottom:var(--sp-4);}
+.card-title{font-size:var(--fs-h3);font-weight:700;}
+.card-sub{font-size:var(--fs-xs);color:var(--c-text-3);}
+.card-head .right{margin-left:auto;display:flex;gap:6px;align-items:center;}
+
+.grid{display:grid;gap:var(--grid-gap);margin-bottom:var(--grid-gap);}
+.g4{grid-template-columns:repeat(4,1fr);}
+.g3{grid-template-columns:repeat(3,1fr);}
+.g2{grid-template-columns:repeat(2,1fr);}
+.g21{grid-template-columns:2fr 1fr;}
+.g12{grid-template-columns:1fr 2fr;}
+@media(max-width:1180px){.g4{grid-template-columns:repeat(2,1fr);}.g3,.g21,.g12{grid-template-columns:1fr;}}
+
+/* ---------- KPI 卡 ---------- */
+.kpi{position:relative;}
+.kpi-bar{position:absolute;left:0;top:0;height:4px;width:100%;}
+/* 强调色（默认） */
+[data-theme="c"] .kpi-bar{background:linear-gradient(90deg,var(--c-accent),var(--c-info));box-shadow:0 0 14px var(--c-accent);}
+/* 语义色变体（用类，不用 inline style，避免覆盖主题渐变） */
+[data-theme="c"] .kpi-bar.k-ok{background:linear-gradient(90deg,var(--c-ok),var(--c-info));box-shadow:0 0 14px var(--c-ok);}
+[data-theme="c"] .kpi-bar.k-info{background:linear-gradient(90deg,var(--c-info),var(--c-accent));box-shadow:0 0 14px var(--c-info);}
+[data-theme="c"] .kpi-bar.k-warn{background:linear-gradient(90deg,var(--c-warn),var(--c-err));box-shadow:0 0 14px var(--c-warn);}
+.kpi-ico{
+  width:36px;height:36px;border-radius:var(--r-md);display:flex;align-items:center;justify-content:center;
+  font-size:17px;flex:0 0 36px;
+}
+[data-theme="c"] .kpi-ico{background:rgba(255,255,255,.06);}
+.kpi-top{display:flex;align-items:center;gap:12px;margin-bottom:12px;}
+.kpi-label{font-size:var(--fs-xs);color:var(--c-text-2);font-weight:600;letter-spacing:.3px;}
+.kpi-val{font-size:30px;font-weight:750;letter-spacing:-1px;line-height:1.1;font-variant-numeric:tabular-nums;}
+[data-theme="c"] .kpi-val{text-shadow:0 0 24px rgba(77,124,254,.35);}
+.kpi-foot{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:var(--fs-xs);color:var(--c-text-3);}
+.trend{display:inline-flex;align-items:center;gap:3px;font-weight:700;padding:1px 6px;border-radius:var(--r-pill);font-size:11px;}
+.trend.up{color:var(--c-ok);background:color-mix(in srgb,var(--c-ok) 12%,transparent);}
+.trend.down{color:var(--c-err);background:color-mix(in srgb,var(--c-err) 12%,transparent);}
+.trend.flat{color:var(--c-text-3);background:color-mix(in srgb,var(--c-text-3) 12%,transparent);}
+
+/* ---------- 进度条 ---------- */
+.prog{height:6px;border-radius:var(--r-pill);background:var(--c-sep);overflow:hidden;}
+.prog > i{display:block;height:100%;border-radius:var(--r-pill);transition:width 900ms var(--ease);}
+[data-theme="c"] .prog > i{background:linear-gradient(90deg,var(--c-accent),var(--c-info));box-shadow:0 0 12px var(--c-accent);}
+
+/* ---------- 表格 ---------- */
+.tbl-wrap{overflow-x:auto;margin:0 calc(-1 * var(--card-pad));padding:0 var(--card-pad);}
+table{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
+thead th{
+  text-align:left;font-size:var(--fs-xs);font-weight:700;color:var(--c-text-2);
+  padding:10px 12px;background:var(--tbl-head-bg);white-space:nowrap;
+  border-bottom:1px solid var(--c-sep);position:sticky;top:0;z-index:2;letter-spacing:.3px;
+}
+tbody td{padding:0 12px;height:var(--row-h);border-bottom:1px solid var(--c-sep);white-space:nowrap;}
+tbody tr{transition:background var(--dur) var(--ease);}
+tbody tr:nth-child(even){background:var(--tbl-zebra);}
+tbody tr:hover{background:var(--tbl-hover);}
+.td-num{text-align:right;font-variant-numeric:tabular-nums;}
+.code{font-family:"SF Mono",Consolas,"Courier New",monospace;font-size:12.5px;letter-spacing:.3px;}
+.code .p9{color:var(--c-text);font-weight:700;}
+.code .p3{color:var(--c-text-3);}
+.mono{font-variant-numeric:tabular-nums;}
+
+/* ---------- 标签 ---------- */
+.chip{
+  display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 9px;
+  border-radius:var(--chip-radius);font-size:11.5px;font-weight:600;
+  background:var(--c-accent-soft);color:var(--c-accent);white-space:nowrap;
+}
+.chip.ok{background:color-mix(in srgb,var(--c-ok) 13%,transparent);color:var(--c-ok);}
+.chip.warn{background:color-mix(in srgb,var(--c-warn) 15%,transparent);color:var(--c-warn);}
+.chip.err{background:color-mix(in srgb,var(--c-err) 13%,transparent);color:var(--c-err);}
+.chip.info{background:color-mix(in srgb,var(--c-info) 14%,transparent);color:var(--c-info);}
+.chip.purple{background:color-mix(in srgb,var(--c-purple) 14%,transparent);color:var(--c-purple);}
+.chip.grey{background:color-mix(in srgb,var(--c-text-3) 14%,transparent);color:var(--c-text-3);}
+.dot{width:6px;height:6px;border-radius:50%;display:inline-block;}
+
+/* ---------- 表单 ---------- */
+.field{display:flex;flex-direction:column;gap:6px;}
+.field label{font-size:var(--fs-xs);font-weight:600;color:var(--c-text-2);}
+.inp,select.inp{
+  height:34px;padding:0 12px;border-radius:var(--r-sm);border:1px solid var(--c-card-border);
+  background:var(--c-card);color:var(--c-text);font-size:var(--fs-sm);font-family:var(--font);
+  outline:0;transition:all var(--dur) var(--ease);width:100%;
+}
+.inp:focus{border-color:var(--c-accent);box-shadow:0 0 0 3px var(--c-accent-soft);}
+select.inp{cursor:pointer;appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--c-text-3) 50%),linear-gradient(135deg,var(--c-text-3) 50%,transparent 50%);background-position:calc(100% - 15px) 15px,calc(100% - 10px) 15px;background-size:5px 5px,5px 5px;background-repeat:no-repeat;}
+.filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;align-items:end;}
+
+/* ---------- 分段控件 ---------- */
+.seg{display:inline-flex;background:var(--c-app-bg);border:1px solid var(--c-card-border);border-radius:var(--r-pill);padding:3px;gap:2px;}
+.seg button{
+  border:0;background:transparent;padding:5px 14px;border-radius:var(--r-pill);font-size:12.5px;font-weight:600;
+  color:var(--c-text-2);cursor:pointer;transition:all var(--dur) var(--ease);font-family:var(--font);
+}
+.seg button.on{background:var(--c-accent);color:#fff;}
+[data-theme="c"] .seg button.on{box-shadow:0 0 14px rgba(77,124,254,.5);}
+
+/* ---------- 柱状图 ---------- */
+.bars{display:flex;align-items:stretch;gap:10px;height:170px;padding-top:10px;}
+.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;min-width:0;}
+.bar-slot{flex:1;width:100%;display:flex;align-items:flex-end;justify-content:center;min-height:0;}
+.bar{
+  width:100%;max-width:38px;border-radius:6px 6px 3px 3px;position:relative;
+  transition:height 900ms var(--ease), filter var(--dur) var(--ease);min-height:3px;
+}
+[data-theme="c"] .bar{background:linear-gradient(180deg,#6E9BFF,#4D7CFE);box-shadow:0 0 16px rgba(77,124,254,.45);}
+.bar:hover{filter:brightness(1.15);}
+.bar-x{font-size:11px;color:var(--c-text-3);}
+.bar-val{font-size:10px;color:var(--c-text-3);font-variant-numeric:tabular-nums;}
+
+/* ---------- 环形图 ---------- */
+.donut-wrap{display:flex;align-items:center;gap:20px;flex-wrap:wrap;}
+.donut{position:relative;width:150px;height:150px;flex:0 0 150px;}
+.donut svg{transform:rotate(-90deg);}
+.donut-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.donut-center b{font-size:22px;font-weight:750;letter-spacing:-.5px;}
+.donut-center span{font-size:11px;color:var(--c-text-3);}
+.legend{flex:1;min-width:150px;display:flex;flex-direction:column;gap:9px;}
+.legend div{display:flex;align-items:center;gap:8px;font-size:var(--fs-sm);}
+.legend i{width:9px;height:9px;border-radius:3px;flex:0 0 9px;}
+.legend .v{margin-left:auto;font-weight:700;font-variant-numeric:tabular-nums;font-size:var(--fs-sm);}
+.legend .p{color:var(--c-text-3);font-size:11px;width:38px;text-align:right;}
+
+/* ---------- 折线 / 面积图 ---------- */
+.spark{width:100%;height:80px;display:block;}
+
+/* ---------- 直方图（单价分布） ---------- */
+.hist{display:flex;align-items:flex-end;gap:3px;height:120px;}
+.hist i{flex:1;border-radius:3px 3px 0 0;transition:height 900ms var(--ease);min-height:2px;}
+
+/* ---------- 步骤条 ---------- */
+.steps{display:flex;align-items:center;gap:0;margin-bottom:var(--sp-6);}
+.step{display:flex;align-items:center;gap:10px;flex:0 0 auto;}
+.step-dot{
+  width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:12px;font-weight:700;border:2px solid var(--c-sep);color:var(--c-text-3);
+  background:var(--c-card);transition:all var(--dur) var(--ease);
+}
+.step.done .step-dot{background:var(--c-ok);border-color:var(--c-ok);color:#fff;}
+.step.on .step-dot{background:var(--c-accent);border-color:var(--c-accent);color:#fff;box-shadow:0 0 0 4px var(--c-accent-soft);}
+.step-label{font-size:var(--fs-sm);color:var(--c-text-3);font-weight:600;}
+.step.on .step-label,.step.done .step-label{color:var(--c-text);}
+.step-line{flex:1;height:2px;background:var(--c-sep);margin:0 12px;min-width:24px;}
+.step-line.done{background:var(--c-ok);}
+
+/* ---------- 上传区 ---------- */
+.drop{
+  border:2px dashed var(--c-card-border);border-radius:var(--r-lg);padding:36px;
+  text-align:center;cursor:pointer;transition:all var(--dur) var(--ease);background:var(--c-app-bg);
+}
+.drop:hover{border-color:var(--c-accent);background:var(--c-accent-soft);}
+.drop .ico{font-size:38px;margin-bottom:10px;opacity:.85;}
+.drop .t{font-weight:700;font-size:var(--fs-h3);}
+.drop .s{font-size:var(--fs-xs);color:var(--c-text-3);margin-top:6px;}
+
+/* ---------- 映射表 ---------- */
+.map-row{display:grid;grid-template-columns:1fr auto 1fr auto;gap:12px;align-items:center;padding:9px 0;border-bottom:1px solid var(--c-sep);font-size:var(--fs-sm);}
+.map-row:last-child{border-bottom:0;}
+.map-src{font-weight:600;}
+.map-arrow{color:var(--c-text-3);font-size:15px;}
+
+/* ---------- 树 ---------- */
+.tree{font-size:var(--fs-sm);user-select:none;}
+.tree-node{display:flex;align-items:center;gap:7px;height:32px;padding:0 8px;border-radius:var(--r-sm);cursor:pointer;transition:background var(--dur) var(--ease);}
+.tree-node:hover{background:var(--tbl-hover);}
+.tree-node.sel{background:var(--c-accent-soft);color:var(--c-accent);font-weight:600;}
+.tree-caret{width:14px;font-size:9px;color:var(--c-text-3);transition:transform var(--dur) var(--ease);}
+.tree-caret.open{transform:rotate(90deg);}
+.tree-badge{margin-left:auto;font-size:11px;color:var(--c-text-3);font-variant-numeric:tabular-nums;}
+.tree-children{overflow:hidden;}
+.tree-children.hide{display:none;}
+
+/* ---------- 待办 / 列表 ---------- */
+.todo{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--c-sep);align-items:flex-start;}
+.todo:last-child{border-bottom:0;}
+.todo-ico{width:30px;height:30px;border-radius:var(--r-md);display:flex;align-items:center;justify-content:center;font-size:14px;flex:0 0 30px;background:var(--c-accent-soft);color:var(--c-accent);}
+.todo-t{font-size:var(--fs-sm);font-weight:600;}
+.todo-s{font-size:var(--fs-xs);color:var(--c-text-3);margin-top:2px;}
+.todo-act{margin-left:auto;flex:0 0 auto;}
+
+/* ---------- 匹配建议 ---------- */
+.match{display:flex;align-items:center;gap:12px;padding:11px;border:1px solid var(--c-card-border);border-radius:var(--r-md);margin-bottom:10px;transition:all var(--dur) var(--ease);}
+.match:hover{border-color:var(--c-accent);background:var(--c-accent-soft);}
+.match-score{width:52px;flex:0 0 52px;text-align:center;}
+.match-score b{font-size:19px;font-weight:750;font-variant-numeric:tabular-nums;}
+.match-bar{height:4px;border-radius:var(--r-pill);background:var(--c-sep);margin-top:3px;overflow:hidden;}
+.match-bar i{display:block;height:100%;border-radius:var(--r-pill);}
+
+
+
+
+
+
+
+
+/* ---------- 提示条 ---------- */
+.note{
+  display:flex;gap:10px;padding:11px 14px;border-radius:var(--r-md);font-size:var(--fs-sm);
+  background:var(--c-accent-soft);color:var(--c-text-2);border:1px solid color-mix(in srgb,var(--c-accent) 22%,transparent);
+  align-items:flex-start;
+}
+.note b{color:var(--c-text);}
+.note.warn{background:color-mix(in srgb,var(--c-warn) 12%,transparent);border-color:color-mix(in srgb,var(--c-warn) 28%,transparent);}
+.note.err{background:color-mix(in srgb,var(--c-err) 10%,transparent);border-color:color-mix(in srgb,var(--c-err) 28%,transparent);}
+
+/* ---------- 杂项 ---------- */
+.muted{color:var(--c-text-3);}
+.small{font-size:var(--fs-xs);}
+.right{text-align:right;}
+.row{display:flex;align-items:center;gap:10px;}
+.wrap{flex-wrap:wrap;}
+.mt{margin-top:var(--sp-4);}
+.mb{margin-bottom:var(--sp-4);}
+.sep{height:1px;background:var(--c-sep);margin:var(--sp-4) 0;}
+.hl-box{padding:2px 6px;border-radius:5px;background:var(--c-accent-soft);color:var(--c-accent);font-weight:700;font-variant-numeric:tabular-nums;}
+.stat-line{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--c-sep);font-size:var(--fs-sm);}
+.stat-line:last-child{border-bottom:0;}
+.stat-line b{font-variant-numeric:tabular-nums;font-weight:700;}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ======= 侧栏 ======= -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-logo">造</div>
+      <div>
+        <div class="brand-name">造价数据库</div>
+        <div class="brand-sub">Cost Database v1.0</div>
+      </div>
+    </div>
+    <div class="side-scroll">
+      <div class="side-group">数据资产</div>
+      <div class="nav-item active" data-page="dash" data-label="数据概览"><span class="nav-ico">◈</span>数据概览</div>
+      <div class="nav-item" data-page="boq" data-label="清单检索"><span class="nav-ico">▤</span>清单检索</div>
+      <div class="nav-item" data-page="price" data-label="单价分析"><span class="nav-ico">◑</span>单价分析</div>
+      <div class="side-group">数据接入</div>
+      <div class="nav-item" data-page="import" data-label="导入向导"><span class="nav-ico">⇪</span>导入向导</div>
+      <div class="nav-item" data-page="batch" data-label="批次管理"><span class="nav-ico">▷</span>批次管理<span class="nav-badge">2</span></div>
+      <div class="side-group">标准维护</div>
+      <div class="nav-item" data-page="dict" data-label="物料字典"><span class="nav-ico">☰</span>物料字典</div>
+      <div class="nav-item" data-page="match" data-label="匹配确认"><span class="nav-ico">≋</span>匹配确认<span class="nav-badge">7</span></div>
+      <div class="side-group">系统</div>
+      <div class="nav-item" data-page="setting" data-label="系统设置"><span class="nav-ico">⚙</span>系统设置</div>
+    </div>
+    <div class="side-foot">
+      <div class="avatar">陈</div>
+      <div>
+        <div class="nm">陈工</div>
+        <div class="rl">造价主管 · 审核权限</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ======= 主区 ======= -->
+  <div class="main">
+
+<!-- 顶栏 -->
+    <div class="topbar">
+      <div class="crumb">数据资产 / <b id="crumbNow">数据概览</b></div>
+      <button class="icon-btn" title="通知">◔</button>
+      <button class="icon-btn" title="帮助">?</button>
+    </div>
+
+    <!-- 内容 -->
+    <div class="content">
+
+      <!-- ================= 数据概览 ================= -->
+      <section class="page active" id="page-dash">
+        <div class="page-head">
+          <div>
+            <h1 class="page-title">数据概览</h1>
+            <div class="page-desc">全库口径 · 更新于 2026-09-02 09:00 · 数据来源 42 个工程</div>
+          </div>
+          <div class="page-actions">
+            <div class="seg" id="dashSeg">
+              <button class="on" data-range="12">近 12 月</button>
+              <button data-range="6">近 6 月</button>
+              <button data-range="3">近 3 月</button>
+            </div>
+            <button class="btn btn-sec">导出</button>
+            <button class="btn btn-primary">＋ 新增批次</button>
+          </div>
+        </div>
+
+        <div class="grid g4">
+          <div class="card kpi">
+            <div class="kpi-bar"></div>
+            <div class="kpi-top">
+              <div class="kpi-ico" style="color:var(--c-accent)">▤</div>
+              <div class="kpi-label">清单条目总数</div>
+            </div>
+            <div class="kpi-val">128,540</div>
+            <div class="kpi-foot"><span class="trend up">▲ 12.4%</span><span>较上月 +14,180 条</span></div>
+          </div>
+          <div class="card kpi">
+            <div class="kpi-bar k-ok"></div>
+            <div class="kpi-top">
+              <div class="kpi-ico" style="color:var(--c-ok)">✓</div>
+              <div class="kpi-label">已标准化条目</div>
+            </div>
+            <div class="kpi-val">96,820</div>
+            <div class="kpi-foot"><span class="trend up">▲ 5.1%</span><span>标准化率 75.3%</span></div>
+          </div>
+          <div class="card kpi">
+            <div class="kpi-bar k-info"></div>
+            <div class="kpi-top">
+              <div class="kpi-ico" style="color:var(--c-info)">◑</div>
+              <div class="kpi-label">单价样本量</div>
+            </div>
+            <div class="kpi-val">42,180</div>
+            <div class="kpi-foot"><span class="trend flat">— 0.8%</span><span>覆盖 1,860 个物料</span></div>
+          </div>
+          <div class="card kpi">
+            <div class="kpi-bar k-warn"></div>
+            <div class="kpi-top">
+              <div class="kpi-ico" style="color:var(--c-warn)">≋</div>
+              <div class="kpi-label">待人工确认</div>
+            </div>
+            <div class="kpi-val">7</div>
+            <div class="kpi-foot"><span class="trend down">▼ 3 项超期</span><span>平均等待 1.8 天</span></div>
+          </div>
+        </div>
+
+        <div class="grid g21">
+          <div class="card">
+            <div class="card-head">
+              <div>
+                <div class="card-title">月度入库量</div>
+                <div class="card-sub">按清单条目数统计（条）</div>
+              </div>
+              <div class="right">
+                <span class="chip">清单条目</span>
+                <span class="chip grey">单价样本</span>
+              </div>
+            </div>
+            <div class="bars" id="dashBars"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <div class="card-title">专业分布</div>
+            </div>
+            <div class="donut-wrap">
+              <div class="donut">
+                <svg width="150" height="150" viewBox="0 0 150 150" id="dashDonut"></svg>
+                <div class="donut-center"><b>128,540</b><span>条目总数</span></div>
+              </div>
+              <div class="legend" id="dashLegend"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid g21">
+          <div class="card">
+            <div class="card-head">
+              <div class="card-title">标准化推进进度</div>
+              <div class="right"><span class="chip ok">目标 80%</span></div>
+            </div>
+            <div id="stdProg"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <div class="card-title">待办事项</div>
+              <div class="right"><button class="btn btn-ghost btn-sm">全部</button></div>
+            </div>
+            <div class="todo">
+              <div class="todo-ico">≋</div>
+              <div>
+                <div class="todo-t">7 条模糊匹配待确认</div>
+                <div class="todo-s">工业管道 · 相似度 82~91%，需人工判定</div>
+              </div>
+              <div class="todo-act"><button class="btn btn-sec btn-sm">去处理</button></div>
+            </div>
+            <div class="todo">
+              <div class="todo-ico" style="color:var(--c-warn);background:color-mix(in srgb,var(--c-warn) 13%,transparent)">⇪</div>
+              <div>
+                <div class="todo-t">2 个导入批次待审核</div>
+                <div class="todo-s">沈阳试验区市政外线 · 共 1,284 行</div>
+              </div>
+              <div class="todo-act"><button class="btn btn-sec btn-sm">去审核</button></div>
+            </div>
+            <div class="todo">
+              <div class="todo-ico" style="color:var(--c-info);background:color-mix(in srgb,var(--c-info) 14%,transparent)">◑</div>
+              <div>
+                <div class="todo-t">12 条单价偏离预警</div>
+                <div class="todo-s">偏离区间价 ±25%，建议复核信息价</div>
+              </div>
+              <div class="todo-act"><button class="btn btn-sec btn-sm">查看</button></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 清单检索 ================= -->
+      <section class="page" id="page-boq">
+        <div class="page-head">
+          <div>
+            <h1 class="page-title">清单检索</h1>
+            <div class="page-desc">共命中 <b>1,286</b> 条 · 前 9 位为国标清单编码，后 3 位为自编顺序码</div>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-sec">导出 Excel</button>
+            <button class="btn btn-primary">＋ 加入对比</button>
+          </div>
+        </div>
+
+        <div class="boq-search">
+          <span class="boq-search-ico">⌕</span>
+          <input placeholder="搜索清单名称 / 编码 / 项目…">
+        </div>
+
+        <div class="card mb">
+          <div class="filters">
+            <div class="field">
+              <label>专业工程</label>
+              <select class="inp"><option>全部专业</option><option>安装工程</option><option>市政工程</option><option>房屋建筑</option><option>园林绿化</option></select>
+            </div>
+            <div class="field">
+              <label>清单编码</label>
+              <input class="inp" placeholder="如 030401001" value="0304">
+            </div>
+            <div class="field">
+              <label>名称关键词</label>
+              <input class="inp" placeholder="如 镀锌钢管">
+            </div>
+            <div class="field">
+              <label>价格区间（元）</label>
+              <input class="inp" placeholder="0 - 99999">
+            </div>
+            <div class="field">
+              <label>数据来源</label>
+              <select class="inp"><option>全部来源</option><option>结算清单</option><option>招标控制价</option><option>合同清单</option><option>信息价</option></select>
+            </div>
+            <div class="field">
+              <label>标准化状态</label>
+              <select class="inp"><option>全部</option><option>已标准化</option><option>待匹配</option><option>未标准化</option></select>
+            </div>
+            <div><button class="btn btn-primary" style="width:100%">检索</button></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div class="card-title">检索结果</div>
+            <div class="right">
+              <div class="seg">
+                <button class="on">全部 1286</button>
+                <button>已标准化 964</button>
+                <button>待处理 322</button>
+              </div>
+            </div>
+          </div>
+          <div class="tbl-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:34px"><input type="checkbox"></th>
+                  <th>清单编码</th>
+                  <th>项目名称</th>
+                  <th>项目特征描述</th>
+                  <th>单位</th>
+                  <th class="td-num">工程量</th>
+                  <th class="td-num">综合单价（元）</th>
+                  <th class="td-num">合价（元）</th>
+                  <th>来源工程</th>
+                  <th>期间</th>
+                  <th>状态</th>
+                </tr>
+              </thead>
+              <tbody id="boqBody"></tbody>
+            </table>
+          </div>
+          <div class="row mt" style="justify-content:space-between">
+            <span class="small muted">每页 50 条 · 第 1 / 26 页</span>
+            <div class="row">
+              <button class="btn btn-sec btn-sm">上一页</button>
+              <button class="btn btn-primary btn-sm">1</button>
+              <button class="btn btn-sec btn-sm">2</button>
+              <button class="btn btn-sec btn-sm">3</button>
+              <button class="btn btn-sec btn-sm">下一页</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 单价分析 ================= -->
+      <section class="page" id="page-price">
+        <div class="page-head">
+          <div>
+            <h1 class="page-title">单价分析</h1>
+            <div class="page-desc">镀锌钢管 DN100 沟槽连接 · 编码 030801001 · 计价单位：m</div>
+          </div>
+          <div class="page-actions">
+            <div class="seg" id="priceSeg">
+              <button class="on">近 24 月</button>
+              <button>近 12 月</button>
+              <button>近 6 月</button>
+            </div>
+            <button class="btn btn-sec">生成分析表</button>
+          </div>
+        </div>
+
+        <div class="grid g4">
+          <div class="card kpi"><div class="kpi-bar"></div>
+            <div class="kpi-label">样本数</div><div class="kpi-val" style="font-size:26px">186</div>
+            <div class="kpi-foot">覆盖 18 个工程</div>
+          </div>
+          <div class="card kpi"><div class="kpi-bar k-ok"></div>
+            <div class="kpi-label">区间价（元/m）</div><div class="kpi-val" style="font-size:26px">78.5</div>
+            <div class="kpi-foot"><span class="muted">P25 72.0 · P75 86.4</span></div>
+          </div>
+          <div class="card kpi"><div class="kpi-bar k-info"></div>
+            <div class="kpi-label">中位数</div><div class="kpi-val" style="font-size:26px">79.2</div>
+            <div class="kpi-foot"><span class="trend up">▲ 2.1%</span><span>较上期</span></div>
+          </div>
+          <div class="card kpi"><div class="kpi-bar k-warn"></div>
+            <div class="kpi-label">离散系数 CV</div><div class="kpi-val" style="font-size:26px">11.6%</div>
+            <div class="kpi-foot"><span class="chip ok">离散度低 · 可直接引用</span></div>
+          </div>
+        </div>
+
+        <div class="grid g21">
+          <div class="card">
+            <div class="card-head">
+              <div class="card-title">价格趋势与离散带</div>
+              <div class="right"><span class="chip">区间价</span><span class="chip purple">信息价</span></div>
+            </div>
+            <div id="priceTrend"></div>
+            <div class="row mt small muted" style="justify-content:space-between">
+              <span>2024-10</span><span>2025-04</span><span>2025-10</span><span>2026-04</span><span>2026-09</span>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head"><div class="card-title">单价分布直方图</div></div>
+            <div class="hist" id="priceHist"></div>
+            <div class="row mt small muted" style="justify-content:space-between">
+              <span>62</span><span>72</span><span>82</span><span>92</span><span>102 元/m</span>
+            </div>
+            <div class="sep"></div>
+            <div class="stat-line"><span class="muted">最小值</span><b>63.8</b></div>
+            <div class="stat-line"><span class="muted">P25</span><b>72.0</b></div>
+            <div class="stat-line"><span class="muted">中位数 P50</span><b>79.2</b></div>
+            <div class="stat-line"><span class="muted">P75</span><b>86.4</b></div>
+            <div class="stat-line"><span class="muted">最大值</span><b>98.6</b></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div class="card-title">各工程报价对比</div>
+            <div class="right"><span class="chip err">3 条偏离预警</span></div>
+          </div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>来源工程</th><th>清单编码</th><th>单位</th><th class="td-num">工程量</th><th class="td-num">综合单价</th><th class="td-num">偏离区间价</th><th>期间</th><th>判定</th></tr></thead>
+              <tbody id="priceBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 导入向导 ================= -->
+      <section class="page" id="page-import">
+        <div class="page-head">
+          <div>
+            <h1 class="page-title">导入向导</h1>
+            <div class="page-desc">Excel 清单导入 · 预览不写库，确认后才入库</div>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-sec">保存草稿</button>
+            <button class="btn btn-primary">下一步</button>
+          </div>
+        </div>
+
+        <div class="steps" id="impSteps">
+          <div class="step done"><span class="step-dot">✓</span><span class="step-label">1 选择文件</span></div>
+          <div class="step-line done"></div>
+          <div class="step done"><span class="step-dot">✓</span><span class="step-label">2 数据来源</span></div>
+          <div class="step-line done"></div>
+          <div class="step on"><span class="step-dot">3</span><span class="step-label">3 字段映射</span></div>
+          <div class="step-line"></div>
+          <div class="step"><span class="step-dot">4</span><span class="step-label">4 预览校验</span></div>
+          <div class="step-line"></div>
+          <div class="step"><span class="step-dot">5</span><span class="step-label">5 确认入库</span></div>
+        </div>
+
+        <div class="grid g21">
+          <div class="card">
+            <div class="card-head">
+              <div class="card-title">字段映射</div>
+              <div class="right"><span class="chip ok">自动匹配 11 / 13</span></div>
+            </div>
+            <div id="mapRows"></div>
+          </div>
+
+          <div>
+            <div class="card mb">
+              <div class="card-head"><div class="card-title">文件信息</div></div>
+              <div class="stat-line"><span class="muted">文件名</span><b style="font-size:12px">沈阳试验区-市政外线.xlsx</b></div>
+              <div class="stat-line"><span class="muted">工作表</span><b>3 张（市政-污水 / 蒸汽 / 给水）</b></div>
+              <div class="stat-line"><span class="muted">识别行数</span><b>1,284</b></div>
+              <div class="stat-line"><span class="muted">数据来源</span><b><span class="chip">结算清单</span></b></div>
+              <div class="stat-line"><span class="muted">价格期间</span><b>2026-08</b></div>
+            </div>
+            <div class="card">
+              <div class="card-head"><div class="card-title">编码解析结果</div></div>
+              <div class="note mb"><span>ⓘ</span><div>规范文件为 <b>9 位</b>编码；实际工程导入为 <b>12 位</b>（前 9 位清单码 + 后 3 位顺序码）。系统入库保留完整编码溯源，<b>匹配与聚合统一取前 9 位</b>。</div></div>
+              <div class="stat-line"><span>12 位（标准）</span><b class="mono">1,102</b></div>
+              <div class="stat-line"><span>11 位（前导 0 丢失，已补位）</span><b class="mono">128</b></div>
+              <div class="stat-line"><span>10 位（录入多 0，已截取+告警）</span><b class="mono">36</b></div>
+              <div class="stat-line"><span>9 位（规范码）</span><b class="mono">18</b></div>
+              <div class="stat-line"><span>无法识别</span><b class="mono" style="color:var(--c-err)">0</b></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card mt">
+          <div class="card-head"><div class="card-title">异常行提示（不阻断，入库后标记）</div><div class="right"><span class="chip warn">54 行</span></div></div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>行号</th><th>原始编码</th><th>解析结果（前 9 位）</th><th>问题类型</th><th>处理动作</th><th>级别</th></tr></thead>
+              <tbody id="impBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 批次管理 ================= -->
+      <section class="page" id="page-batch">
+        <div class="page-head">
+          <div>
+            <h1 class="page-title">批次管理</h1>
+            <div class="page-desc">每次导入生成一个批次，支持追溯与整批回滚</div>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-sec">筛选</button>
+            <button class="btn btn-primary">＋ 新建批次</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>批次号</th><th>来源工程</th><th>数据类型</th><th class="td-num">行数</th><th class="td-num">已标准化</th><th>期间</th><th>导入人</th><th>导入时间</th><th>状态</th><th>操作</th></tr></thead>
+              <tbody id="batchBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 物料字典 ================= -->
+      <section class="page" id="page-dict">
+        <div class="page-head">
+          <div>
+            <h1 class="page-title">物料字典</h1>
+            <div class="page-desc">三级分类 · 标准名称 / 规格白名单 / 业务同义词</div>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-sec">导入</button>
+            <button class="btn btn-sec">导出</button>
+            <button class="btn btn-primary">＋ 新增分类</button>
+          </div>
+        </div>
+
+        <div class="grid" style="grid-template-columns:280px 1fr;gap:var(--grid-gap)">
+          <div class="card">
+            <div class="card-head">
+              <div class="card-title">分类树</div>
+              <div class="right"><span class="chip">186 项</span></div>
+            </div>
+            <div class="tree" id="dictTree"></div>
+          </div>
+
+          <div>
+            <div class="card mb">
+              <div class="card-head">
+                <div>
+                  <div class="card-title">管道 · 镀锌钢管</div>
+                  <div class="card-sub">编码 0304-01-002 · 计价单位 m</div>
+                </div>
+                <div class="right"><span class="chip ok">已启用</span><button class="btn btn-sec btn-sm">编辑</button></div>
+              </div>
+              <div class="grid g2">
+                <div class="field"><label>标准名称</label><input class="inp" value="镀锌钢管"></div>
+                <div class="field"><label>计价单位</label><select class="inp"><option>m</option><option>kg</option><option>个</option></select></div>
+                <div class="field"><label>国标编码前缀</label><input class="inp" value="030801001"></div>
+                <div class="field"><label>计量规则</label><input class="inp" value="按设计图示中心线长度，不扣除阀门管件所占长度"></div>
+              </div>
+            </div>
+
+            <div class="grid g2">
+              <div class="card">
+                <div class="card-head">
+                  <div class="card-title">规格白名单</div>
+                  <div class="right"><button class="btn btn-ghost btn-sm">＋ 添加</button></div>
+                </div>
+                <div class="row wrap" id="specTags"></div>
+              </div>
+              <div class="card">
+                <div class="card-head">
+                  <div class="card-title">业务同义词</div>
+                  <div class="right"><button class="btn btn-ghost btn-sm">＋ 添加</button></div>
+                </div>
+                <div class="row wrap" id="synTags"></div>
+                <div class="note mt"><span>ⓘ</span><div>同义词只用于匹配召回，<b>不会自动改写原始数据</b>；匹配结果须人工确认后才回填标准字段。</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 匹配确认 ================= -->
+      <section class="page" id="page-match">
+        <div class="page-head">
+          <div>
+            <h1 class="page-title">匹配确认</h1>
+            <div class="page-desc">模糊匹配候选 · 必须由人工确认后方可回填标准字段</div>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-sec">批量忽略</button>
+            <button class="btn btn-primary">批量确认</button>
+          </div>
+        </div>
+
+        <div class="grid g21">
+          <div class="card">
+            <div class="card-head">
+              <div>
+                <div class="card-title">待确认条目</div>
+                <div class="card-sub">共 7 条 · 本期新增 3 条</div>
+              </div>
+              <div class="right"><div class="seg"><button class="on">全部</button><button>高置信</button><button>低置信</button></div></div>
+            </div>
+            <div id="matchList"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-head"><div class="card-title">匹配算法配置</div></div>
+            <div class="stat-line"><span class="muted">粗筛</span><b>国标编码前 9 位精确</b></div>
+            <div class="stat-line"><span class="muted">召回</span><b>rapidfuzz token_set_ratio</b></div>
+            <div class="stat-line"><span class="muted">自动回填阈值</span><b>≥ 95</b></div>
+            <div class="stat-line"><span class="muted">建议候选阈值</span><b>≥ 80</b></div>
+            <div class="stat-line"><span class="muted">语义兜底（M4）</span><b><span class="chip purple">LanceDB 未启用</span></b></div>
+            <div class="sep"></div>
+            <div class="note"><span>ⓘ</span><div>当前字典仅 186 项，<b>Jaccard 粗筛暂不需要</b>；字典量级上千后再评估多级漏斗。</div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 系统设置 ================= -->
+      <section class="page" id="page-setting">
+        <div class="page-head">
+          <div>
+            <h1 class="page-title">系统设置</h1>
+            <div class="page-desc">Odoo 19 模块配置 · 不影响核心代码</div>
+          </div>
+        </div>
+        <div class="grid g2">
+          <div class="card">
+            <div class="card-head"><div class="card-title">编码规则</div></div>
+            <div class="stat-line"><span>入库编码字段长度</span><b>Char(12) 完整保留</b></div>
+            <div class="stat-line"><span>匹配用编码</span><b>前 9 位</b></div>
+            <div class="stat-line"><span>10 位异常处理</span><b>截取前 9 位 + 告警</b></div>
+            <div class="stat-line"><span>11 位异常处理</span><b>补前导 0 + 告警</b></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><div class="card-title">数据安全</div></div>
+            <div class="stat-line"><span>B 类字段（标准名/规格）</span><b>变更需填原因</b></div>
+            <div class="stat-line"><span>并发控制</span><b>Odoo 原生 write_date</b></div>
+            <div class="stat-line"><span>备份策略</span><b>pg_dump 每日 02:00</b></div>
+            <div class="stat-line"><span>向量库</span><b>LanceDB（外部，不侵入 PG）</b></div>
+          </div>
+        </div>
+      </section>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<script>
+/* =====================================================================
+   数据（模拟）
+   ===================================================================== */
+const MONTHS = ['10','11','12','01','02','03','04','05','06','07','08','09'];
+const BAR_DATA = [5200,6100,7300,4800,5600,8200,9400,8800,10200,11600,10800,14180];
+
+const DONUT = [
+  {n:'安装工程', v:58240, c:'var(--c-accent)'},
+  {n:'市政工程', v:34680, c:'var(--c-info)'},
+  {n:'房屋建筑', v:24120, c:'var(--c-ok)'},
+  {n:'园林绿化', v:7520,  c:'var(--c-warn)'},
+  {n:'其他',     v:3980,  c:'var(--c-purple)'}
+];
+
+const STD_PROG = [
+  {n:'安装工程 · 工业管道', p:88, v:'28,420'},
+  {n:'安装工程 · 电气',     p:81, v:'19,860'},
+  {n:'市政工程 · 外线',     p:74, v:'18,240'},
+  {n:'房屋建筑 · 土建',     p:63, v:'15,200'},
+  {n:'园林绿化',           p:48, v:'4,120'}
+];
+
+const BOQ = [
+  ['030801001001','镀锌钢管','DN100 沟槽连接','m',1284.6,78.52,100855,'沈阳试验区-市政外线','2026-08','ok'],
+  ['030801001002','镀锌钢管','DN150 沟槽连接','m',862.3,112.40,96923,'沈阳试验区-市政外线','2026-08','ok'],
+  ['030803001005','螺纹阀门','DN50 铜芯闸阀','个',216,86.00,18576,'危险品总库区-11#工房','2026-07','ok'],
+  ['030413010010','小区路灯','LED 60W 杆高6m','套',48,1280.00,61440,'沈阳试验区-室外工程','2026-08','warn'],
+  ['030228006001','重整器','处理量 200m³/h','台',2,186000.00,372000,'工业管道-蒸汽系统','2026-06','warn'],
+  ['010101001001','平整场地','机械平整 三类土','m2',18640,4.85,90404,'危险品总库区-场平','2026-07','ok'],
+  ['030409002003','配电箱','XL-21 落地式 非标','台',36,2480.00,89280,'危险品总库区-低压电气','2026-07','ok'],
+  ['040504001002','矩形阀门井','1200×1200 12SS508','座',24,3260.00,78240,'沈阳试验区-市政外线','2026-08','ok'],
+  ['030212001004','电力电缆','YJV-0.6/1kV 4×95+1×50','m',3860,86.40,333504,'危险品总库区-低压电气','2026-07','ok'],
+  ['031001001008','硅酸铝管壳保温','δ=50mm DN100','m3',68.4,1680.00,114912,'工业管道-蒸汽系统','2026-06','grey'],
+  ['030801001011','镀锌钢管','DN80 沟槽连接','m',540.2,64.80,35005,'沈阳试验区-市政外线','2026-08','ok'],
+  ['030904001003','不锈钢板外包','304 δ=0.35mm','m2',1260,58.60,73836,'工业管道-蒸汽系统','2026-06','grey'],
+  ['040101002006','挖掘机挖土方','三类土 深2m内','m3',8420,12.60,106092,'危险品总库区-场平','2026-07','ok']
+];
+
+const PRICE_ROWS = [
+  ['沈阳试验区-市政外线','030801001001','m',1284.6,78.52,'+0.0%','2026-08','ok'],
+  ['危险品总库区-11#工房','030801001004','m',620.0,81.20,'+3.4%','2026-07','ok'],
+  ['某化工园-给水管网','030801001002','m',2180.0,76.85,'-2.1%','2026-06','ok'],
+  ['沈阳试验区-室外工程','030801001007','m',340.0,94.60,'+20.5%','2026-08','err'],
+  ['某市政-蒸汽外线','030801001003','m',760.0,72.40,'-7.8%','2026-05','ok'],
+  ['某厂区-消防改造','030801001009','m',480.0,101.20,'+28.9%','2026-04','err'],
+  ['某安置房-给排水','030801001005','m',1520.0,74.10,'-5.6%','2026-03','ok'],
+  ['某医院-综合管线','030801001006','m',890.0,63.80,'-18.8%','2026-02','err']
+];
+
+const MAP_ROWS = [
+  ['序号','id','auto'],['项目编码','item_code','auto'],['项目名称','item_name','auto'],
+  ['项目特征描述','item_feature','auto'],['规格型号','item_feature','auto'],['计量单位','unit','auto'],
+  ['工程量','qty','auto'],['综合单价','price','auto'],['合价','amount','auto'],
+  ['分部工程','section','auto'],['专业工程','major','auto'],['备注','remark','auto'],
+  ['材料台账编号','—','skip']
+];
+
+const IMP_ERRS = [
+  ['128','10101001001','010101001','前导 0 丢失（11 位）','补 0 后取前 9 位','warn'],
+  ['306','0302280006','030228006','分项码多 1 位（10 位）','截取前 9 位','warn'],
+  ['512','0304130010','030413010','分项码多 1 位（10 位）','截取前 9 位','warn'],
+  ['884','03080100','—','编码长度不足（8 位）','标红待人工补录','err'],
+  ['1102','030904001003','030904001','正常 12 位','—','ok']
+];
+
+const BATCH = [
+  ['B2026-08-014','沈阳试验区-市政外线','结算清单',1284,964,'2026-08','陈工','2026-09-01 16:20','待审核'],
+  ['B2026-08-013','危险品总库区-11#工房','合同清单',862,821,'2026-07','李工','2026-08-28 10:05','已入库'],
+  ['B2026-08-012','工业管道-蒸汽系统','结算清单',1540,1206,'2026-06','陈工','2026-08-21 14:38','已入库'],
+  ['B2026-08-011','某化工园-给水管网','招标控制价',2180,1680,'2026-06','王工','2026-08-15 09:12','已入库'],
+  ['B2026-07-010','某市政-蒸汽外线','结算清单',760,402,'2026-05','李工','2026-08-02 17:44','已入库'],
+  ['B2026-07-009','GB50500-2013 规范','规范清单',4820,4820,'2013','系统','2026-07-30 08:00','已入库'],
+  ['B2026-07-008','GBT50500-2024 规范','规范清单',5240,5240,'2024','系统','2026-07-30 08:00','已入库']
+];
+
+const TREE = [
+  {n:'安装工程', c:'03', n2:12840, open:true, ch:[
+    {n:'工业管道', c:'0308', n2:4260, open:true, ch:[
+      {n:'镀锌钢管', c:'0304-01-002', n2:186, sel:true},
+      {n:'无缝钢管', c:'0304-01-003', n2:142},
+      {n:'阀门', c:'0304-01-008', n2:98}
+    ]},
+    {n:'电气', c:'0304', n2:3820, ch:[]},
+    {n:'通风空调', c:'0307', n2:2140, ch:[]},
+    {n:'消防', c:'0309', n2:1620, ch:[]}
+  ]},
+  {n:'市政工程', c:'04', n2:8640, ch:[
+    {n:'道路', c:'0402', n2:2840, ch:[]},
+    {n:'管网', c:'0405', n2:3620, ch:[]},
+    {n:'桥梁', c:'0403', n2:2180, ch:[]}
+  ]},
+  {n:'房屋建筑', c:'01', n2:12480, ch:[]},
+  {n:'园林绿化', c:'05', n2:3260, ch:[]}
+];
+
+const SPECS = ['DN15','DN20','DN25','DN32','DN40','DN50','DN65','DN80','DN100','DN125','DN150','DN200'];
+const SYNS  = ['镀锌焊接钢管','热镀锌钢管','镀锌管','白铁管','SC管','镀锌钢管（沟槽）','镀锌钢管(丝接)'];
+
+const MATCHES = [
+  ['镀锌焊接钢管 DN100','镀锌钢管 · DN100',96,'ok'],
+  ['热浸镀锌钢管 DN150 沟槽','镀锌钢管 · DN150',93,'ok'],
+  ['衬塑钢管 DN100','镀锌钢管 · DN100',82,'warn'],
+  ['钢塑复合管 DN80','镀锌钢管 · DN80',80,'warn'],
+  ['焊接钢管 DN125','无缝钢管 · DN125',78,'warn'],
+  ['不锈钢管 304 DN50','不锈钢板外包 · δ0.35',61,'err'],
+  ['PE给水管 DN100','—',42,'err']
+];
+
+/* =====================================================================
+   渲染
+   ===================================================================== */
+const $ = (s,r)=> (r||document).querySelector(s);
+const $$ = (s,r)=> Array.from((r||document).querySelectorAll(s));
+const fmt = n => n.toLocaleString('zh-CN');
+
+function renderBars(){
+  const box = $('#dashBars'); if(!box) return;
+  const max = Math.max.apply(null, BAR_DATA);
+  box.innerHTML = BAR_DATA.map((v,i)=>
+    '<div class="bar-col"><span class="bar-val">'+ (v/1000).toFixed(1) +'k</span>'+
+    '<div class="bar-slot"><div class="bar'+(i===BAR_DATA.length-1?' hl':'')+'" style="height:'+(v/max*100)+'%"></div></div>'+
+    '<span class="bar-x">'+MONTHS[i]+'</span></div>'
+  ).join('');
+}
+
+function renderDonut(){
+  const svg = $('#dashDonut'); if(!svg) return;
+  const total = DONUT.reduce((s,d)=>s+d.v,0);
+  const R=60, C=2*Math.PI*R; let off=0;
+  svg.innerHTML =
+    '<circle cx="75" cy="75" r="'+R+'" fill="none" style="stroke:var(--c-sep)" stroke-width="16"/>' +
+    DONUT.map(d=>{
+      const len = d.v/total*C;
+      const s = '<circle cx="75" cy="75" r="'+R+'" fill="none" style="stroke:'+d.c+'" stroke-width="16" '+
+        'stroke-dasharray="'+len.toFixed(2)+' '+(C-len).toFixed(2)+'" stroke-dashoffset="'+(-off).toFixed(2)+'"/>';
+      off += len; return s;
+    }).join('');
+  $('#dashLegend').innerHTML = DONUT.map(d=>
+    '<div><i style="background:'+d.c+'"></i>'+d.n+
+    '<span class="v">'+fmt(d.v)+'</span><span class="p">'+(d.v/total*100).toFixed(1)+'%</span></div>'
+  ).join('');
+}
+
+function renderStdProg(){
+  const box = $('#stdProg'); if(!box) return;
+  box.innerHTML = STD_PROG.map(s=>
+    '<div style="margin-bottom:16px"><div class="row" style="justify-content:space-between;margin-bottom:7px">'+
+    '<span style="font-size:13px;font-weight:600">'+s.n+'</span>'+
+    '<span class="mono" style="font-size:12.5px"><b>'+s.p+'%</b> <span class="muted">'+s.v+' 条</span></span></div>'+
+    '<div class="prog"><i style="width:'+s.p+'%"></i></div></div>'
+  ).join('');
+}
+
+function renderBoq(){
+  const b = $('#boqBody'); if(!b) return;
+  const stMap = {ok:['ok','已标准化'],warn:['warn','编码待核'],grey:['grey','未标准化']};
+  b.innerHTML = BOQ.map(r=>{
+    const st = stMap[r[9]];
+    const c = r[0];
+    return '<tr><td><input type="checkbox"></td>'+
+      '<td class="code"><span class="p9">'+c.slice(0,9)+'</span><span class="p3">'+c.slice(9)+'</span></td>'+
+      '<td style="font-weight:600">'+r[1]+'</td>'+
+      '<td class="muted">'+r[2]+'</td>'+
+      '<td>'+r[3]+'</td>'+
+      '<td class="td-num mono">'+fmt(r[4])+'</td>'+
+      '<td class="td-num mono">'+r[5].toFixed(2)+'</td>'+
+      '<td class="td-num mono" style="font-weight:600">'+fmt(r[6])+'</td>'+
+      '<td class="muted">'+r[7]+'</td>'+
+      '<td class="muted mono">'+r[8]+'</td>'+
+      '<td><span class="chip '+st[0]+'">'+st[1]+'</span></td></tr>';
+  }).join('');
+}
+
+function renderPrice(){
+  // 趋势面积图
+  const t = $('#priceTrend'); if(!t) return;
+  const W=640,H=210,pad=20;
+  const vals=[74.2,75.8,73.6,72.1,74.5,76.2,78.4,77.2,79.6,81.2,80.4,78.5,79.2,80.8,82.4,81.0,79.8,78.9,77.6,78.2,79.4,78.5,79.2,78.5];
+  const band=[6.2,5.8,6.6,7.1,6.4,5.9,5.4,6.0,5.2,4.8,5.6,5.0,4.6,5.2,4.4,5.8,6.2,5.4,6.8,6.0,5.2,4.8,4.4,4.0];
+  const min=Math.min.apply(null,vals.map((v,i)=>v-band[i]))-2;
+  const max=Math.max.apply(null,vals.map((v,i)=>v+band[i]))+2;
+  const X=i=>pad+i*(W-2*pad)/(vals.length-1);
+  const Y=v=>H-pad-(v-min)/(max-min)*(H-2*pad);
+  const up=vals.map((v,i)=>X(i).toFixed(1)+','+Y(v+band[i]).toFixed(1)).join(' ');
+  const dn=vals.slice().reverse().map((v,i)=>{const j=vals.length-1-i;return X(j).toFixed(1)+','+Y(v-band[j]).toFixed(1);}).join(' ');
+  const line=vals.map((v,i)=>X(i).toFixed(1)+','+Y(v).toFixed(1)).join(' ');
+  t.innerHTML = '<svg class="spark" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" style="height:210px">'+
+    '<defs><linearGradient id="gA" x1="0" y1="0" x2="0" y2="1">'+
+      '<stop offset="0%" style="stop-color:var(--c-accent)" stop-opacity=".28"/>'+
+      '<stop offset="100%" style="stop-color:var(--c-accent)" stop-opacity="0"/></linearGradient></defs>'+
+    [0.25,0.5,0.75].map(p=>'<line x1="'+pad+'" y1="'+(pad+p*(H-2*pad)).toFixed(0)+'" x2="'+(W-pad)+'" y2="'+(pad+p*(H-2*pad)).toFixed(0)+'" style="stroke:var(--c-sep)" stroke-width="1"/>').join('')+
+    '<polygon points="'+up+' '+dn+'" fill="url(#gA)"/>'+
+    '<polyline points="'+line+'" fill="none" style="stroke:var(--c-accent)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>'+
+    vals.map((v,i)=>'<circle cx="'+X(i).toFixed(1)+'" cy="'+Y(v).toFixed(1)+'" r="2.5" style="fill:var(--c-card);stroke:var(--c-accent)" stroke-width="2"/>').join('')+
+    '</svg>';
+
+  // 直方
+  const h = $('#priceHist');
+  const H2=[3,6,11,18,29,42,36,24,12,5,2];
+  const mx=Math.max.apply(null,H2);
+  h.innerHTML = H2.map(v=>'<i style="height:'+(v/mx*100)+'%;background:var(--c-accent);opacity:'+(0.35+v/mx*0.65).toFixed(2)+'"></i>').join('');
+
+  const b=$('#priceBody');
+  b.innerHTML = PRICE_ROWS.map(r=>{
+    const bad = r[7]==='err';
+    return '<tr><td style="font-weight:600">'+r[0]+'</td>'+
+      '<td class="code">'+r[1]+'</td><td>'+r[2]+'</td>'+
+      '<td class="td-num mono">'+fmt(r[3])+'</td>'+
+      '<td class="td-num mono" style="font-weight:700;'+(bad?'color:var(--c-err)':'')+'">'+r[4].toFixed(2)+'</td>'+
+      '<td class="td-num mono" style="'+(bad?'color:var(--c-err);font-weight:700':'color:var(--c-text-2)')+'">'+r[5]+'</td>'+
+      '<td class="muted mono">'+r[6]+'</td>'+
+      '<td><span class="chip '+(bad?'err':'ok')+'">'+(bad?'偏离预警':'区间内')+'</span></td></tr>';
+  }).join('');
+}
+
+function renderImport(){
+  const m=$('#mapRows');
+  m.innerHTML = MAP_ROWS.map(r=>{
+    const skip = r[2]==='skip';
+    return '<div class="map-row"><span class="map-src">'+r[0]+'</span>'+
+      '<span class="map-arrow">→</span>'+
+      (skip ? '<span class="chip grey">忽略此列</span>'
+            : '<select class="inp"><option>'+r[1]+'</option></select>')+
+      '<span class="chip '+(skip?'grey':'ok')+'">'+(skip?'已忽略':'自动匹配')+'</span></div>';
+  }).join('');
+
+  const b=$('#impBody');
+  const mp={ok:['ok','通过'],warn:['warn','告警'],err:['err','阻断']};
+  b.innerHTML = IMP_ERRS.map(r=>{
+    const s=mp[r[5]];
+    return '<tr><td class="mono muted">'+r[0]+'</td>'+
+      '<td class="code">'+r[1]+'</td>'+
+      '<td class="code"><span class="p9">'+r[2]+'</span></td>'+
+      '<td>'+r[3]+'</td><td class="muted">'+r[4]+'</td>'+
+      '<td><span class="chip '+s[0]+'">'+s[1]+'</span></td></tr>';
+  }).join('');
+}
+
+function renderBatch(){
+  const b=$('#batchBody'); if(!b) return;
+  const mp={'待审核':['warn','待审核'],'已入库':['ok','已入库']};
+  b.innerHTML = BATCH.map(r=>{
+    const s=mp[r[8]];
+    const p=Math.round(r[4]/r[3]*100);
+    return '<tr><td class="code">'+r[0]+'</td>'+
+      '<td style="font-weight:600">'+r[1]+'</td>'+
+      '<td><span class="chip info">'+r[2]+'</span></td>'+
+      '<td class="td-num mono">'+fmt(r[3])+'</td>'+
+      '<td class="td-num mono">'+fmt(r[4])+' <span class="muted">('+p+'%)</span></td>'+
+      '<td class="muted mono">'+r[5]+'</td><td class="muted">'+r[6]+'</td>'+
+      '<td class="muted mono">'+r[7]+'</td>'+
+      '<td><span class="chip '+s[0]+'">'+s[1]+'</span></td>'+
+      '<td><button class="btn btn-ghost btn-sm">详情</button></td></tr>';
+  }).join('');
+}
+
+function buildTree(nodes, depth){
+  return nodes.map(n=>{
+    const pad = 6 + depth*14;
+    const has = !!(n.ch && n.ch.length);
+    const open = !!n.open;
+    return '<div class="tree-node'+(n.sel?' sel':'')+'" style="padding-left:'+pad+'px" data-tree>'+
+      '<span class="tree-caret'+(has && open?' open':'')+'">'+(has?'▶':'')+'</span>'+
+      '<span>'+n.n+'</span>'+
+      '<span class="tree-badge">'+n.n2+'</span></div>'+
+      (has ? '<div class="tree-children'+(open?'':' hide')+'">'+ buildTree(n.ch, depth+1) + '</div>' : '');
+  }).join('');
+}
+
+function renderDict(){
+  const t=$('#dictTree'); if(!t) return;
+  t.innerHTML = buildTree(TREE,0);
+  // 点击节点：选中 + 展开/折叠子级
+  t.addEventListener('click', e=>{
+    const node = e.target.closest('[data-tree]'); if(!node) return;
+    $$('[data-tree]').forEach(n=> n.classList.remove('sel'));
+    node.classList.add('sel');
+    const sib = node.nextElementSibling;
+    if(sib && sib.classList.contains('tree-children')){
+      sib.classList.toggle('hide');
+      const caret = node.querySelector('.tree-caret');
+      if(caret) caret.classList.toggle('open', !sib.classList.contains('hide'));
+    }
+  });
+  $('#specTags').innerHTML = SPECS.map(s=>'<span class="chip grey" style="height:26px;font-size:12px">'+s+'</span>').join('');
+  $('#synTags').innerHTML  = SYNS.map(s=>'<span class="chip" style="height:26px;font-size:12px">'+s+'</span>').join('');
+}
+
+function renderMatch(){
+  const b=$('#matchList'); if(!b) return;
+  const mp={ok:'var(--c-ok)',warn:'var(--c-warn)',err:'var(--c-err)'};
+  b.innerHTML = MATCHES.map(m=>{
+    const c=mp[m[3]];
+    return '<div class="match"><div class="match-score">'+
+      '<b style="color:'+c+'">'+m[2]+'</b>'+
+      '<div class="match-bar"><i style="width:'+m[2]+'%;background:'+c+'"></i></div></div>'+
+      '<div style="flex:1;min-width:0">'+
+        '<div style="font-weight:600;font-size:13.5px">'+m[0]+'</div>'+
+        '<div class="small muted">建议匹配 → '+(m[1]==='—'?'<span style="color:var(--c-err)">无合格候选，需新建字典项</span>':'<b style="color:var(--c-accent)">'+m[1]+'</b>')+'</div>'+
+      '</div>'+
+      '<div class="row">'+
+        '<button class="btn btn-sec btn-sm" '+(m[2]<70?'disabled style="opacity:.4"':'')+'>确认</button>'+
+        '<button class="btn btn-ghost btn-sm">忽略</button>'+
+      '</div></div>';
+  }).join('');
+}
+
+/* =====================================================================
+   交互
+   ===================================================================== */
+
+function goPage(key, el){
+  const nav = el || $('.nav-item[data-page="'+key+'"]');
+  if(!nav) return;
+  $$('.page').forEach(p=> p.classList.remove('active'));
+  const pg = $('#page-'+key); if(pg) pg.classList.add('active');
+  $$('.nav-item').forEach(n=> n.classList.remove('active'));
+  nav.classList.add('active');
+  $('#crumbNow').textContent = nav.dataset.label || key;
+}
+
+function bind(){
+  $$('.nav-item').forEach(n=> n.addEventListener('click',()=> goPage(n.dataset.page, n)));
+  $$('.seg').forEach(s=> s.querySelectorAll('button').forEach(b=>
+    b.addEventListener('click',()=>{
+      if(s.id==='dashSeg'){ renderBars(); }
+      s.querySelectorAll('button').forEach(x=>x.classList.remove('on'));
+      b.classList.add('on');
+    })));
+  $$('.drop').forEach(d=> d.addEventListener('click',()=> d.style.borderColor='var(--c-accent)'));
+}
+
+/* 初始化 */
+renderBars(); renderDonut(); renderStdProg(); renderBoq();
+renderPrice(); renderImport(); renderBatch(); renderDict(); renderMatch();
+bind(); goPage('dash');
+</script>
+</body>
+</html>

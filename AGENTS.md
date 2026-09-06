@@ -11,6 +11,16 @@
 - 每次改动完成，都必须创建一个对应的 Git commit，以便后续追踪和回滚；
 - 每次改动后，都必须编写或更新相关测试，并在交付用户前，调用 Self-Improving + Proactive Agent 技能（`@skill:"Self-Improving + Proactive Agent"`）进行审查，确保所有测试和验证全部通过。
 
+### Git 操作铁律（2026-09-06 事故教训，永久生效）
+
+> 背景：2026-09-06 本仓库曾因误操作（在并行 Agent 写入期间执行 `git reset --hard` + 重复 `git init` 覆盖 `.git`）丢失 3 个本地提交，靠工作区文件抢救恢复。以下铁律对本仓库所有 Agent 永久适用。
+
+- **禁止对已有仓库重复 `git init`**：git 命令若报 "not a git repository"，先 `ls -la` 核查 `.git` 是否存在、当前目录是否正确——绝不盲目重新 init（会覆盖 `.git`，全部历史不可达）。
+- **`git reset --hard` 前必须核验目标**：执行前必须 ① `git log`/`git diff` 核对目标 commit 与当前差异；② `git status` 确认工作区无未提交的重要改动；③ 用户明确授权。三者缺一不可。优先用 `--soft`/`--mixed`，`--hard` 是最后手段。
+- **并行写入期间禁做破坏性 git 操作**：工作区正被并行 Agent 写入时（文件 mtime 持续变化、status 频繁变动），禁止 reset --hard / checkout -- / cherry-pick / merge / rebase 等改写工作区或历史的操作，只能只读观察。
+- **发现大量未提交改动时先抢救**：第一动作是提交保护（或 `git stash`），而非任何"整理"操作。
+- **破坏性 git 操作前先建备份分支**：`git branch backup-<date>` 成本极低，必做。
+
 ## 测试命令约定
 
 为了让交付前审查拥有**可量化、可自动化的通过标准**（而不是靠人工逐字核对），本仓库的代码改动必须明确对应的测试执行命令。**未在本节登记测试命令的改动，审查一律判定为不通过。**
