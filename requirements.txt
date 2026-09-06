@@ -1,0 +1,28 @@
+# 造价数据门户（FastAPI 版）依赖锁定
+# 2026-09-05 全面代码审查后锁定：全量 == 版本，补 rapidfuzz
+# 干净环境安装：pip install -r requirements.txt
+
+# Web 框架
+fastapi==0.141.1
+uvicorn[standard]==0.52.4
+
+# ORM & 数据库
+sqlalchemy==2.0.52
+psycopg2-binary==2.9.12
+
+# 数据校验 & 配置
+pydantic==2.13.4
+pydantic-settings==2.15.0
+
+# 文件上传
+python-multipart==0.0.32
+
+# Excel 处理（导入/导出，只读打开 read_only=True）
+openpyxl==3.1.2
+pandas==2.2.2
+
+# 相似度匹配（M3 物料匹配，data/match_score.py 依赖）
+rapidfuzz==3.14.6
+
+# 测试
+pytest==9.1.1

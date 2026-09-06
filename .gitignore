@@ -1,0 +1,24 @@
+# ===== 环境与密钥（禁止入仓）=====
+.env
+.env.*
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+*.pyc
+
+# ===== 项目工具数据（WorkBuddy 记忆等，非源码）=====
+.workbuddy/
+
+# ===== 敏感文件红线（AGENTS.md：真实工程 Excel 与数据库备份禁止入仓）=====
+*.xlsx
+*.xls
+*.sql
+*.dump
+
+# ===== 系统 =====
+Thumbs.db
+Desktop.ini
+.DS_Store

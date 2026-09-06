@@ -1,0 +1,93 @@
+# -*- coding: utf-8 -*-
+"""物料匹配纯评分模块（M3 §5.3 / §5.5 / §5.6 落地）。
+
+**纯函数 · 不依赖 odoo**，可被纯函数 pytest 直接 import（与 data/gb_code.py
+同模式：pure_tests 经 importlib 按文件加载，避免触发 zaojia_boq 包）。
+
+能力：
+- score_candidates(query_name, query_spec, dict_rows) -> list[dict]
+    对候选字典行做 rapidfuzz 名称/规格模糊匹配，按类目层级加权，
+    返回按 score 降序的候选列表（含 dict_id/name/spec/score/category_path）。
+- high_confidence(candidates) -> bool
+    高置信判据（M3 §5.6）：Top-1 score >= 98.0 且 (Top-1 - Top-2) > 10.0。
+
+加权规则（FROZEN 契约）：
+- 类目层级权重：L3（规格集合，3 级）→ 1.0；L2（系列，2 级）→ 0.8；
+  L1（大类，1 级）→ 0.5；
+- 名称相似度 > 90 → 加 0.3（归一化到 0-100 即 +30，封顶 100）；
+- L3 规格精确命中（query_spec == spec 且为 L3）→ 满置信 100.0。
+"""
+from rapidfuzz.fuzz import ratio, partial_ratio
+
+
+def _fuzz(a, b):
+    """rapidfuzz 名称/规格相似度（取 ratio 与 partial_ratio 的较大值，0-100）。"""
+    a = (a or '').strip()
+    b = (b or '').strip()
+    if not a or not b:
+        return 0.0
+    return max(ratio(a, b), partial_ratio(a, b))
+
+
+def _category_level(cat_path):
+    """类目层级深度（category_path 形如 'L1/L2/L3' → 3）。"""
+    return len([p for p in (cat_path or '').split('/') if p and p.strip()])
+
+
+def _category_weight(cat_path):
+    """类目层级权重（L1=0.5 / L2=0.8 / L3=1.0）。"""
+    return {3: 1.0, 2: 0.8, 1: 0.5}.get(_category_level(cat_path), 0.5)
+
+
+def score_candidates(query_name, query_spec, dict_rows):
+    """对候选字典行评分并按 score 降序返回。
+
+    每个 dict_row 须含：id / name / spec / category_path（如 'L1/L2/L3'）。
+    返回：[{dict_id, name, spec, score:float(0-100), category_path}, ...] 降序。
+    """
+    q_name = (query_name or '').strip()
+    q_spec = (query_spec or '').strip()
+    results = []
+    for row in dict_rows or []:
+        name = (row.get('name') or '').strip()
+        spec = (row.get('spec') or '').strip()
+        cat_path = row.get('category_path') or ''
+        lvl = _category_level(cat_path)
+
+        name_sim = _fuzz(q_name, name)
+        spec_sim = _fuzz(q_spec, spec) if q_spec else 0.0
+
+        # 基础分：名称主导、规格辅助
+        base = 0.7 * name_sim + 0.3 * spec_sim
+        score = base * _category_weight(cat_path)
+
+        # 名称相似度 > 90 加权（+0.3 归一化 → +30，封顶 100）
+        if name_sim > 90:
+            score = min(100.0, score + 30.0)
+
+        # L3 规格精确命中 → 满置信（M3 §5.6 高置信条件之一）
+        if lvl == 3 and q_spec and spec and q_spec == spec:
+            score = 100.0
+
+        score = max(0.0, min(100.0, score))
+        results.append({
+            'dict_id': row.get('id'),
+            'name': name,
+            'spec': spec,
+            'score': round(score, 2),
+            'category_path': cat_path,
+        })
+    results.sort(key=lambda r: r['score'], reverse=True)
+    return results
+
+
+def high_confidence(candidates):
+    """高置信判据（M3 §5.6）：Top-1 >= 98.0 且 Top-1 与 Top-2 分差 > 10.0。
+
+    无候选 → False；仅一个候选时以 0.0 作为 Top-2 基准。
+    """
+    if not candidates:
+        return False
+    top1 = candidates[0]['score']
+    top2 = candidates[1]['score'] if len(candidates) > 1 else 0.0
+    return top1 >= 98.0 and (top1 - top2) > 10.0
