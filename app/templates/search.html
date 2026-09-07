@@ -1,6 +1,5 @@
 {% extends "base.html" %}
 {% block title %}清单检索{% endblock %}
-{% set hide_topbar = true %}
 
 {% macro keep(p=1) -%}
 /search?kw={{ params.kw|urlencode }}&amp;major={{ params.major|urlencode }}&amp;code={{ params.code|urlencode }}&amp;name={{ params.name|urlencode }}&amp;source={{ params.source|urlencode }}&amp;anomaly={{ params.anomaly|urlencode }}&amp;status={{ params.status|urlencode }}&amp;page={{ p }}

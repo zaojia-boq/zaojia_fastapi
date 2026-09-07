@@ -430,7 +430,7 @@
           body: JSON.stringify({
             operator: 'dev-user',
             reason: '匹配确认页面人工确认',
-            items: [{ boq_item_id: parseInt(boqId), material_dict_id: parseInt(dictId) }],
+            items: [{ boq_item_id: parseInt(boqId), dict_id: parseInt(dictId) }],
           }),
         });
         if (resp.ok) {
@@ -465,7 +465,7 @@
           const item = cb.closest('.match-item');
           const topBtn = item ? item.querySelector('.js-confirm-match') : null;
           const dictId = topBtn ? topBtn.dataset.dictId : null;
-          if (boqId && dictId) items.push({ boq_item_id: parseInt(boqId), material_dict_id: parseInt(dictId) });
+          if (boqId && dictId) items.push({ boq_item_id: parseInt(boqId), dict_id: parseInt(dictId) });
         });
         if (!items.length) { toast('没有可确认的候选', 'warn'); return; }
 

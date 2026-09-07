@@ -58,8 +58,8 @@
   <!-- ======= 主区 ======= -->
   <div class="main">
 
-    <!-- 顶栏（子模板可设 hide_topbar=true 隐藏） -->
-    {% if not hide_topbar %}
+    <!-- 顶栏（默认隐藏，子模板可设 show_topbar=true 启用） -->
+    {% if show_topbar %}
     <div class="topbar">
       <div class="crumb">{{ title }}</div>
       <div class="topbar-right">
@@ -94,6 +94,6 @@
   </div>
 </div>
 
-<script src="/static/js/app.js" defer></script>
+<script src="/static/js/app.js?v=20260907a" defer></script>
 </body>
 </html>

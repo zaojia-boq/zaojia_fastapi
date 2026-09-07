@@ -323,19 +323,17 @@ class TestTemplateInheritance:
             assert "sidebar" in r.text, f"{path} missing sidebar"
             assert "nav-item" in r.text, f"{path} missing nav items"
 
-    def test_all_pages_have_topbar(self, auth_client):
-        # search 页面设计为隐藏顶栏（大搜索框布局），其余页面应有顶栏
-        for path in ["/dashboard", "/price", "/import"]:
+    def test_all_pages_hide_topbar(self, auth_client):
+        # 所有页面统一隐藏顶栏，最大化内容区
+        for path in ["/dashboard", "/search", "/price", "/import", "/quality", "/match", "/dict", "/batches", "/settings"]:
             r = auth_client.get(path)
             assert r.status_code == 200
-            assert 'class="topbar"' in r.text, f"{path} missing topbar"
-            assert "themeToggle" in r.text, f"{path} missing theme toggle"
+            assert 'class="topbar"' not in r.text, f"{path} should hide topbar"
 
-    def test_search_hides_topbar(self, auth_client):
-        """清单检索页应隐藏顶栏（采用大搜索框布局）。"""
+    def test_search_has_hero_search(self, auth_client):
+        """清单检索页应有大搜索框（hero-search）。"""
         r = auth_client.get("/search")
         assert r.status_code == 200
-        assert 'class="topbar"' not in r.text
         assert "hero-search" in r.text
 
     def test_all_pages_have_content_block(self, auth_client):
