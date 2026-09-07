@@ -15,6 +15,7 @@ FROZEN 契约（M3 §5 / §9.2 / 架构 §19）：
 - 回填后 match_key 由 before_update 事件监听器自动重算（M1.2）；
 - 错误统一机器可识别错误码，前缀 MATCH_。
 """
+import logging
 import uuid
 from typing import Any
 
@@ -25,10 +26,15 @@ from app.models.material_dict import MaterialDict
 from app.core.audit import log_audit
 from data.match_score import score_candidates, high_confidence
 from data.tfidf_matcher import TfidfMatcher, fuse_scores
+from data.faiss_matcher import FaissMatcher, fuse_three_algorithms, FAISS_AVAILABLE
+from data.learning_engine import get_global_engine
 
-# 匹配算法融合权重（可配置）
-RAPIDFUZZ_WEIGHT = 0.5  # 编辑距离权重（精确匹配强）
-TFIDF_WEIGHT = 0.5      # TF-IDF 语义权重（同义词/近义词强）
+logger = logging.getLogger("zaojia.match")
+
+# 匹配算法融合权重（默认值，学习引擎会根据确认结果自动调整）
+DEFAULT_RF_WEIGHT = 0.3      # rapidfuzz 编辑距离（精确匹配强）
+DEFAULT_TF_WEIGHT = 0.35     # TF-IDF 语义匹配（同义词/近义词强）
+DEFAULT_FAISS_WEIGHT = 0.35  # FAISS 向量检索（大数据量快）
 
 
 def _err(code, msg, trace_id):
@@ -97,8 +103,16 @@ def find_matches(db: Session, boq_item_ids: list[int]) -> dict[str, Any]:
 
     dict_rows = _build_dict_rows(db)
 
-    # 构建 TF-IDF 索引（复用，避免每个清单项重新构建）
+    # 构建 TF-IDF 和 FAISS 索引（复用，避免每个清单项重新构建）
     tfidf_matcher = TfidfMatcher(dict_rows) if dict_rows else None
+    faiss_matcher = FaissMatcher(dict_rows) if (dict_rows and FAISS_AVAILABLE) else None
+
+    # 从学习引擎获取当前权重（权重自适应）
+    learning_engine = get_global_engine()
+    weights = learning_engine.get_weights()
+    rf_weight = weights.get('rf', DEFAULT_RF_WEIGHT)
+    tf_weight = weights.get('tf', DEFAULT_TF_WEIGHT)
+    faiss_weight = weights.get('faiss', DEFAULT_FAISS_WEIGHT)
 
     data = {}
     for rec in recs:
@@ -113,17 +127,24 @@ def find_matches(db: Session, boq_item_ids: list[int]) -> dict[str, Any]:
         if tfidf_matcher:
             tf_cands = tfidf_matcher.match(query_name, query_spec, top_n=10)
 
-        # 融合两种算法的结果（加权平均）
-        if tf_cands:
-            fused = fuse_scores(
+        # 算法3：FAISS 向量检索（大数据量快）
+        faiss_cands = []
+        if faiss_matcher:
+            faiss_cands = faiss_matcher.match(query_name, query_spec, top_n=10)
+
+        # 融合三种算法的结果（加权平均，权重由学习引擎自适应）
+        if tf_cands or faiss_cands:
+            fused = fuse_three_algorithms(
                 rf_cands,
                 tf_cands,
-                rapidfuzz_weight=RAPIDFUZZ_WEIGHT,
-                tfidf_weight=TFIDF_WEIGHT,
+                faiss_cands,
+                rf_weight=rf_weight,
+                tf_weight=tf_weight,
+                faiss_weight=faiss_weight,
             )
             data[rec.id] = fused[:5]
         else:
-            # TF-IDF 无结果时回退到 rapidfuzz
+            # TF-IDF 和 FAISS 都无结果时回退到 rapidfuzz
             data[rec.id] = rf_cands[:5]
 
     return {
@@ -274,6 +295,57 @@ def confirm_match(db: Session, payload: dict) -> dict[str, Any]:
             })
 
     db.commit()
+
+    # 学习引擎：记录确认结果，自动调整算法权重（权重自适应）
+    # 对每个确认成功的清单项，计算各算法的 Top-1，然后记录到学习引擎
+    if filled > 0:
+        try:
+            dict_rows = _build_dict_rows(db)
+            tfidf_matcher = TfidfMatcher(dict_rows) if dict_rows else None
+            faiss_matcher = FaissMatcher(dict_rows) if (dict_rows and FAISS_AVAILABLE) else None
+            learning_engine = get_global_engine()
+
+            for result in results:
+                if result['status'] not in ('filled', 'auto_linked'):
+                    continue
+                boq_id = result['boq_item_id']
+                confirmed_dict_id = result['dict_id']
+                boq = db.query(BoqItem).filter(BoqItem.id == boq_id).first()
+                if not boq:
+                    continue
+
+                query_name = boq.item_name or ''
+                query_spec = boq.item_feature or ''
+
+                # 计算各算法的 Top-1
+                rf_cands = score_candidates(query_name, query_spec, dict_rows)
+                rf_top1_id = rf_cands[0]['dict_id'] if rf_cands else None
+                rf_top1_score = rf_cands[0]['score'] if rf_cands else 0.0
+
+                tf_cands = tfidf_matcher.match(query_name, query_spec, top_n=1) if tfidf_matcher else []
+                tf_top1_id = tf_cands[0]['dict_id'] if tf_cands else None
+                tf_top1_score = tf_cands[0]['score'] if tf_cands else 0.0
+
+                faiss_cands = faiss_matcher.match(query_name, query_spec, top_n=1) if faiss_matcher else []
+                faiss_top1_id = faiss_cands[0]['dict_id'] if faiss_cands else None
+                faiss_top1_score = faiss_cands[0]['score'] if faiss_cands else 0.0
+
+                # 记录到学习引擎
+                learning_engine.record_confirmation(
+                    query_name=query_name,
+                    query_spec=query_spec,
+                    confirmed_dict_id=confirmed_dict_id,
+                    rf_top1_dict_id=rf_top1_id,
+                    rf_top1_score=rf_top1_score,
+                    tf_top1_dict_id=tf_top1_id,
+                    tf_top1_score=tf_top1_score,
+                    faiss_top1_dict_id=faiss_top1_id,
+                    faiss_top1_score=faiss_top1_score,
+                )
+        except Exception as e:
+            # 学习引擎失败不影响主流程
+            logger.warning(f'学习引擎记录失败: {e}')
+
     return {
         'success': True,
         'data': {'filled': filled, 'ignored': ignored, 'items': results},
