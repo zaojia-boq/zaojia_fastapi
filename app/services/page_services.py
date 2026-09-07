@@ -739,8 +739,17 @@ def get_pending_matches(db: Session | None = None, limit: int = 50) -> dict[str,
             } for n in dict_rows]
 
             items = []
+            cache_hits = 0
             for r in pending:
-                cands = score_candidates(r.item_name, r.std_spec or r.item_feature or "", pool)[:3]
+                # 优先从缓存读取候选（后台预匹配）
+                from app.services.prematch_service import get_cached_candidates
+                cached = get_cached_candidates(s, r.id)
+                if cached is not None:
+                    cands = cached[:3]
+                    cache_hits += 1
+                else:
+                    # 缓存未命中，回退到实时计算
+                    cands = score_candidates(r.item_name, r.std_spec or r.item_feature or "", pool)[:3]
                 items.append({
                     "id": r.id,
                     "code": r.item_code or "—",
@@ -756,12 +765,15 @@ def get_pending_matches(db: Session | None = None, limit: int = 50) -> dict[str,
                     "cands": [dict(c, color=_score_color(c["score"])) for c in cands],
                 })
 
-            return _empty_result(
+            result = _empty_result(
                 items=items,
                 pendingCount=len(items),
                 dictCount=int(dict_count),
                 groupCount=len({i["name"] for i in items}),
             )
+            result["cache_hits"] = cache_hits
+            result["cache_misses"] = len(items) - cache_hits
+            return result
     except Exception as exc:
         return _fail(exc, items=[], pendingCount=0, dictCount=0, groupCount=0)
 

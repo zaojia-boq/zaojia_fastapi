@@ -60,7 +60,7 @@ def init_db():
     调用：from app.db import init_db; init_db()
     """
     # 导入所有模型以确保 Base.metadata 注册
-    from app.models import boq_item, import_batch, material_dict, audit_log  # noqa: F401
+    from app.models import boq_item, import_batch, material_dict, audit_log, match_cache  # noqa: F401
     try:
         from app.models import cost_catalog  # noqa: F401
     except ImportError:

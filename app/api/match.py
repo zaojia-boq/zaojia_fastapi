@@ -81,3 +81,37 @@ async def match_confirm(
     if not result.get('success'):
         raise HTTPException(status_code=400, detail=result)
     return result
+
+
+# ---------------------------------------------------------------------------
+# 后台预匹配（性能优化）
+# ---------------------------------------------------------------------------
+
+class PrematchRequest(BaseModel):
+    """预匹配请求。"""
+    batch_id: int | None = Field(None, description="批次 ID（None 表示所有待匹配）")
+    limit: int = Field(0, description="限制计算数量（0 表示不限制）")
+
+
+@router.post("/prematch")
+async def trigger_prematch(
+    req: PrematchRequest,
+    user=Depends(require_role(ROLE_ESTIMATOR, ROLE_ADMIN)),
+    db: Session = Depends(get_db),
+):
+    """触发后台预匹配（异步）。导入完成后调用，预计算所有待匹配条目的候选。"""
+    from app.services.prematch_service import precompute_pending_matches_async, get_prematch_status
+    from app.db import SessionLocal
+
+    precompute_pending_matches_async(SessionLocal, batch_id=req.batch_id, limit=req.limit)
+    return {"success": True, "message": "预匹配任务已在后台启动", "status": get_prematch_status()}
+
+
+@router.get("/prematch/status")
+async def prematch_status(
+    user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """查看预匹配任务状态。"""
+    from app.services.prematch_service import get_prematch_status
+    return get_prematch_status()
