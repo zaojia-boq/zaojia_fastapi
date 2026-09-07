@@ -38,7 +38,7 @@
   ```
   C:\Users\ht835\AppData\Local\Programs\Python\Python312\python.exe -m pytest pure_tests/ -v
   ```
-  判据：**127 passed**，零失败（2026-09-05 基线：Odoo 迁移 90 + field_spec 21 + aliases 扩展 10 + match_score/quality_metrics 边界强化 6；与 `项目总控.md` §9.1 对齐，任何改动后必须保持全绿）。
+  判据：**全绿零失败**（2026-09-07 基线：Odoo 迁移 90 + field_spec 21 + aliases 扩展 10 + match_score/quality_metrics 边界强化 6 + tfidf_matcher 13 + faiss_learning 17，与 `项目总控.md` §9.1 对齐，任何改动后必须保持全绿）。
 
 - **FastAPI 集成测试**（M1 起，涉及模型/服务/API/权限的改动必跑）：
   ```
@@ -55,9 +55,9 @@
 
 - **依赖完整性检查**（改 `requirements.txt` 后必跑）：
   ```
-  C:\Users\ht835\AppData\Local\Programs\Python\Python312\python.exe -c "import fastapi, uvicorn, sqlalchemy, pydantic; print('deps OK')"
+  C:\Users\ht835\AppData\Local\Programs\Python\Python312\python.exe -c "import fastapi, uvicorn, sqlalchemy, pydantic, rapidfuzz, sklearn, jieba, faiss; print('deps OK')"
   ```
-  判据：无 ImportError。
+  判据：无 ImportError。2026-09-07 新增依赖：scikit-learn（TF-IDF 语义匹配）、jieba（中文分词）、faiss-cpu（FAISS 向量检索）。
 
 ### 数据安全（继承自 Odoo 版，不可变）
 
