@@ -54,7 +54,7 @@
         <tbody>
           {% for b in rows %}
           <tr data-batch-id="{{ b.id }}" data-batch-name="{{ b.name }}">
-            <td><a href="/search?kw={{ b.name|urlencode }}">{{ b.name }}</a></td>
+            <td><a href="/batches/{{ b.id }}">{{ b.name }}</a></td>
             <td><span class="{{ b.typeChip }}">{{ b.typeLabel }}</span></td>
             <td class="td-num">{{ "{:,}".format(b.imported) }}</td>
             <td class="td-num">{{ "{:,}".format(b.anomaly) }}</td>
@@ -64,7 +64,7 @@
             <td>{% if b.archived %}<span class="chip ok">已归档</span>{% else %}<span class="chip err">未归档</span>{% endif %}</td>
             <td>{% if b.status == '待审' %}<span class="chip warn">{{ b.status }}</span>{% else %}<span class="chip ok">{{ b.status }}</span>{% endif %}</td>
             <td class="ops">
-              <a class="btn btn-ghost btn-sm" href="/search?kw={{ b.name|urlencode }}">详情</a>
+              <a class="btn btn-ghost btn-sm" href="/batches/{{ b.id }}">详情</a>
               {% if b.active %}
               <button class="btn btn-ghost btn-sm js-soft" data-id="{{ b.id }}" data-name="{{ b.name }}">软删</button>
               {% else %}

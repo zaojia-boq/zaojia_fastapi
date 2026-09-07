@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}批次详情{% endblock %}
+{% block content %}
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">批次详情</h1>
+      <div class="page-desc">批次元信息与清单项预览 · 共 {{ itemCount }} 条</div>
+    </div>
+    <div class="page-actions">
+      <a class="btn btn-ghost" href="/batches">← 返回批次列表</a>
+      <a class="btn btn-sec" href="/search?batch_id={{ batch.id if batch else '' }}">检索该批次条目</a>
+    </div>
+  </div>
+
+  {% if not data_error and batch %}
+  <!-- 批次元信息 -->
+  <div class="card mb">
+    <div class="card-head">
+      <div>
+        <div class="card-title">{{ batch.name }}</div>
+        <div class="card-sub">ID #{{ batch.id }} · {{ batch.typeLabel }} · {{ batch.status }}</div>
+      </div>
+      <div class="right">
+        {% if batch.archived %}<span class="chip ok">已归档</span>{% else %}<span class="chip err">未归档</span>{% endif %}
+        {% if batch.active %}<span class="chip ok">有效</span>{% else %}<span class="chip warn">回收站</span>{% endif %}
+      </div>
+    </div>
+    <div class="grid g4">
+      <div class="field"><label>入库行</label><input class="inp" value="{{ "{:,}".format(batch.imported) }}" readonly></div>
+      <div class="field"><label>异常行</label><input class="inp" value="{{ "{:,}".format(batch.anomaly) }}" readonly></div>
+      <div class="field"><label>跳过行</label><input class="inp" value="{{ "{:,}".format(batch.skipped) }}" readonly></div>
+      <div class="field"><label>导入时间</label><input class="inp" value="{{ batch.at }}" readonly></div>
+      <div class="field"><label>价格期</label><input class="inp" value="{{ batch.period or '—' }}" readonly></div>
+      <div class="field"><label>地区</label><input class="inp" value="{{ batch.province }}" readonly></div>
+      <div class="field"><label>操作人</label><input class="inp" value="{{ batch.operator }}" readonly></div>
+      <div class="field"><label>数据性质</label><input class="inp" value="{{ batch.typeLabel }}" readonly></div>
+    </div>
+    {% if batch_raw %}
+    <div class="sep"></div>
+    <div class="grid g2">
+      <div class="field"><label>源文件</label><input class="inp" value="{{ batch_raw.source_file or '—' }}" readonly></div>
+      <div class="field"><label>文件哈希</label><input class="inp" value="{{ batch_raw.file_hash or '—' }}" readonly></div>
+      <div class="field"><label>归档路径</label><input class="inp" value="{{ batch_raw.archive_path or '—' }}" readonly></div>
+      <div class="field"><label>源路径</label><input class="inp" value="{{ batch_raw.source_path or '—' }}" readonly></div>
+      <div class="field"><label>校验和</label><input class="inp" value="{{ batch_raw.checksum_hash or '—' }}" readonly></div>
+    </div>
+    {% if batch_raw.deleted_at %}
+    <div class="note mt"><span>&#9888;</span><div>该批次于 {{ batch_raw.deleted_at }} 进入回收站，30 天宽限期后可硬删除。</div></div>
+    {% endif %}
+    {% endif %}
+  </div>
+
+  <!-- 清单项预览 -->
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title">清单项预览</div>
+      <div class="right"><span class="chip">共 {{ itemCount }} 条 · 显示前 {{ items|length }} 条</span></div>
+    </div>
+    {% if items %}
+    <div class="tbl-wrap">
+      <table class="tbl-resizable">
+        <colgroup>
+          <col style="width:55px"><col style="width:130px"><col style="width:200px">
+          <col style="width:280px"><col style="width:55px"><col style="width:80px">
+          <col style="width:90px"><col style="width:70px">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>序号</th><th data-col="code">清单编码</th><th data-col="name">项目名称</th>
+            <th data-col="feat">项目特征</th><th>单位</th><th class="td-num">工程量</th>
+            <th class="td-num">综合单价</th><th>异常</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for it in items %}
+          <tr>
+            <td class="muted">{{ it.seq }}</td>
+            <td><code>{{ it.code or '—' }}</code></td>
+            <td class="td-wrap">{{ it.name or '—' }}</td>
+            <td class="td-wrap muted small">{{ it.feat or '—' }}</td>
+            <td>{{ it.unit or '—' }}</td>
+            <td class="td-num">{{ it.qty or '—' }}</td>
+            <td class="td-num">{{ it.price or '—' }}</td>
+            <td>{% if it.anomaly and it.anomaly != 'none' %}<span class="chip err">{{ it.anomaly }}</span>{% else %}—{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if itemCount > items|length %}
+    <div class="note mt"><span>&#9432;</span><div>仅显示前 100 条，<a href="/search?batch_id={{ batch.id }}">查看全部 {{ itemCount }} 条</a>。</div></div>
+    {% endif %}
+    {% else %}
+    <div class="empty">
+      <div class="ico">&#9655;</div>
+      <div class="t">该批次无清单项</div>
+      <div class="s">可能导入失败或已被删除。</div>
+    </div>
+    {% endif %}
+  </div>
+  {% else %}
+  <div class="card">
+    <div class="empty">
+      <div class="ico">&#9888;</div>
+      <div class="t">批次不存在或加载失败</div>
+      <div class="s"><a href="/batches">返回批次列表</a></div>
+    </div>
+  </div>
+  {% endif %}
+{% endblock %}

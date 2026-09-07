@@ -291,6 +291,14 @@ async def batches_page(request: Request, db: Session = Depends(get_db),
     return _render("batches.html", _ctx(request, db, "batch", "批次管理", user, **data))
 
 
+@router.get("/batches/{batch_id}", response_class=HTMLResponse)
+async def batch_detail_page(request: Request, batch_id: int, db: Session = Depends(get_db),
+                            user: dict = Depends(require_page_admin)):
+    """批次详情 —— 批次元信息 + 清单项预览。admin 专属。"""
+    data = svc.get_batch_detail(batch_id, db)
+    return _render("batch_detail.html", _ctx(request, db, "batch", "批次详情", user, **data))
+
+
 @router.get("/dict", response_class=HTMLResponse)
 async def material_dict_page(request: Request, db: Session = Depends(get_db),
                              user: dict = Depends(get_page_user)):

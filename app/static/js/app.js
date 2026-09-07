@@ -407,6 +407,103 @@
     });
   }
 
+  /* ===================== 匹配确认（单个+批量） ===================== */
+  function bindMatchConfirm() {
+    const list = $('#matchList');
+    if (!list) return;
+
+    // 单个确认
+    list.addEventListener('click', async e => {
+      const btn = e.target.closest('.js-confirm-match');
+      if (!btn || btn.disabled) return;
+      const boqId = btn.dataset.boqId;
+      const dictId = btn.dataset.dictId;
+      const dictName = btn.dataset.dictName || '';
+      if (!boqId || !dictId) return;
+      if (!window.confirm('确认将此条目标记为「' + dictName + '」？\n（仅填空 B 类字段，不覆盖已有值）')) return;
+
+      btn.disabled = true;
+      btn.textContent = '确认中...';
+      try {
+        const resp = await apiFetch('/api/match/confirm', {
+          method: 'POST',
+          body: JSON.stringify({
+            operator: 'dev-user',
+            reason: '匹配确认页面人工确认',
+            items: [{ boq_item_id: parseInt(boqId), material_dict_id: parseInt(dictId) }],
+          }),
+        });
+        if (resp.ok) {
+          toast('已确认：' + dictName, 'ok');
+          const item = btn.closest('.match-item');
+          if (item) item.style.opacity = '0.5';
+          btn.textContent = '已确认';
+        } else {
+          const err = await resp.json().catch(() => ({}));
+          toast('确认失败：' + (err.detail || resp.statusText), 'err');
+          btn.disabled = false;
+          btn.textContent = '确认为此项';
+        }
+      } catch (err) {
+        toast('确认失败：' + err.message, 'err');
+        btn.disabled = false;
+        btn.textContent = '确认为此项';
+      }
+    });
+
+    // 批量确认
+    const batchConfirmBtn = $('#batchConfirmBtn');
+    if (batchConfirmBtn) {
+      batchConfirmBtn.addEventListener('click', async () => {
+        const checked = $$('.match-check:checked', list);
+        if (!checked.length) { toast('请先勾选要确认的条目', 'warn'); return; }
+        if (!window.confirm('确认批量回填 ' + checked.length + ' 条？（取每条 Top1 候选）')) return;
+
+        const items = [];
+        checked.forEach(cb => {
+          const boqId = cb.dataset.boqId;
+          const item = cb.closest('.match-item');
+          const topBtn = item ? item.querySelector('.js-confirm-match') : null;
+          const dictId = topBtn ? topBtn.dataset.dictId : null;
+          if (boqId && dictId) items.push({ boq_item_id: parseInt(boqId), material_dict_id: parseInt(dictId) });
+        });
+        if (!items.length) { toast('没有可确认的候选', 'warn'); return; }
+
+        batchConfirmBtn.disabled = true;
+        batchConfirmBtn.textContent = '确认中...';
+        try {
+          const resp = await apiFetch('/api/match/confirm', {
+            method: 'POST',
+            body: JSON.stringify({ operator: 'dev-user', reason: '批量确认', items }),
+          });
+          if (resp.ok) {
+            toast('批量确认成功：' + items.length + ' 条', 'ok');
+            checked.forEach(cb => { const item = cb.closest('.match-item'); if (item) item.style.opacity = '0.5'; });
+          } else {
+            const err = await resp.json().catch(() => ({}));
+            toast('批量确认失败：' + (err.detail || resp.statusText), 'err');
+          }
+        } catch (err) {
+          toast('批量确认失败：' + err.message, 'err');
+        } finally {
+          batchConfirmBtn.disabled = false;
+          batchConfirmBtn.textContent = '批量确认';
+        }
+      });
+    }
+
+    // 批量忽略（仅前端标记，不调用 API——忽略语义为"暂不处理"）
+    const batchIgnoreBtn = $('#batchIgnoreBtn');
+    if (batchIgnoreBtn) {
+      batchIgnoreBtn.addEventListener('click', () => {
+        const checked = $$('.match-check:checked', list);
+        if (!checked.length) { toast('请先勾选要忽略的条目', 'warn'); return; }
+        checked.forEach(cb => { const item = cb.closest('.match-item'); if (item) item.style.display = 'none'; });
+        toast('已忽略 ' + checked.length + ' 条（刷新后恢复）', 'ok');
+      });
+    }
+  }
+
   /* ===================== 表格列宽拖拽 ===================== */
   function bindColResize() {
     const tables = $$('.tbl-resizable');
@@ -468,6 +565,203 @@
     });
   }
 
+  /* ===================== 物料字典新增/编辑弹窗 ===================== */
+  function bindDictModal() {
+    const modal = $('#dictModal');
+    if (!modal) return;
+
+    const title = $('#dictModalTitle');
+    const levelSel = $('#dictLevel');
+    const parentField = $('#parentField');
+    const parentSel = $('#dictParent');
+    const nameInp = $('#dictName');
+    const synInp = $('#dictSynonyms');
+    const specInp = $('#dictSpecs');
+    const noteInp = $('#dictNote');
+    const errTip = $('#dictErr');
+    let editId = null;
+
+    function showErr(msg) {
+      if (errTip) { errTip.textContent = msg; errTip.classList.remove('hide'); }
+    }
+    function clearErr() { if (errTip) errTip.classList.add('hide'); }
+
+    function openModal(isEdit, data) {
+      editId = isEdit ? (data?.id || null) : null;
+      title.textContent = isEdit ? '编辑分类' : '新增分类';
+      clearErr();
+      if (isEdit && data) {
+        levelSel.value = data.level || 'l1';
+        nameInp.value = data.name || '';
+        synInp.value = (data.synonyms || []).join(',');
+        specInp.value = (data.spec_whitelist || []).join(',');
+        noteInp.value = data.note || '';
+        levelSel.disabled = true; // 编辑时不允许改层级
+        parentField.style.display = 'none';
+      } else {
+        levelSel.value = 'l1';
+        nameInp.value = '';
+        synInp.value = '';
+        specInp.value = '';
+        noteInp.value = '';
+        levelSel.disabled = false;
+        updateParentOptions();
+      }
+      modal.classList.remove('hide');
+    }
+
+    function closeModal() { modal.classList.add('hide'); editId = null; }
+
+    async function updateParentOptions() {
+      const level = levelSel.value;
+      if (level === 'l1') {
+        parentField.style.display = 'none';
+        return;
+      }
+      parentField.style.display = '';
+      const parentLevel = level === 'l2' ? 'l1' : 'l2';
+      try {
+        const resp = await apiFetch('/api/dict?level=' + parentLevel);
+        // 如果没有列表 API，用页面上的树节点
+        parentSel.innerHTML = '<option value="">加载中...</option>';
+        const nodes = $$('.tree-node a');
+        const opts = [];
+        nodes.forEach(a => {
+          const node = a.closest('.tree-node');
+          // 简单过滤：根据缩进判断层级（l1=8px, l2=24px, l3=40px）
+          const pl = parseInt(node.style.paddingLeft) || 8;
+          const nodeLevel = pl <= 8 ? 'l1' : (pl <= 24 ? 'l2' : 'l3');
+          if (nodeLevel === parentLevel) {
+            const id = node.dataset.id;
+            opts.push('<option value="' + id + '">' + escapeHtml(a.textContent.trim()) + '</option>');
+          }
+        });
+        parentSel.innerHTML = opts.length ? opts.join('') : '<option value="">（无可用父级）</option>';
+      } catch (e) {
+        parentSel.innerHTML = '<option value="">（加载失败）</option>';
+      }
+    }
+
+    levelSel.addEventListener('change', updateParentOptions);
+
+    // 新增按钮
+    const addBtn = $('#addDictBtn');
+    if (addBtn) addBtn.addEventListener('click', () => openModal(false));
+
+    // 编辑按钮
+    const editBtn = $('#editDictBtn');
+    if (editBtn) {
+      editBtn.addEventListener('click', async () => {
+        const id = editBtn.dataset.id;
+        if (!id) return;
+        try {
+          const resp = await apiFetch('/api/dict/' + id);
+          if (resp.ok) {
+            const data = await resp.json();
+            openModal(true, data);
+          } else {
+            toast('加载分类详情失败', 'err');
+          }
+        } catch (e) {
+          toast('加载分类详情失败：' + e.message, 'err');
+        }
+      });
+    }
+
+    // 关闭
+    $('#dictModalClose')?.addEventListener('click', closeModal);
+    $('#dictCancel')?.addEventListener('click', closeModal);
+    modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+
+    // 提交
+    $('#dictSubmit')?.addEventListener('click', async () => {
+      const name = nameInp.value.trim();
+      if (!name) { showErr('请输入分类名称'); return; }
+      const level = levelSel.value;
+      let parent_id = null;
+      if (level !== 'l1') {
+        parent_id = parseInt(parentSel.value) || null;
+        if (!parent_id) { showErr('请选择父级分类'); return; }
+      }
+      const synonyms = synInp.value.trim() ? synInp.value.split(',').map(s => s.trim()).filter(Boolean) : null;
+      const specs = specInp.value.trim() ? specInp.value.split(',').map(s => s.trim()).filter(Boolean) : null;
+      const note = noteInp.value.trim() || null;
+
+      const submitBtn = $('#dictSubmit');
+      submitBtn.disabled = true;
+      submitBtn.textContent = '提交中...';
+      clearErr();
+
+      try {
+        let resp;
+        if (editId) {
+          resp = await apiFetch('/api/dict/' + editId, {
+            method: 'PUT',
+            body: JSON.stringify({ name, synonyms, spec_whitelist: specs, note }),
+          });
+        } else {
+          resp = await apiFetch('/api/dict', {
+            method: 'POST',
+            body: JSON.stringify({ name, level, parent_id, synonyms, spec_whitelist: specs, note }),
+          });
+        }
+        if (resp.ok) {
+          toast(editId ? '分类已更新' : '分类已创建', 'ok');
+          closeModal();
+          setTimeout(() => location.reload(), 800);
+        } else {
+          const err = await resp.json().catch(() => ({}));
+          showErr(err.detail || ('提交失败 (' + resp.status + ')'));
+        }
+      } catch (e) {
+        showErr('提交失败：' + e.message);
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '确认';
+      }
+    });
+
+    // 添加规格（简单 prompt 交互）
+    $$('.js-add-spec').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.id;
+        const spec = prompt('请输入规格（如：3×240+2×120）：');
+        if (!spec) return;
+        try {
+          const resp = await apiFetch('/api/dict/' + id);
+          if (!resp.ok) { toast('加载失败', 'err'); return; }
+          const data = await resp.json();
+          const specs = (data.spec_whitelist || []).concat([spec]);
+          const upd = await apiFetch('/api/dict/' + id, {
+            method: 'PUT', body: JSON.stringify({ spec_whitelist: specs }),
+          });
+          if (upd.ok) { toast('规格已添加', 'ok'); setTimeout(() => location.reload(), 600); }
+          else toast('添加失败', 'err');
+        } catch (e) { toast('添加失败：' + e.message, 'err'); }
+      });
+    });
+
+    // 添加同义词
+    $$('.js-add-synonym').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.id;
+        const syn = prompt('请输入同义词（如：电力电缆）：');
+        if (!syn) return;
+        try {
+          const resp = await apiFetch('/api/dict/' + id);
+          if (!resp.ok) { toast('加载失败', 'err'); return; }
+          const data = await resp.json();
+          const syns = (data.synonyms || []).concat([syn]);
+          const upd = await apiFetch('/api/dict/' + id, {
+            method: 'PUT', body: JSON.stringify({ synonyms: syns }),
+          });
+          if (upd.ok) { toast('同义词已添加', 'ok'); setTimeout(() => location.reload(), 600); }
+          else toast('添加失败', 'err');
+        } catch (e) { toast('添加失败：' + e.message, 'err'); }
+      });
+    });
+  }
+
   /* ===================== 初始化 ===================== */
   function init() {
     initTheme();
@@ -478,7 +772,9 @@
     bindImportFlow();
     bindBatchActions();
     bindMatchFilter();
+    bindMatchConfirm();
     bindColResize();
+    bindDictModal();
   }
 
   if (document.readyState === 'loading') {

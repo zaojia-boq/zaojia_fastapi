@@ -588,6 +588,43 @@ def list_batches(db: Session | None = None) -> dict[str, Any]:
                      kpi={"total": 0, "itemTotal": 0, "anomaly": 0, "anomalyPct": "—"})
 
 
+def get_batch_detail(batch_id: int, db: Session | None = None) -> dict[str, Any]:
+    """批次详情 —— 批次元信息 + 该批次清单项列表（前 100 条预览）。"""
+    try:
+        from app.models.import_batch import ImportBatch
+        from app.models.boq_item import BoqItem
+        with _session_scope(db) as s:
+            batch = s.query(ImportBatch).filter(ImportBatch.id == batch_id).first()
+            if not batch:
+                return _fail(ValueError(f"批次 {batch_id} 不存在"), batch=None, items=[], itemCount=0)
+            items = s.query(BoqItem).filter(
+                BoqItem.import_batch_id == batch_id
+            ).order_by(BoqItem.sequence.asc()).limit(100).all()
+            item_count = s.query(func.count(BoqItem.id)).filter(
+                BoqItem.import_batch_id == batch_id
+            ).scalar() or 0
+            return _empty_result(
+                batch=_batch_row(batch),
+                batch_raw={
+                    "id": batch.id,
+                    "name": batch.name,
+                    "source_file": batch.source_file,
+                    "file_hash": batch.file_hash,
+                    "archive_path": batch.archive_path,
+                    "source_path": batch.source_path,
+                    "checksum_total": batch.checksum_total,
+                    "checksum_hash": batch.checksum_hash,
+                    "deleted_at": batch.deleted_at.strftime("%Y-%m-%d %H:%M") if batch.deleted_at else None,
+                },
+                items=[{"id": it.id, "seq": it.sequence, "code": it.item_code, "name": it.item_name,
+                        "feat": (it.item_feature or "")[:80], "unit": it.unit, "qty": it.quantity,
+                        "price": it.unit_rate, "anomaly": it.anomaly_flag} for it in items],
+                itemCount=int(item_count),
+            )
+    except Exception as exc:
+        return _fail(exc, batch=None, items=[], itemCount=0)
+
+
 # ============================================================================
 # 物料字典 —— 对标 dict.js loadAll() + _rebuildAll()
 # ============================================================================

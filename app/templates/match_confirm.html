@@ -7,8 +7,8 @@
       <div class="page-desc">模糊匹配候选 · 必须由人工确认后方可回填标准字段</div>
     </div>
     <div class="page-actions">
-      <button class="btn btn-sec" disabled>批量忽略</button>
-      <button class="btn btn-primary" disabled>批量确认</button>
+      <button class="btn btn-sec" id="batchIgnoreBtn">批量忽略</button>
+      <button class="btn btn-primary" id="batchConfirmBtn">批量确认</button>
     </div>
   </div>
 
@@ -37,13 +37,16 @@
         {% for it in items %}
           {% set top = it.cands[0] if it.cands else None %}
           {% set score = top.score if top else 0 %}
-        <div class="match-item" data-score="{{ score }}">
+        <div class="match-item" data-boq-id="{{ it.id }}" data-score="{{ score }}">
           <div class="row" style="justify-content:space-between;align-items:flex-start">
-            <div>
+            <div style="display:flex;gap:8px;align-items:flex-start">
+              <input type="checkbox" class="match-check" data-boq-id="{{ it.id }}" style="margin-top:4px">
+              <div>
               <div><b>{{ it.name }}</b> <span class="code">{{ it.code }}</span></div>
               <div class="muted small">{{ it.feat }}</div>
               <div class="muted small">{{ it.proj }} · {{ it.unit }} · {{ it.price }} 元 ·
                 <span class="{{ it.src.cls }}">{{ it.src.label }}</span></div>
+              </div>
             </div>
             <a class="btn btn-ghost btn-sm" href="/search?kw={{ it.code|urlencode }}">查看原文</a>
           </div>
@@ -60,7 +63,7 @@
               <div><b>{{ c.name }}</b>{% if c.spec %} <span class="muted small">· {{ c.spec }}</span>{% endif %}</div>
               <div class="muted small">{{ c.category_path or '—' }}</div>
             </div>
-            <button class="btn btn-sec btn-sm" disabled>确认为此项</button>
+            <button class="btn btn-sec btn-sm js-confirm-match" data-boq-id="{{ it.id }}" data-dict-id="{{ c.id }}" data-dict-name="{{ c.name }}">确认为此项</button>
           </div>
           {% endfor %}
           {% else %}
