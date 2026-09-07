@@ -539,6 +539,142 @@
         toast('已忽略 ' + checked.length + ' 条（刷新后恢复）', 'ok');
       });
     }
+
+    // 手动添加并确认
+    const manualModal = document.querySelector('#manualAddModal');
+    if (manualModal) {
+      let currentBoqId = null;
+      let dictCache = null;
+
+      // 加载分类列表
+      async function loadDict() {
+        if (dictCache) return dictCache;
+        try {
+          const resp = await apiFetch('/api/dict');
+          if (resp.ok) {
+            dictCache = await resp.json();
+            return dictCache;
+          }
+        } catch (e) {}
+        return { l1: [], l2: [] };
+      }
+
+      // 打开弹窗
+      list.addEventListener('click', async e => {
+        const btn = e.target.closest('.js-manual-add');
+        if (!btn) return;
+        currentBoqId = btn.dataset.boqId;
+        const name = btn.dataset.name || '';
+        const feat = btn.dataset.feat || '';
+
+        // 填充表单
+        document.querySelector('#manualName').value = name;
+        document.querySelector('#manualSpec').value = feat;
+        document.querySelector('#manualSynonyms').value = '';
+        document.querySelector('#manualNote').value = '';
+
+        // 加载分类并填充级联
+        const data = await loadDict();
+        const l1Sel = document.querySelector('#manualL1');
+        const l2Sel = document.querySelector('#manualL2');
+        l1Sel.innerHTML = '<option value="">请选择一级分类</option>' +
+          data.l1.map(n => '<option value="' + n.id + '">' + n.name + '</option>').join('');
+        l2Sel.innerHTML = '<option value="">请先选择一级分类</option>';
+
+        l1Sel.onchange = () => {
+          const l1Id = parseInt(l1Sel.value);
+          const l2List = data.l2.filter(n => n.parent_id === l1Id);
+          l2Sel.innerHTML = '<option value="">请选择二级分类</option>' +
+            l2List.map(n => '<option value="' + n.id + '">' + n.name + '</option>').join('');
+        };
+
+        manualModal.style.display = 'flex';
+      });
+
+      // 关闭弹窗
+      manualModal.addEventListener('click', e => {
+        if (e.target === manualModal || e.target.closest('[data-close]')) {
+          manualModal.style.display = 'none';
+        }
+      });
+
+      // 提交
+      const submitBtn = document.querySelector('#manualAddSubmit');
+      if (submitBtn) {
+        submitBtn.addEventListener('click', async () => {
+          const l1Id = document.querySelector('#manualL1').value;
+          const l2Id = document.querySelector('#manualL2').value;
+          const name = document.querySelector('#manualName').value.trim();
+          const spec = document.querySelector('#manualSpec').value.trim();
+          const synonyms = document.querySelector('#manualSynonyms').value.trim();
+          const note = document.querySelector('#manualNote').value.trim();
+
+          if (!l1Id || !l2Id) { toast('请选择一级和二级分类', 'warn'); return; }
+          if (!name) { toast('请输入物料名称', 'warn'); return; }
+
+          submitBtn.disabled = true;
+          submitBtn.textContent = '添加中...';
+
+          try {
+            // 1. 创建 l3 物料分类
+            const createBody = {
+              name: name,
+              level: 'l3',
+              parent_id: parseInt(l2Id),
+              note: note || null,
+            };
+            if (spec) createBody.spec_whitelist = [spec];
+            if (synonyms) createBody.synonyms = synonyms.split(/[,，]/).map(s => s.trim()).filter(Boolean);
+
+            const createResp = await apiFetch('/api/dict', {
+              method: 'POST',
+              body: JSON.stringify(createBody),
+            });
+            if (!createResp.ok) {
+              const err = await createResp.json().catch(() => ({}));
+              toast('创建失败：' + (err.detail || createResp.statusText), 'err');
+              return;
+            }
+            const created = await createResp.json();
+            const newDictId = created.id;
+
+            // 2. 确认关联到当前清单项
+            const confirmResp = await apiFetch('/api/match/confirm', {
+              method: 'POST',
+              body: JSON.stringify({
+                operator: 'dev-user',
+                reason: '手动添加物料并确认（学习记录）',
+                items: [{ boq_item_id: parseInt(currentBoqId), dict_id: newDictId }],
+              }),
+            });
+            if (!confirmResp.ok) {
+              const err = await confirmResp.json().catch(() => ({}));
+              toast('关联失败：' + (err.detail || confirmResp.statusText), 'err');
+              return;
+            }
+
+            toast('已添加并确认：' + name + '（学习记录已保存）', 'ok');
+            manualModal.style.display = 'none';
+
+            // 从列表中移除该条目
+            const item = document.querySelector('.match-item[data-boq-id="' + currentBoqId + '"]');
+            if (item) item.remove();
+
+            // 更新待确认数量
+            const sub = document.querySelector('.card-sub');
+            if (sub) {
+              const remaining = document.querySelectorAll('.match-item').length;
+              sub.innerHTML = sub.innerHTML.replace(/本期展示 \\d+ 条/, '本期展示 ' + remaining + ' 条');
+            }
+          } catch (err) {
+            toast('操作失败：' + err.message, 'err');
+          } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = '添加并确认';
+          }
+        });
+      }
+    }
   }
 
   /* ===================== 表格列宽拖拽 ===================== */

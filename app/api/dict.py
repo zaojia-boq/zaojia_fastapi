@@ -55,6 +55,18 @@ def _compute_cat_path(node: MaterialDict, db: Session) -> tuple[str | None, str 
     return None, None, None
 
 
+@router.get("")
+async def list_dict(
+    user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """获取所有物料分类（按层级分组），用于级联选择。"""
+    all_nodes = db.query(MaterialDict).order_by(MaterialDict.level, MaterialDict.id).all()
+    l1 = [{"id": n.id, "name": n.name} for n in all_nodes if n.level == "l1"]
+    l2 = [{"id": n.id, "name": n.name, "parent_id": n.parent_id} for n in all_nodes if n.level == "l2"]
+    return {"l1": l1, "l2": l2, "total": len(all_nodes)}
+
+
 @router.post("")
 async def create_dict(
     req: DictCreateRequest,
@@ -98,7 +110,7 @@ async def create_dict(
     db.commit()
     db.refresh(node)
 
-    log_audit(db, action=ACTION_CREATE, entity_type="material_dict", entity_id=node.id,
+    log_audit(db, model="material_dict", res_id=node.id, action=ACTION_CREATE,
               operator=user.get("username", "unknown"), reason=f"新增分类：{req.name} ({req.level})")
     db.commit()
 
@@ -151,7 +163,7 @@ async def update_dict(
         return {"success": True, "message": "无变更"}
 
     db.commit()
-    log_audit(db, action=ACTION_WRITE, entity_type="material_dict", entity_id=node.id,
+    log_audit(db, model="material_dict", res_id=node.id, action=ACTION_WRITE,
               operator=user.get("username", "unknown"), reason="; ".join(changes))
     db.commit()
     return {"success": True, "id": node.id, "changes": changes}
@@ -181,7 +193,7 @@ async def delete_dict(
     name = node.name
     db.delete(node)
     db.commit()
-    log_audit(db, action=ACTION_HARD_DELETE, entity_type="material_dict", entity_id=dict_id,
+    log_audit(db, model="material_dict", res_id=dict_id, action=ACTION_HARD_DELETE,
               operator=user.get("username", "unknown"), reason=f"删除分类：{name}")
     db.commit()
     return {"success": True, "id": dict_id, "name": name}

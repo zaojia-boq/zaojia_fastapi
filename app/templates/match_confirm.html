@@ -69,9 +69,14 @@
           {% endfor %}
           {% else %}
           <div class="sep"></div>
-          <div class="muted small">无候选（字典为空或无相似度达标的条目），需先在
-            <a href="/dict">物料字典</a> 补充分类。</div>
+          <div class="muted small">无候选（字典为空或无相似度达标的条目），可手动添加。</div>
           {% endif %}
+          <div class="sep"></div>
+          <div style="text-align:right">
+            <button class="btn btn-ghost btn-sm js-manual-add" data-boq-id="{{ it.id }}" data-name="{{ it.name }}" data-feat="{{ it.feat }}">
+              + 手动添加并确认
+            </button>
+          </div>
         </div>
         {% endfor %}
       </div>
@@ -102,4 +107,48 @@
     </div>
   </div>
   {% endif %}
+
+  <!-- ======= 手动添加并确认弹窗 ======= -->
+  <div class="modal-mask" id="manualAddModal" style="display:none">
+    <div class="modal" style="max-width:520px">
+      <div class="modal-head">
+        <div class="modal-title">手动添加物料并确认</div>
+        <button class="modal-close" data-close>&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row">
+          <label>一级分类 <span class="req">*</span></label>
+          <select id="manualL1" class="inp"></select>
+        </div>
+        <div class="form-row">
+          <label>二级分类 <span class="req">*</span></label>
+          <select id="manualL2" class="inp"></select>
+        </div>
+        <div class="form-row">
+          <label>物料名称 <span class="req">*</span></label>
+          <input type="text" id="manualName" class="inp" placeholder="物料标准名称">
+        </div>
+        <div class="form-row">
+          <label>规格</label>
+          <input type="text" id="manualSpec" class="inp" placeholder="规格型号（可选）">
+        </div>
+        <div class="form-row">
+          <label>业务同义词</label>
+          <input type="text" id="manualSynonyms" class="inp" placeholder="多个同义词用逗号分隔（可选）">
+        </div>
+        <div class="form-row">
+          <label>备注</label>
+          <textarea id="manualNote" class="inp" rows="2" placeholder="备注（可选）"></textarea>
+        </div>
+        <div class="note" style="margin-top:8px">
+          <span>&#9432;</span>
+          <div>添加后将自动关联到当前清单项，并记录学习记录（人工添加的物料会优先参与后续匹配）。</div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-sec" data-close>取消</button>
+        <button class="btn btn-primary" id="manualAddSubmit">添加并确认</button>
+      </div>
+    </div>
+  </div>
 {% endblock %}

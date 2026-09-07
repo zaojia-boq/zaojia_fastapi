@@ -425,3 +425,10 @@ select.inp{cursor:pointer;appearance:none;background-image:linear-gradient(45deg
 .zj_skeleton_bar:nth-child(2){width:80%;animation-delay:0.2s;}
 .zj_skeleton_bar:nth-child(3){width:60%;animation-delay:0.4s;}
 @keyframes zj_pulse{0%,100%{opacity:.4}50%{opacity:.8}}
+
+/* ---------- 表单 ---------- */
+.form-row{margin-bottom:14px;}
+.form-row label{display:block;font-size:12px;font-weight:600;color:var(--c-text-2);margin-bottom:6px;}
+.form-row .req{color:#ef4444;margin-left:2px;}
+.form-row .inp{width:100%;box-sizing:border-box;}
+textarea.inp{resize:vertical;min-height:60px;font-family:var(--font);}
