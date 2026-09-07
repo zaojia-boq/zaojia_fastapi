@@ -22,3 +22,9 @@ __pycache__/
 Thumbs.db
 Desktop.ini
 .DS_Store
+
+# ===== 运行时生成（禁止入仓）=====
+archive/          # 导入文件归档（运行时生成）
+.mimosa/          # 临时文件
+_poc_check.txt    # 临时检查文件
+*.meta.json       # 导入元数据文件
