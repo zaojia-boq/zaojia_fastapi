@@ -29,6 +29,7 @@ from sqlalchemy.orm import Session
 from app.db import get_db
 from app.services import page_services as svc
 from app.core.security import settings as sec_settings, ROLE_ADMIN
+from data.match_score import HIGH_CONF_SCORE
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -323,8 +324,8 @@ async def match_confirm_page(request: Request, db: Session = Depends(get_db),
             {"id": "high", "label": "高置信（≥90）"},
             {"id": "low", "label": "低置信（<75）"},
         ],
-        # 阈值与 data.match_score / 设置页同源
-        thresholds={"auto": 98.0, "cand": 75.0},
+        # 阈值与 data.match_score / 设置页同源（import 常量，避免魔法数字）
+        thresholds={"auto": HIGH_CONF_SCORE, "cand": 75.0},
         **data,
     ))
 

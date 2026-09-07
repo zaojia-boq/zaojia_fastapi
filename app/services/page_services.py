@@ -32,7 +32,7 @@ from sqlalchemy.orm import Session
 
 from data.field_spec import DATA_SOURCE_TYPES as _FIELD_SPEC_TYPES
 from data.gb_code import parse_gb_code
-from data.match_score import score_candidates
+from data.match_score import score_candidates, HIGH_CONF_SCORE
 from data.price_calc import DEFAULT_THRESHOLD, analyze_group, compute_kpis, deviation_pct
 from data.quality_metrics import compute_metrics
 from data.cost_catalog_gate import evaluate_gate_from_metrics
@@ -1016,7 +1016,7 @@ def get_settings() -> dict[str, Any]:
             "theme": "c",
             "region": "",
             # 阈值与 data.price_calc / match_score 同源，改动须同步 pure_tests
-            "autoThr": 98.0,          # match_score.high_confidence 的 Top-1 门槛
+            "autoThr": HIGH_CONF_SCORE,  # match_score.high_confidence 的 Top-1 门槛
             "candThr": 75.0,          # 候选展示下限
             "deviationThr": int(DEFAULT_THRESHOLD * 100),
             "minSample": 3,

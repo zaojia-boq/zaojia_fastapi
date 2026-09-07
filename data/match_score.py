@@ -9,7 +9,15 @@
     对候选字典行做 rapidfuzz 名称/规格模糊匹配，按类目层级加权，
     返回按 score 降序的候选列表（含 dict_id/name/spec/score/category_path）。
 - high_confidence(candidates) -> bool
-    高置信判据（M3 §5.6）：Top-1 score >= 98.0 且 (Top-1 - Top-2) > 10.0。
+    高置信判据（M3 §5.6）：Top-1 score >= HIGH_CONF_SCORE 且 (Top-1 - Top-2) > HIGH_CONF_GAP。
+
+阈值常量（2026-09-07 优化：从 98/10 降至 90/15，提升自动确认率）：
+- HIGH_CONF_SCORE = 90.0：Top-1 分数门槛
+- HIGH_CONF_GAP = 15.0：Top-1 与 Top-2 分差门槛
+- NAME_WEIGHT = 0.7：名称相似度权重
+- SPEC_WEIGHT = 0.3：规格相似度权重
+- NAME_BOOST_THRESHOLD = 90：名称相似度 > 此值时加 30 分
+- NAME_BOOST = 30：名称高相似度加分
 
 加权规则（FROZEN 契约）：
 - 类目层级权重：L3（规格集合，3 级）→ 1.0；L2（系列，2 级）→ 0.8；
@@ -18,6 +26,14 @@
 - L3 规格精确命中（query_spec == spec 且为 L3）→ 满置信 100.0。
 """
 from rapidfuzz.fuzz import ratio, partial_ratio
+
+# 阈值常量（单一事实源，所有调用方 import 此常量）
+HIGH_CONF_SCORE = 90.0   # Top-1 分数门槛（原 98.0，2026-09-07 降至 90.0）
+HIGH_CONF_GAP = 15.0     # Top-1 与 Top-2 分差门槛（原 10.0，2026-09-07 提至 15.0）
+NAME_WEIGHT = 0.7        # 名称相似度权重
+SPEC_WEIGHT = 0.3        # 规格相似度权重
+NAME_BOOST_THRESHOLD = 90  # 名称相似度 > 此值时加分
+NAME_BOOST = 30          # 名称高相似度加分（归一化到 0-100）
 
 
 def _fuzz(a, b):
@@ -58,12 +74,12 @@ def score_candidates(query_name, query_spec, dict_rows):
         spec_sim = _fuzz(q_spec, spec) if q_spec else 0.0
 
         # 基础分：名称主导、规格辅助
-        base = 0.7 * name_sim + 0.3 * spec_sim
+        base = NAME_WEIGHT * name_sim + SPEC_WEIGHT * spec_sim
         score = base * _category_weight(cat_path)
 
-        # 名称相似度 > 90 加权（+0.3 归一化 → +30，封顶 100）
-        if name_sim > 90:
-            score = min(100.0, score + 30.0)
+        # 名称相似度 > 阈值 加权（+NAME_BOOST，封顶 100）
+        if name_sim > NAME_BOOST_THRESHOLD:
+            score = min(100.0, score + NAME_BOOST)
 
         # L3 规格精确命中 → 满置信（M3 §5.6 高置信条件之一）
         if lvl == 3 and q_spec and spec and q_spec == spec:
@@ -82,12 +98,13 @@ def score_candidates(query_name, query_spec, dict_rows):
 
 
 def high_confidence(candidates):
-    """高置信判据（M3 §5.6）：Top-1 >= 98.0 且 Top-1 与 Top-2 分差 > 10.0。
+    """高置信判据（M3 §5.6）：Top-1 >= HIGH_CONF_SCORE 且 Top-1 与 Top-2 分差 > HIGH_CONF_GAP。
 
     无候选 → False；仅一个候选时以 0.0 作为 Top-2 基准。
+    阈值常量：HIGH_CONF_SCORE=90.0, HIGH_CONF_GAP=15.0（2026-09-07 优化，原 98/10）。
     """
     if not candidates:
         return False
     top1 = candidates[0]['score']
     top2 = candidates[1]['score'] if len(candidates) > 1 else 0.0
-    return top1 >= 98.0 and (top1 - top2) > 10.0
+    return top1 >= HIGH_CONF_SCORE and (top1 - top2) > HIGH_CONF_GAP

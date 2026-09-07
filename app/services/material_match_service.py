@@ -210,6 +210,27 @@ def confirm_match(db: Session, payload: dict) -> dict[str, Any]:
                 setattr(boq, k, v)
             db.flush()
 
+            # 同义词自动扩展（学习机制）：将清单项名称加入物料字典同义词
+            # 下次相同名称直接命中，无需再人工确认
+            item_name = (boq.item_name or '').strip()
+            if item_name and d.id:
+                current_syns = d.synonyms or []
+                if item_name not in current_syns:
+                    new_syns = current_syns + [item_name]
+                    d.synonyms = new_syns
+                    log_audit(
+                        db=db,
+                        model='material_dict',
+                        res_id=d.id,
+                        action='write',
+                        field_name='synonyms',
+                        old_value=str(current_syns),
+                        new_value=str(new_syns),
+                        operator=operator,
+                        reason='同义词自动扩展（学习记录）：确认清单项时自动学习名称',
+                        trace_id=trace_id,
+                    )
+
             filled += 1
             results.append({
                 'boq_item_id': boq_id,

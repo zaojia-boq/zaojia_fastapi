@@ -78,7 +78,7 @@ class TestHighConfidence(unittest.TestCase):
         ]
         self.assertTrue(high_confidence(cands))
 
-    def test_false_when_top_below_98(self):
+    def test_false_when_top_below_90(self):
         cands = [
             {'dict_id': 1, 'name': '电力电缆', 'spec': 'YJV', 'score': 85.0,
              'category_path': '电气/电缆/YJV'},
