@@ -455,6 +455,19 @@
       }
     });
 
+    // 全选当前页（只勾选可见条目，配合筛选使用）
+    const selectAllBtn = $('#selectAllBtn');
+    if (selectAllBtn) {
+      selectAllBtn.addEventListener('click', () => {
+        const visible = $$('.match-item', list).filter(it => it.style.display !== 'none');
+        const checkboxes = visible.map(it => it.querySelector('.match-check')).filter(Boolean);
+        const allChecked = checkboxes.every(cb => cb.checked);
+        checkboxes.forEach(cb => { cb.checked = !allChecked; });
+        selectAllBtn.textContent = allChecked ? '全选当前页' : '取消全选';
+        toast((allChecked ? '已取消勾选' : '已勾选 ') + checkboxes.length + ' 条', 'ok');
+      });
+    }
+
     // 批量确认
     const batchConfirmBtn = $('#batchConfirmBtn');
     if (batchConfirmBtn) {
