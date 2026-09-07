@@ -27,7 +27,7 @@ from app.core.audit import log_audit
 from data.match_score import score_candidates, high_confidence
 from data.tfidf_matcher import TfidfMatcher, fuse_scores
 from data.faiss_matcher import FaissMatcher, fuse_three_algorithms, FAISS_AVAILABLE
-from data.learning_engine_v2 import get_global_engine_v2
+from data.learning_engine_v3 import get_global_engine_v3
 
 logger = logging.getLogger("zaojia.match")
 
@@ -107,8 +107,8 @@ def find_matches(db: Session, boq_item_ids: list[int]) -> dict[str, Any]:
     tfidf_matcher = TfidfMatcher(dict_rows) if dict_rows else None
     faiss_matcher = FaissMatcher(dict_rows) if (dict_rows and FAISS_AVAILABLE) else None
 
-    # 从学习引擎 v2 获取当前权重（权重自适应 + 按类别学习）
-    learning_engine = get_global_engine_v2()
+    # 从学习引擎 v3 获取当前权重（多策略融合 + 概念漂移 + 元学习）
+    learning_engine = get_global_engine_v3()
 
     data = {}
     for rec in recs:
@@ -299,14 +299,13 @@ def confirm_match(db: Session, payload: dict) -> dict[str, Any]:
 
     db.commit()
 
-    # 学习引擎 v2：记录确认结果，自动调整算法权重（多信号学习 + 按类别学习）
-    # 对每个确认成功的清单项，计算各算法的 Top-1 和完整候选列表，然后记录到学习引擎
+    # 学习引擎 v3：记录确认结果（多策略学习 + 概念漂移检测 + 轨迹记录）
     if filled > 0:
         try:
             dict_rows = _build_dict_rows(db)
             tfidf_matcher = TfidfMatcher(dict_rows) if dict_rows else None
             faiss_matcher = FaissMatcher(dict_rows) if (dict_rows and FAISS_AVAILABLE) else None
-            learning_engine = get_global_engine_v2()
+            learning_engine = get_global_engine_v3()
 
             for result in results:
                 if result['status'] not in ('filled', 'auto_linked'):
@@ -352,7 +351,7 @@ def confirm_match(db: Session, payload: dict) -> dict[str, Any]:
                 )
         except Exception as e:
             # 学习引擎失败不影响主流程
-            logger.warning(f'学习引擎 v2 记录失败: {e}')
+            logger.warning(f'学习引擎 v3 记录失败: {e}')
 
     return {
         'success': True,
