@@ -27,7 +27,7 @@ from app.core.audit import log_audit
 from data.match_score import score_candidates, high_confidence
 from data.tfidf_matcher import TfidfMatcher, fuse_scores
 from data.faiss_matcher import FaissMatcher, fuse_three_algorithms, FAISS_AVAILABLE
-from data.learning_engine import get_global_engine
+from data.learning_engine_v2 import get_global_engine_v2
 
 logger = logging.getLogger("zaojia.match")
 
@@ -107,17 +107,20 @@ def find_matches(db: Session, boq_item_ids: list[int]) -> dict[str, Any]:
     tfidf_matcher = TfidfMatcher(dict_rows) if dict_rows else None
     faiss_matcher = FaissMatcher(dict_rows) if (dict_rows and FAISS_AVAILABLE) else None
 
-    # 从学习引擎获取当前权重（权重自适应）
-    learning_engine = get_global_engine()
-    weights = learning_engine.get_weights()
-    rf_weight = weights.get('rf', DEFAULT_RF_WEIGHT)
-    tf_weight = weights.get('tf', DEFAULT_TF_WEIGHT)
-    faiss_weight = weights.get('faiss', DEFAULT_FAISS_WEIGHT)
+    # 从学习引擎 v2 获取当前权重（权重自适应 + 按类别学习）
+    learning_engine = get_global_engine_v2()
 
     data = {}
     for rec in recs:
         query_name = rec.item_name or ''
         query_spec = rec.item_feature or ''
+
+        # 按清单项类别获取权重（v2 按类别学习）
+        category_path = getattr(rec, 'category_path', '') or ''
+        weights = learning_engine.get_weights(category_path)
+        rf_weight = weights.get('rf', DEFAULT_RF_WEIGHT)
+        tf_weight = weights.get('tf', DEFAULT_TF_WEIGHT)
+        faiss_weight = weights.get('faiss', DEFAULT_FAISS_WEIGHT)
 
         # 算法1：rapidfuzz 编辑距离匹配（精确匹配强）
         rf_cands = score_candidates(query_name, query_spec, dict_rows)
@@ -296,14 +299,14 @@ def confirm_match(db: Session, payload: dict) -> dict[str, Any]:
 
     db.commit()
 
-    # 学习引擎：记录确认结果，自动调整算法权重（权重自适应）
-    # 对每个确认成功的清单项，计算各算法的 Top-1，然后记录到学习引擎
+    # 学习引擎 v2：记录确认结果，自动调整算法权重（多信号学习 + 按类别学习）
+    # 对每个确认成功的清单项，计算各算法的 Top-1 和完整候选列表，然后记录到学习引擎
     if filled > 0:
         try:
             dict_rows = _build_dict_rows(db)
             tfidf_matcher = TfidfMatcher(dict_rows) if dict_rows else None
             faiss_matcher = FaissMatcher(dict_rows) if (dict_rows and FAISS_AVAILABLE) else None
-            learning_engine = get_global_engine()
+            learning_engine = get_global_engine_v2()
 
             for result in results:
                 if result['status'] not in ('filled', 'auto_linked'):
@@ -316,21 +319,22 @@ def confirm_match(db: Session, payload: dict) -> dict[str, Any]:
 
                 query_name = boq.item_name or ''
                 query_spec = boq.item_feature or ''
+                category_path = getattr(boq, 'category_path', '') or ''
 
-                # 计算各算法的 Top-1
+                # 计算各算法的候选列表（v2 多信号学习需要完整候选用于排名计算）
                 rf_cands = score_candidates(query_name, query_spec, dict_rows)
                 rf_top1_id = rf_cands[0]['dict_id'] if rf_cands else None
                 rf_top1_score = rf_cands[0]['score'] if rf_cands else 0.0
 
-                tf_cands = tfidf_matcher.match(query_name, query_spec, top_n=1) if tfidf_matcher else []
+                tf_cands = tfidf_matcher.match(query_name, query_spec, top_n=10) if tfidf_matcher else []
                 tf_top1_id = tf_cands[0]['dict_id'] if tf_cands else None
                 tf_top1_score = tf_cands[0]['score'] if tf_cands else 0.0
 
-                faiss_cands = faiss_matcher.match(query_name, query_spec, top_n=1) if faiss_matcher else []
+                faiss_cands = faiss_matcher.match(query_name, query_spec, top_n=10) if faiss_matcher else []
                 faiss_top1_id = faiss_cands[0]['dict_id'] if faiss_cands else None
                 faiss_top1_score = faiss_cands[0]['score'] if faiss_cands else 0.0
 
-                # 记录到学习引擎
+                # 记录到学习引擎 v2（多信号学习 + 按类别学习）
                 learning_engine.record_confirmation(
                     query_name=query_name,
                     query_spec=query_spec,
@@ -341,10 +345,14 @@ def confirm_match(db: Session, payload: dict) -> dict[str, Any]:
                     tf_top1_score=tf_top1_score,
                     faiss_top1_dict_id=faiss_top1_id,
                     faiss_top1_score=faiss_top1_score,
+                    category_path=category_path,
+                    rf_candidates=rf_cands,
+                    tf_candidates=tf_cands,
+                    faiss_candidates=faiss_cands,
                 )
         except Exception as e:
             # 学习引擎失败不影响主流程
-            logger.warning(f'学习引擎记录失败: {e}')
+            logger.warning(f'学习引擎 v2 记录失败: {e}')
 
     return {
         'success': True,
