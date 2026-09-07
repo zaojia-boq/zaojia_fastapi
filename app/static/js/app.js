@@ -438,10 +438,15 @@
           }),
         });
         if (resp.ok) {
-          toast('已确认：' + dictName, 'ok');
+          toast('已确认：' + dictName + '（最高置信候选）', 'ok');
           const item = btn.closest('.match-item');
-          if (item) item.style.opacity = '0.5';
-          btn.textContent = '已确认';
+          if (item) item.remove();
+          // 更新待确认数量
+          const sub = document.querySelector('.card-sub');
+          if (sub) {
+            const remaining = document.querySelectorAll('.match-item').length;
+            sub.innerHTML = sub.innerHTML.replace(/本期展示 \\d+ 条/, '本期展示 ' + remaining + ' 条');
+          }
         } else {
           const err = await resp.json().catch(() => ({}));
           toast('确认失败：' + (err.detail || resp.statusText), 'err');
@@ -494,8 +499,23 @@
             body: JSON.stringify({ operator: 'dev-user', reason: '批量确认', items }),
           });
           if (resp.ok) {
-            toast('批量确认成功：' + items.length + ' 条', 'ok');
-            checked.forEach(cb => { const item = cb.closest('.match-item'); if (item) item.style.opacity = '0.5'; });
+            const result = await resp.json().catch(() => ({}));
+            const filled = result.data ? result.data.filled : items.length;
+            toast('批量确认成功：' + filled + ' 条（取 Top1 最高置信候选）', 'ok');
+            // 已确认条目从列表移除
+            checked.forEach(cb => {
+              const item = cb.closest('.match-item');
+              if (item) item.remove();
+            });
+            // 更新待确认数量显示
+            const sub = document.querySelector('.card-sub');
+            if (sub) {
+              const remaining = document.querySelectorAll('.match-item').length;
+              sub.innerHTML = sub.innerHTML.replace(/本期展示 \\d+ 条/, '本期展示 ' + remaining + ' 条');
+            }
+            // 重置全选按钮文字
+            const sab = document.querySelector('#selectAllBtn');
+            if (sab) sab.textContent = '全选当前页';
           } else {
             const err = await resp.json().catch(() => ({}));
             toast('批量确认失败：' + (err.detail || resp.statusText), 'err');
