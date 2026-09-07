@@ -63,7 +63,7 @@
               <div><b>{{ c.name }}</b>{% if c.spec %} <span class="muted small">· {{ c.spec }}</span>{% endif %}</div>
               <div class="muted small">{{ c.category_path or '—' }}</div>
             </div>
-            <button class="btn btn-sec btn-sm js-confirm-match" data-boq-id="{{ it.id }}" data-dict-id="{{ c.id }}" data-dict-name="{{ c.name }}">确认为此项</button>
+            <button class="btn btn-sec btn-sm js-confirm-match" data-boq-id="{{ it.id }}" data-dict-id="{{ c.dict_id }}" data-dict-name="{{ c.name }}">确认为此项</button>
           </div>
           {% endfor %}
           {% else %}

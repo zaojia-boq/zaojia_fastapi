@@ -39,6 +39,10 @@
     const headers = Object.assign({}, opts.headers || {});
     const token = getToken();
     if (token) headers['Authorization'] = 'Bearer ' + token;
+    // 自动设置 Content-Type: application/json（当 body 是 JSON 字符串时）
+    if (opts.body && typeof opts.body === 'string' && !headers['Content-Type']) {
+      headers['Content-Type'] = 'application/json';
+    }
     return fetch(path, Object.assign({}, opts, { headers }));
   }
   function escapeHtml(s) {
