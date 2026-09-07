@@ -1,5 +1,6 @@
 # 造价数据门户（FastAPI 版）依赖锁定
 # 2026-09-05 全面代码审查后锁定：全量 == 版本，补 rapidfuzz
+# 2026-09-07 匹配算法升级：补 scikit-learn + jieba（TF-IDF 语义匹配）
 # 干净环境安装：pip install -r requirements.txt
 
 # Web 框架
@@ -23,6 +24,10 @@ pandas==2.2.2
 
 # 相似度匹配（M3 物料匹配，data/match_score.py 依赖）
 rapidfuzz==3.14.6
+
+# TF-IDF 语义匹配（M3 算法升级，第二阶段，data/tfidf_matcher.py 依赖）
+scikit-learn==1.9.0
+jieba==0.42.1
 
 # 测试
 pytest==9.1.1
