@@ -33,6 +33,7 @@ from sqlalchemy.orm import Session
 from data.field_spec import DATA_SOURCE_TYPES as _FIELD_SPEC_TYPES
 from data.gb_code import parse_gb_code
 from data.match_score import score_candidates, HIGH_CONF_SCORE
+from data.tfidf_matcher import TfidfMatcher, fuse_scores
 from data.price_calc import DEFAULT_THRESHOLD, analyze_group, compute_kpis, deviation_pct
 from data.quality_metrics import compute_metrics
 from data.cost_catalog_gate import evaluate_gate_from_metrics
@@ -738,6 +739,9 @@ def get_pending_matches(db: Session | None = None, limit: int = 50) -> dict[str,
                 "category_path": _category_path_of(n, cat_by_id),
             } for n in dict_rows]
 
+            # 构建 TF-IDF 索引（复用，避免每个清单项重新构建）
+            tfidf_matcher = TfidfMatcher(pool) if pool else None
+
             items = []
             cache_hits = 0
             for r in pending:
@@ -748,8 +752,15 @@ def get_pending_matches(db: Session | None = None, limit: int = 50) -> dict[str,
                     cands = cached[:3]
                     cache_hits += 1
                 else:
-                    # 缓存未命中，回退到实时计算
-                    cands = score_candidates(r.item_name, r.std_spec or r.item_feature or "", pool)[:3]
+                    # 缓存未命中，实时计算（rapidfuzz + TF-IDF 融合）
+                    query_name = r.item_name or ''
+                    query_spec = r.std_spec or r.item_feature or ''
+                    rf_cands = score_candidates(query_name, query_spec, pool)
+                    if tfidf_matcher:
+                        tf_cands = tfidf_matcher.match(query_name, query_spec, top_n=10)
+                        cands = fuse_scores(rf_cands, tf_cands)[:3]
+                    else:
+                        cands = rf_cands[:3]
                 items.append({
                     "id": r.id,
                     "code": r.item_code or "—",

@@ -24,6 +24,11 @@ from app.models.boq_item import BoqItem
 from app.models.material_dict import MaterialDict
 from app.core.audit import log_audit
 from data.match_score import score_candidates, high_confidence
+from data.tfidf_matcher import TfidfMatcher, fuse_scores
+
+# 匹配算法融合权重（可配置）
+RAPIDFUZZ_WEIGHT = 0.5  # 编辑距离权重（精确匹配强）
+TFIDF_WEIGHT = 0.5      # TF-IDF 语义权重（同义词/近义词强）
 
 
 def _err(code, msg, trace_id):
@@ -91,14 +96,35 @@ def find_matches(db: Session, boq_item_ids: list[int]) -> dict[str, Any]:
             warnings.append(f'boq_item {bid} 不存在')
 
     dict_rows = _build_dict_rows(db)
+
+    # 构建 TF-IDF 索引（复用，避免每个清单项重新构建）
+    tfidf_matcher = TfidfMatcher(dict_rows) if dict_rows else None
+
     data = {}
     for rec in recs:
-        cands = score_candidates(
-            rec.item_name or '',
-            rec.item_feature or '',
-            dict_rows,
-        )
-        data[rec.id] = cands[:5]
+        query_name = rec.item_name or ''
+        query_spec = rec.item_feature or ''
+
+        # 算法1：rapidfuzz 编辑距离匹配（精确匹配强）
+        rf_cands = score_candidates(query_name, query_spec, dict_rows)
+
+        # 算法2：TF-IDF 语义匹配（同义词/近义词强）
+        tf_cands = []
+        if tfidf_matcher:
+            tf_cands = tfidf_matcher.match(query_name, query_spec, top_n=10)
+
+        # 融合两种算法的结果（加权平均）
+        if tf_cands:
+            fused = fuse_scores(
+                rf_cands,
+                tf_cands,
+                rapidfuzz_weight=RAPIDFUZZ_WEIGHT,
+                tfidf_weight=TFIDF_WEIGHT,
+            )
+            data[rec.id] = fused[:5]
+        else:
+            # TF-IDF 无结果时回退到 rapidfuzz
+            data[rec.id] = rf_cands[:5]
 
     return {
         'success': True,
