@@ -1214,4 +1214,10 @@
   } else {
     init();
   }
+
+  // M2 深化：将模板管理函数暴露到全局作用域（供 HTML onclick 调用）
+  window.saveMappingTemplate = saveMappingTemplate;
+  window.loadMappingTemplate = loadMappingTemplate;
+  window.resetMappingToAuto = resetMappingToAuto;
+  window.updateFieldMapping = updateFieldMapping;
 })();
