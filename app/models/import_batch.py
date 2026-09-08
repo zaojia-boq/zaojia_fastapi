@@ -6,7 +6,7 @@
 - active 软删除；checksum_* 三项在导入完成后固化（M1 §4.10）；
 - 批次级 data_source_type 有默认值 completed（行级模型强制 required）。
 """
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 from sqlalchemy import String, Integer, Boolean, Date, DateTime, Numeric, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -30,7 +30,7 @@ class ImportBatch(Base, BizIdMixin, TimestampMixin):
     skipped_count: Mapped[int] = mapped_column(Integer, default=0, comment='跳过行数')
     anomaly_count: Mapped[int] = mapped_column(Integer, default=0, comment='异常行数')
     imported_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, comment='入库时间',
+        DateTime, default=lambda: datetime.now(timezone.utc), comment='入库时间',
     )
     province: Mapped[str | None] = mapped_column(String, comment='地区（批次级，行级可覆盖）')
     price_period: Mapped[date | None] = mapped_column(

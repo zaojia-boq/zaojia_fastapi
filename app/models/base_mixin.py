@@ -12,7 +12,7 @@
 3. biz_id 一旦生成不可变。
 """
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import String, DateTime, event
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -42,14 +42,14 @@ class TimestampMixin:
     """创建/更新时间戳 Mixin。"""
     create_date: Mapped[datetime] = mapped_column(
         DateTime,
-        default=datetime.utcnow,
+        default=lambda: datetime.now(timezone.utc),
         nullable=False,
         comment='创建时间',
     )
     write_date: Mapped[datetime] = mapped_column(
         DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
         nullable=False,
         comment='更新时间',
     )

@@ -9,7 +9,7 @@
 - cache_version 用于字典变更后失效缓存
 - computed_at 用于判断缓存是否过期（默认 24 小时）
 """
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy import Column, Integer, String, DateTime, Text, Index
 from sqlalchemy.dialects.postgresql import JSONB
 
@@ -28,7 +28,7 @@ class MatchCache(Base):
     candidates = Column(JSONB, nullable=False, comment="Top-N 候选列表（JSON）")
     top1_score = Column(Integer, nullable=True, comment="Top-1 分数（用于快速筛选高置信）")
     cache_version = Column(String(32), nullable=False, default="v1", comment="缓存版本（字典变更后失效）")
-    computed_at = Column(DateTime, nullable=False, default=datetime.utcnow, comment="计算时间")
+    computed_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), comment="计算时间")
 
     __table_args__ = (
         Index("ix_match_cache_boq_item", "boq_item_id"),
@@ -39,7 +39,7 @@ class MatchCache(Base):
         """判断缓存是否过期。"""
         if not self.computed_at:
             return True
-        return datetime.utcnow() - self.computed_at > timedelta(hours=ttl_hours)
+        return datetime.now(timezone.utc) - self.computed_at > timedelta(hours=ttl_hours)
 
     def to_dict(self) -> dict:
         """转为字典。"""

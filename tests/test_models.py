@@ -184,14 +184,14 @@ class TestImportBatch:
 
     def test_soft_delete_with_deleted_at(self, db_session):
         """软删除：active=False + deleted_at 记录时间。"""
-        from datetime import datetime
+        from datetime import datetime, timezone
         batch = ImportBatch(name="待删批次", data_source_type="completed")
         db_session.add(batch)
         db_session.flush()
         batch_id = batch.id
 
         batch.active = False
-        batch.deleted_at = datetime.utcnow()
+        batch.deleted_at = datetime.now(timezone.utc)
         db_session.flush()
 
         found = db_session.get(ImportBatch, batch_id)

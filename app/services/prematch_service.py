@@ -11,7 +11,7 @@
 """
 import logging
 import threading
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from sqlalchemy.orm import Session
@@ -73,7 +73,7 @@ def precompute_single(db: Session, boq_item_id: int, dict_rows: list[dict]) -> O
     if existing:
         existing.candidates = cands
         existing.top1_score = int(cands[0]["score"])
-        existing.computed_at = datetime.utcnow()
+        existing.computed_at = datetime.now(timezone.utc)
         existing.cache_version = "v1"
         return existing
 
@@ -82,7 +82,7 @@ def precompute_single(db: Session, boq_item_id: int, dict_rows: list[dict]) -> O
         candidates=cands,
         top1_score=int(cands[0]["score"]),
         cache_version="v1",
-        computed_at=datetime.utcnow(),
+        computed_at=datetime.now(timezone.utc),
     )
     db.add(cache)
     return cache
@@ -109,7 +109,7 @@ def precompute_pending_matches(db: Session, batch_id: Optional[int] = None, limi
         "running": True,
         "total": 0,
         "processed": 0,
-        "started_at": datetime.utcnow().isoformat(),
+        "started_at": datetime.now(timezone.utc).isoformat(),
         "finished_at": None,
     })
 
@@ -129,7 +129,7 @@ def precompute_pending_matches(db: Session, batch_id: Optional[int] = None, limi
         logger.info(f"开始预匹配：{len(pending_ids)} 条待匹配")
 
         if not pending_ids:
-            _prematch_status.update({"running": False, "finished_at": datetime.utcnow().isoformat()})
+            _prematch_status.update({"running": False, "finished_at": datetime.now(timezone.utc).isoformat()})
             return {"status": "no_pending", "total": 0}
 
         dict_rows = _build_dict_rows(db)
@@ -147,12 +147,12 @@ def precompute_pending_matches(db: Session, batch_id: Optional[int] = None, limi
             _prematch_status["processed"] = i
 
         db.commit()
-        _prematch_status.update({"running": False, "finished_at": datetime.utcnow().isoformat()})
+        _prematch_status.update({"running": False, "finished_at": datetime.now(timezone.utc).isoformat()})
         logger.info(f"预匹配完成：{len(pending_ids)} 条")
         return {"status": "completed", "total": len(pending_ids), "processed": len(pending_ids)}
 
     except Exception as e:
-        _prematch_status.update({"running": False, "finished_at": datetime.utcnow().isoformat()})
+        _prematch_status.update({"running": False, "finished_at": datetime.now(timezone.utc).isoformat()})
         logger.error(f"预匹配任务失败: {e}")
         return {"status": "failed", "error": str(e)}
 

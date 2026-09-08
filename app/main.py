@@ -18,6 +18,10 @@ app = FastAPI(
     title=settings.app_name,
     description="工程造价数据库 —— 多省多批次清单导入、标准化、聚合分析、单价分析",
     version="0.4.0",
+    # 生产环境禁用 API 文档（安全加固：避免接口结构泄漏）
+    docs_url="/docs" if settings.env == "development" else None,
+    redoc_url="/redoc" if settings.env == "development" else None,
+    openapi_url="/openapi.json" if settings.env == "development" else None,
 )
 
 # 审计中间件（所有写操作落审计日志）

@@ -13,7 +13,7 @@ append-only 三重保障（M1 §4.8）：
 
 审计四元组：operator/reason/trace_id/timestamp（架构 §19.7）。
 """
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import String, Text, Integer, DateTime, Index
 from sqlalchemy.orm import Mapped, mapped_column
@@ -49,7 +49,7 @@ class AuditLog(Base):
         String(64), comment='追踪 ID（请求级，审计四元组之一）',
     )
     timestamp: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, nullable=False,
+        DateTime, default=lambda: datetime.now(timezone.utc), nullable=False,
         comment='时间（审计四元组之一）',
     )
     batch_id: Mapped[int | None] = mapped_column(

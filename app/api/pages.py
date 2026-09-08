@@ -239,8 +239,10 @@ async def dev_login(token: str = "", role: str = ROLE_ADMIN, next: str = "/porta
         safe_next = "/portal/dashboard"
     resp = RedirectResponse(url=safe_next, status_code=303)
     if token:
-        resp.set_cookie("zj_token", token, httponly=False, samesite="lax", max_age=60 * 60 * 24 * 7)
-        # 写入角色 Cookie（开发期指定角色，生产期由 OA SSO 映射）
+        # zj_token 设置 httponly=True 防 XSS 窃取（security.py 已支持 Cookie 认证）
+        # 开发期 samesite=lax，生产期应设 secure=True（需 HTTPS）
+        resp.set_cookie("zj_token", token, httponly=True, samesite="lax", max_age=60 * 60 * 24 * 7)
+        # zj_role 保持 httponly=False（前端需要读取角色来控制 UI 显示）
         if role not in (ROLE_ADMIN, ROLE_ESTIMATOR, ROLE_VIEWER):
             role = ROLE_ADMIN
         resp.set_cookie("zj_role", role, httponly=False, samesite="lax", max_age=60 * 60 * 24 * 7)

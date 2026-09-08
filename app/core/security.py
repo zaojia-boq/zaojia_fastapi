@@ -36,17 +36,27 @@ async def get_current_user(
 
     鉴权通过时写入 request.state.username（供 AuditMiddleware 读取）。
 
+    支持两种认证方式（按优先级）：
+    1. Authorization: Bearer <token> 头（API 调用）
+    2. zj_token Cookie（页面浏览，httponly=True 防 XSS 窃取）
+
     TODO: 对接易达 ECMS SSO 后，替换为 OA token 校验 + 角色映射。
     """
-    # fail-closed：无 Authorization 头 → 401
-    if not credentials:
+    # 优先从 Authorization 头获取 token
+    token = None
+    if credentials:
+        token = credentials.credentials
+    # 回退：从 Cookie 获取（页面浏览场景）
+    if not token:
+        token = request.cookies.get("zj_token")
+
+    # fail-closed：无 token → 401
+    if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="未登录：缺少 Authorization 头",
+            detail="未登录：缺少 Authorization 头或 Cookie",
             headers={"WWW-Authenticate": "Bearer"},
         )
-
-    token = credentials.credentials
 
     # 开发期：校验固定 dev_token
     if settings.env == "development":

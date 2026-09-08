@@ -10,7 +10,7 @@ ADR-F005：请求级审计的 operator 必须是真实用户，不得恒为 anon
 """
 import logging
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -73,7 +73,7 @@ def log_audit(db, model, res_id, action, operator="system", reason="",
         operator=operator or "system",
         reason=reason,
         trace_id=trace_id or str(uuid.uuid4()),
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.now(timezone.utc),
         batch_id=batch_id,
     )
     db.add(entry)
@@ -94,7 +94,7 @@ def audit_log(operator="system", action="", reason="", target="", **kwargs):
         "reason": reason,
         "target": target,
         "trace_id": str(uuid.uuid4()),
-        "timestamp": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+        "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
     }
 
 
