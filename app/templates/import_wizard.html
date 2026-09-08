@@ -27,14 +27,14 @@
     <div class="card">
       <!-- 步骤 1：选择文件 -->
       <div class="imp-pane" data-pane="0">
-        <div class="card-head"><div class="card-title">选择 Excel 文件</div>
-          <div class="right"><span class="chip">支持 .xlsx / .xlsm</span></div>
+        <div class="card-head"><div class="card-title">选择文件</div>
+          <div class="right"><span class="chip">支持 .xlsx / .xlsm / .xls / .csv</span></div>
         </div>
         <div class="drop" id="impDrop">
           <div style="font-size:30px;opacity:.5">&#8673;</div>
           <div style="margin-top:8px"><b>点击选择</b>或将文件拖拽到此处</div>
           <div class="muted small mt">解析在服务端完成，本步骤不写入数据库</div>
-          <input type="file" id="impFile" accept=".xlsx,.xlsm" hidden>
+          <input type="file" id="impFile" accept=".xlsx,.xlsm,.xls,.csv" hidden>
         </div>
         <div id="impFileInfo" class="mt"></div>
         <div class="note mt"><span>&#9432;</span><div>
@@ -92,6 +92,35 @@
         <div class="card-head"><div class="card-title">预览校验</div>
           <div class="right"><span class="chip" id="impPreviewCount">待解析</span></div>
         </div>
+
+        <!-- 校验报告（M2 深化：数据质量检查） -->
+        <div id="impValidation" class="mb" style="display:none">
+          <div class="card-head" style="padding:8px 0"><div class="card-title" style="font-size:14px">数据质量校验</div>
+            <div class="right"><span class="chip" id="impValidationStatus">待校验</span></div>
+          </div>
+          <div class="grid g3" style="margin:8px 0">
+            <div class="stat-card" style="padding:10px;border:1px solid #e5e7eb;border-radius:6px">
+              <div class="muted small" style="color:#6b7280">错误（阻断导入）</div>
+              <div class="mono" style="font-size:20px;font-weight:600;color:#dc2626" id="impValError">0</div>
+            </div>
+            <div class="stat-card" style="padding:10px;border:1px solid #e5e7eb;border-radius:6px">
+              <div class="muted small" style="color:#6b7280">警告（建议核对）</div>
+              <div class="mono" style="font-size:20px;font-weight:600;color:#d97706" id="impValWarning">0</div>
+            </div>
+            <div class="stat-card" style="padding:10px;border:1px solid #e5e7eb;border-radius:6px">
+              <div class="muted small" style="color:#6b7280">有效行 / 总行数</div>
+              <div class="mono" style="font-size:20px;font-weight:600;color:#059669" id="impValValid">0 / 0</div>
+            </div>
+          </div>
+          <!-- 校验结果详情（可折叠） -->
+          <div id="impValidationDetail" style="display:none;margin-top:8px">
+            <div class="sep"></div>
+            <div style="font-size:13px;font-weight:600;margin:8px 0">校验结果明细</div>
+            <div id="impValidationResults" style="max-height:200px;overflow-y:auto;font-size:12px"></div>
+          </div>
+          <button class="btn btn-ghost btn-sm mt" id="impValToggle" style="display:none" onclick="document.getElementById('impValidationDetail').style.display=document.getElementById('impValidationDetail').style.display==='none'?'block':'none';this.textContent=document.getElementById('impValidationDetail').style.display==='none'?'展开明细':'收起明细'">展开明细</button>
+        </div>
+
         <div id="impPreview">
           <div class="empty">
             <div class="ico">&#128269;</div>

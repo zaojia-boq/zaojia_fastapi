@@ -239,10 +239,12 @@
     showFileInfo(
       '<div class="stat-line"><span>文件</span><b>' + escapeHtml(data.filename || file.name) + '</b></div>' +
       '<div class="stat-line"><span>工作表</span><b>' + escapeHtml(data.sheet_name || '—') + '</b></div>' +
+      '<div class="stat-line"><span>文件类型</span><b class="mono">' + escapeHtml(data.file_type || 'xlsx') + '</b></div>' +
       '<div class="stat-line"><span>解析行数</span><b class="mono">' + (data.row_count || 0) + '</b></div>'
     );
     renderMapping(data);
     renderPreview(data);
+    renderValidation(data);
 
     const next = $('#impNext'); if (next) next.disabled = false;
     const exec = $('#impExecute'); if (exec) { exec.disabled = false; exec.textContent = '执行入库'; }
@@ -275,6 +277,76 @@
       '<div class="stat-line"><span class="muted">异常行</span><b class="mono">' + (data.anomaly_count || 0) + '</b></div>' +
       '<div class="stat-line"><span class="muted">解析合计</span><b class="mono">' + (data.parsed_total || 0) + '</b></div>';
     if (count) count.textContent = (data.row_count || 0) + ' 行';
+  }
+
+  // M2 深化：渲染数据质量校验报告
+  function renderValidation(data) {
+    const box = $('#impValidation');
+    if (!box) return;
+    const val = data.validation;
+    if (!val) { box.style.display = 'none'; return; }
+
+    box.style.display = 'block';
+
+    // 状态标签
+    const statusEl = $('#impValidationStatus');
+    if (statusEl) {
+      if (val.can_import) {
+        statusEl.textContent = '✓ 可导入';
+        statusEl.style.color = '#059669';
+      } else {
+        statusEl.textContent = '✗ 阻断导入';
+        statusEl.style.color = '#dc2626';
+      }
+    }
+
+    // 统计数字
+    const errEl = $('#impValError');
+    const warnEl = $('#impValWarning');
+    const validEl = $('#impValValid');
+    if (errEl) errEl.textContent = val.error_count || 0;
+    if (warnEl) warnEl.textContent = val.warning_count || 0;
+    if (validEl) validEl.textContent = (val.valid_rows || 0) + ' / ' + (val.total_rows || 0);
+
+    // 明细
+    const detailBox = $('#impValidationDetail');
+    const resultsBox = $('#impValidationResults');
+    const toggleBtn = $('#impValToggle');
+    const results = val.results || [];
+
+    if (results.length > 0 && resultsBox) {
+      let html = '';
+      for (const r of results.slice(0, 50)) {
+        const color = r.level === 'error' ? '#dc2626' : (r.level === 'warning' ? '#d97706' : '#6b7280');
+        const label = r.level === 'error' ? '错误' : (r.level === 'warning' ? '警告' : '信息');
+        html += '<div style="padding:4px 0;border-bottom:1px solid #f3f4f6">' +
+          '<span style="color:' + color + ';font-weight:600;margin-right:6px">[' + label + ']</span>' +
+          '<span class="muted">第 ' + (r.row_index + 1) + '行 · ' + escapeHtml(r.field || '') + '：</span>' +
+          escapeHtml(r.message || '') +
+          '</div>';
+      }
+      if (results.length > 50) {
+        html += '<div class="muted small mt" style="padding:4px 0">仅显示前 50 条，共 ' + results.length + ' 条</div>';
+      }
+      resultsBox.innerHTML = html;
+      if (detailBox) detailBox.style.display = 'none';
+      if (toggleBtn) {
+        toggleBtn.style.display = 'inline-block';
+        toggleBtn.textContent = '展开明细';
+      }
+    } else {
+      if (resultsBox) resultsBox.innerHTML = '<div class="muted small" style="padding:8px 0">无校验问题</div>';
+      if (detailBox) detailBox.style.display = 'none';
+      if (toggleBtn) toggleBtn.style.display = 'none';
+    }
+
+    // 如果有错误，禁用执行按钮
+    const exec = $('#impExecute');
+    if (exec && !val.can_import) {
+      exec.disabled = true;
+      exec.textContent = '存在错误，无法导入';
+      toast('数据校验未通过，请修正后重试', 'err');
+    }
   }
 
   async function doExecute() {
