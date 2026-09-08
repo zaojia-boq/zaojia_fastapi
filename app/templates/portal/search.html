@@ -17,7 +17,9 @@
     </div>
     <div class="page-actions">
       <a class="btn btn-sec" href="{{ keep(page) }}">复制当前条件</a>
-      <a class="btn btn-primary" href="/import">＋ 导入清单</a>
+      {% if user %}
+      <a class="btn btn-primary" href="/admin/import">＋ 导入清单</a>
+      {% endif %}
     </div>
   </div>
 
@@ -77,7 +79,7 @@
       </div>
       <div style="display:flex;gap:8px;align-items:flex-end">
         <button class="btn btn-primary" type="submit">检索</button>
-        <a class="btn btn-sec" href="/search">重置</a>
+        <a class="btn btn-sec" href="/portal/search">重置</a>
       </div>
     </form>
   </div>
@@ -176,9 +178,9 @@
         {% if data_error %}
           数据读取失败，未展示任何结果。
         {% elif params.kw or params.major or params.code or params.name or params.source or params.status %}
-          当前筛选条件过窄，可放宽条件或<a href="/search">重置筛选</a>。
+          当前筛选条件过窄，可放宽条件或<a href="/portal/search">重置筛选</a>。
         {% else %}
-          库中没有清单条目，请先<a href="/import">导入清单</a>。
+          库中没有清单条目，请先<a href="/admin/import">导入清单</a>。
         {% endif %}
       </div>
     </div>

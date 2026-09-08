@@ -290,8 +290,11 @@ def _demo_payload() -> dict[str, Any]:
 # 数据概览 —— 对标 dashboard.js loadData()
 # ============================================================================
 
-def get_dashboard_data(db: Session | None = None) -> dict[str, Any]:
-    """数据概览。统计口径：默认仅 active=True；单价相关默认只取 completed。"""
+def get_dashboard_data(db: Session | None = None, only_std: bool = False) -> dict[str, Any]:
+    """数据概览。统计口径：默认仅 active=True；单价相关默认只取 completed。
+
+    only_std=True 时仅统计已标准化（std_name 非空）的数据，用于未登录用户的数据可见性控制。
+    """
     if USE_MOCK_DATA:
         d = _demo_payload()
         return _empty_result(is_demo=True, **{
@@ -306,6 +309,11 @@ def get_dashboard_data(db: Session | None = None) -> dict[str, Any]:
         from app.models.material_dict import MaterialDict
 
         with _session_scope(db) as s:
+            # 基础过滤条件
+            base_filter = [BoqItem.active == True]  # noqa: E712
+            if only_std:
+                base_filter.append(BoqItem.std_name != None)  # noqa: E711
+
             # ---- KPI（口径分离：条目总数 vs 单价样本只取 completed）----
             row = s.query(
                 func.count(BoqItem.id).label("total"),
@@ -313,7 +321,7 @@ def get_dashboard_data(db: Session | None = None) -> dict[str, Any]:
                 func.coalesce(func.sum(case((BoqItem.unit_rate_num != None, 1), else_=0)), 0).label("price"),  # noqa: E711
                 func.coalesce(func.sum(case((BoqItem.material_dict_id == None, 1), else_=0)), 0).label("pending"),  # noqa: E711
                 func.count(func.distinct(BoqItem.project_name)).label("project_count"),
-            ).filter(BoqItem.active == True).one()  # noqa: E712
+            ).filter(*base_filter).one()
 
             total = int(row.total or 0)
             std = int(row.std or 0)
@@ -334,6 +342,7 @@ def get_dashboard_data(db: Session | None = None) -> dict[str, Any]:
                 BoqItem.active == True,  # noqa: E712
                 BoqItem.price_period != None,  # noqa: E711
                 BoqItem.price_period >= since,
+                *([BoqItem.std_name != None] if only_std else []),  # noqa: E711
             ).group_by("ym").order_by("ym").all()
             month_map = {r.ym: int(r.n) for r in month_rows if r.ym}
 
@@ -454,8 +463,12 @@ def search_boq_items(
     std_status: str = "",
     page: int = 1,
     per_page: int = PAGE_SIZE,
+    only_std: bool = False,
 ) -> dict[str, Any]:
-    """清单检索。多条件 AND 过滤 + 分页；page 越界自动夹取。"""
+    """清单检索。多条件 AND 过滤 + 分页；page 越界自动夹取。
+
+    only_std=True 时仅返回已标准化（std_name 非空）的数据，用于未登录用户的数据可见性控制。
+    """
     if USE_MOCK_DATA:
         rows = _demo_payload()["boq_rows"]
         return _empty_result(is_demo=True, rows=rows, hitCount=len(rows),
@@ -490,6 +503,10 @@ def search_boq_items(
                 q = q.filter(BoqItem.std_name != None)  # noqa: E711
             elif std_status == "pending":
                 q = q.filter(BoqItem.std_name == None)  # noqa: E711
+
+            # 数据可见性控制：未登录用户仅能看到已标准化数据
+            if only_std:
+                q = q.filter(BoqItem.std_name != None)  # noqa: E711
 
             total = q.count()
             pages = max(1, (total + per_page - 1) // per_page)

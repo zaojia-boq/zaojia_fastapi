@@ -7,7 +7,7 @@
       <div class="page-desc">批次元信息与清单项预览 · 共 {{ itemCount }} 条</div>
     </div>
     <div class="page-actions">
-      <a class="btn btn-ghost" href="/batches">← 返回批次列表</a>
+      <a class="btn btn-ghost" href="/admin/batches">← 返回批次列表</a>
       <a class="btn btn-sec" href="/search?batch_id={{ batch.id if batch else '' }}">检索该批次条目</a>
     </div>
   </div>
@@ -103,7 +103,7 @@
     <div class="empty">
       <div class="ico">&#9888;</div>
       <div class="t">批次不存在或加载失败</div>
-      <div class="s"><a href="/batches">返回批次列表</a></div>
+      <div class="s"><a href="/admin/batches">返回批次列表</a></div>
     </div>
   </div>
   {% endif %}

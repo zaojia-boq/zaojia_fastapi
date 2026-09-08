@@ -11,8 +11,12 @@
       </div>
     </div>
     <div class="page-actions">
-      <a class="btn btn-sec" href="/batches">批次管理</a>
-      <a class="btn btn-primary" href="/import">＋ 新增批次</a>
+      {% if user %}
+      <a class="btn btn-sec" href="/admin/batches">批次管理</a>
+      <a class="btn btn-primary" href="/admin/import">＋ 新增批次</a>
+      {% else %}
+      <a class="btn btn-primary" href="/login?token=zaojia-dev-token-2026&role=viewer&next=/portal/dashboard">登录查看完整数据</a>
+      {% endif %}
     </div>
   </div>
 
@@ -180,7 +184,7 @@
   <div class="card">
     <div class="card-head">
       <div class="card-title">最近导入批次</div>
-      <div class="right"><a class="btn btn-ghost btn-sm" href="/batches">全部批次</a></div>
+      <div class="right"><a class="btn btn-ghost btn-sm" href="/admin/batches">全部批次</a></div>
     </div>
     {% if batches %}
     <div class="tbl-wrap">
@@ -192,7 +196,7 @@
         <tbody>
           {% for b in batches %}
           <tr>
-            <td><a href="/batches">{{ b.name }}</a></td>
+            <td><a href="/admin/batches">{{ b.name }}</a></td>
             <td><span class="{{ b.typeChip }}">{{ b.typeLabel }}</span></td>
             <td class="td-num">{{ "{:,}".format(b.imported) }}</td>
             <td class="td-num">{{ b.anomaly }}</td>
@@ -207,7 +211,7 @@
     <div class="empty">
       <div class="ico">&#8673;</div>
       <div class="t">尚未导入任何批次</div>
-      <div class="s"><a href="/import">前往导入向导</a>，支持多省多格式清单批量入库</div>
+      <div class="s"><a href="/admin/import">前往导入向导</a>，支持多省多格式清单批量入库</div>
     </div>
     {% endif %}
   </div>
