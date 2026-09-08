@@ -1,0 +1,154 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}匹配确认{% endblock %}
+{% block content %}
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">匹配确认</h1>
+      <div class="page-desc">模糊匹配候选 · 必须由人工确认后方可回填标准字段</div>
+    </div>
+    <div class="page-actions">
+      <button class="btn btn-sec" id="selectAllBtn">全选当前页</button>
+      <button class="btn btn-sec" id="batchIgnoreBtn">批量忽略</button>
+      <button class="btn btn-primary" id="batchConfirmBtn">批量确认</button>
+    </div>
+  </div>
+
+  {% if not data_error %}
+  <div class="grid g21">
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title">待确认条目</div>
+          <div class="card-sub">
+            本期展示 {{ items|length }} 条 · 全库待归类 {{ "{:,}".format(pendingCount) }} 条 ·
+            本次候选涉及 {{ groupCount }} 个不同名称
+          </div>
+        </div>
+        <div class="right">
+          <div class="seg" id="matchSeg">
+            {% for f in filter_options %}
+            <button class="{{ 'on' if loop.first else '' }}" data-filter="{{ f.id }}">{{ f.label }}</button>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      {% if items %}
+      <div id="matchList">
+        {% for it in items %}
+          {% set top = it.cands[0] if it.cands else None %}
+          {% set score = top.score if top else 0 %}
+        <div class="match-item" data-boq-id="{{ it.id }}" data-score="{{ score }}">
+          <div class="row" style="justify-content:space-between;align-items:flex-start">
+            <div style="display:flex;gap:8px;align-items:flex-start">
+              <input type="checkbox" class="match-check" data-boq-id="{{ it.id }}" style="margin-top:4px">
+              <div>
+              <div><b>{{ it.name }}</b> <span class="code">{{ it.code }}</span></div>
+              <div class="muted small">{{ it.feat }}</div>
+              <div class="muted small">{{ it.proj }} · {{ it.unit }} · {{ it.price }} 元 ·
+                <span class="{{ it.src.cls }}">{{ it.src.label }}</span></div>
+              </div>
+            </div>
+            <a class="btn btn-ghost btn-sm" href="/search?kw={{ it.code|urlencode }}">查看原文</a>
+          </div>
+
+          {% if it.cands %}
+          <div class="sep"></div>
+          {% for c in it.cands %}
+          <div class="match" data-score="{{ c.score }}">
+            <div class="match-score">
+              <b style="color:{{ c.color }}">{{ "%.0f"|format(c.score) }}</b>
+              <div class="match-bar"><i style="width:{{ c.score }}%;background:{{ c.color }}"></i></div>
+            </div>
+            <div style="flex:1">
+              <div><b>{{ c.name }}</b>{% if c.spec %} <span class="muted small">· {{ c.spec }}</span>{% endif %}</div>
+              <div class="muted small">{{ c.category_path or '—' }}</div>
+            </div>
+            <button class="btn btn-sec btn-sm js-confirm-match" data-boq-id="{{ it.id }}" data-dict-id="{{ c.dict_id }}" data-dict-name="{{ c.name }}">确认为此项</button>
+          </div>
+          {% endfor %}
+          {% else %}
+          <div class="sep"></div>
+          <div class="muted small">无候选（字典为空或无相似度达标的条目），可手动添加。</div>
+          {% endif %}
+          <div class="sep"></div>
+          <div style="text-align:right">
+            <button class="btn btn-ghost btn-sm js-manual-add" data-boq-id="{{ it.id }}" data-name="{{ it.name }}" data-feat="{{ it.feat }}">
+              + 手动添加并确认
+            </button>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty">
+        <div class="ico">&#10003;</div>
+        <div class="t">没有待确认条目</div>
+        <div class="s">所有有效清单条目均已关联物料字典，无需人工判定。</div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- ======= 算法配置 ======= -->
+    <div class="card">
+      <div class="card-head"><div class="card-title">匹配算法配置</div></div>
+      <div class="stat-line"><span class="muted">候选池规模</span><b>{{ "{:,}".format(dictCount) }} 项</b></div>
+      <div class="stat-line"><span class="muted">召回算法</span><b>rapidfuzz ratio / partial_ratio</b></div>
+      <div class="stat-line"><span class="muted">评分权重</span><b>名称 0.7 + 规格 0.3</b></div>
+      <div class="stat-line"><span class="muted">类目层级加权</span><b>L1 0.5 / L2 0.8 / L3 1.0</b></div>
+      <div class="stat-line"><span class="muted">自动回填阈值</span><b>Top1 ≥ {{ thresholds.auto }} 且分差 &gt; 15</b></div>
+      <div class="stat-line"><span class="muted">候选展示下限</span><b>≥ {{ thresholds.cand }}</b></div>
+      <div class="stat-line"><span class="muted">语义兜底（M4）</span><b><span class="chip purple">LanceDB 未启用</span></b></div>
+      <div class="sep"></div>
+      <div class="note"><span>&#9432;</span><div>
+        候选由 <b>data/match_score.py</b> 确定性计算（字节级可复现），不经过大模型。
+        评分仅用于召回排序，<b>任何回填都必须人工确认</b>。
+      </div></div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ======= 手动添加并确认弹窗 ======= -->
+  <div class="modal-mask" id="manualAddModal" style="display:none">
+    <div class="modal" style="max-width:520px">
+      <div class="modal-head">
+        <div class="modal-title">手动添加物料并确认</div>
+        <button class="modal-close" data-close>&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row">
+          <label>一级分类 <span class="req">*</span></label>
+          <select id="manualL1" class="inp"></select>
+        </div>
+        <div class="form-row">
+          <label>二级分类 <span class="req">*</span></label>
+          <select id="manualL2" class="inp"></select>
+        </div>
+        <div class="form-row">
+          <label>物料名称 <span class="req">*</span></label>
+          <input type="text" id="manualName" class="inp" placeholder="物料标准名称">
+        </div>
+        <div class="form-row">
+          <label>规格</label>
+          <input type="text" id="manualSpec" class="inp" placeholder="规格型号（可选）">
+        </div>
+        <div class="form-row">
+          <label>业务同义词</label>
+          <input type="text" id="manualSynonyms" class="inp" placeholder="多个同义词用逗号分隔（可选）">
+        </div>
+        <div class="form-row">
+          <label>备注</label>
+          <textarea id="manualNote" class="inp" rows="2" placeholder="备注（可选）"></textarea>
+        </div>
+        <div class="note" style="margin-top:8px">
+          <span>&#9432;</span>
+          <div>添加后将自动关联到当前清单项，并记录学习记录（人工添加的物料会优先参与后续匹配）。</div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-sec" data-close>取消</button>
+        <button class="btn btn-primary" id="manualAddSubmit">添加并确认</button>
+      </div>
+    </div>
+  </div>
+{% endblock %}

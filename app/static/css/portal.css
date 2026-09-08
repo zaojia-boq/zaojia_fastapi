@@ -1,0 +1,26 @@
+/* Portal 前端展示页专属样式 */
+/* 轻量、展示导向、大间距、大字体 */
+
+/* Portal 页可在此覆盖基础样式 */
+.portal-page .content {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+/* 未登录提示条 */
+.portal-anon-banner {
+    background: linear-gradient(135deg, var(--color-primary, #4D7CFE), var(--color-primary-dark, #3B5FE0));
+    color: white;
+    padding: 12px 20px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.portal-anon-banner a {
+    color: white;
+    text-decoration: underline;
+    font-weight: 600;
+}

@@ -34,8 +34,8 @@ if os.path.isdir(_STATIC_DIR):
 
 @app.get("/", tags=["系统"])
 async def root():
-    """根路径跳转到数据概览页。"""
-    return RedirectResponse(url="/dashboard")
+    """根路径跳转到 Portal 数据概览页（方案 A：路由前缀分离）。"""
+    return RedirectResponse(url="/portal/dashboard", status_code=301)
 
 
 @app.get("/health", tags=["系统"])

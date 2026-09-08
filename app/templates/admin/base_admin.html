@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+
+{# Admin 后端管理页基础模板 #}
+{# 导航：概览 | 导入 | 批次 | 字典 | 匹配 | 质量 | 造价目录 | 设置（完整，8项） #}
+{# 鉴权：必须登录 + 角色校验（admin/estimator） #}
+
+{% block title %}{{ page_title|default('造价管理后台') }}{% endblock %}
+
+{# Admin 专属样式覆盖（可在 admin.css 中定义） #}
+{% block head_extra %}
+<link rel="stylesheet" href="/static/css/admin.css?v=20260908a">
+{% endblock %}

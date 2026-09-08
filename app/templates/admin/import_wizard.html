@@ -1,0 +1,211 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}导入向导{% endblock %}
+{% block content %}
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">导入向导</h1>
+      <div class="page-desc">Excel 清单导入 · 预览阶段不写库，确认后才入库</div>
+    </div>
+    <div class="page-actions">
+      <button class="btn btn-sec" id="impPrev" disabled>上一步</button>
+      <button class="btn btn-primary" id="impNext" disabled>下一步</button>
+    </div>
+  </div>
+
+  <!-- ======= 步骤条（由 step_defs 渲染）======= -->
+  <div class="steps" id="impSteps">
+    {% for s in step_defs %}
+      {% if not loop.first %}<div class="step-line" data-line="{{ loop.index0 }}"></div>{% endif %}
+      <div class="step {% if loop.first %}on{% endif %}" data-step="{{ loop.index0 }}">
+        <span class="step-dot">{{ loop.index }}</span>
+        <span class="step-label">{{ s.label }}</span>
+      </div>
+    {% endfor %}
+  </div>
+
+  <div class="grid g21">
+    <div class="card">
+      <!-- 步骤 1：选择文件 -->
+      <div class="imp-pane" data-pane="0">
+        <div class="card-head"><div class="card-title">选择文件</div>
+          <div class="right"><span class="chip">支持 .xlsx / .xlsm / .xls / .csv</span></div>
+        </div>
+        <div class="drop" id="impDrop">
+          <div style="font-size:30px;opacity:.5">&#8673;</div>
+          <div style="margin-top:8px"><b>点击选择</b>或将文件拖拽到此处</div>
+          <div class="muted small mt">解析在服务端完成，本步骤不写入数据库</div>
+          <input type="file" id="impFile" accept=".xlsx,.xlsm,.xls,.csv" hidden>
+        </div>
+        <div id="impFileInfo" class="mt"></div>
+        <div class="note mt"><span>&#9432;</span><div>
+          导入需具备 <b>admin</b> 权限。若接口返回 401，请在下方填写开发令牌
+          （保存在浏览器本地，不会上传至任何第三方）。
+        </div></div>
+        <div class="field mt">
+          <label for="impToken">访问令牌（Bearer）</label>
+          <input class="inp" id="impToken" placeholder="留空则使用本地已保存的令牌">
+        </div>
+      </div>
+
+      <!-- 步骤 2：数据来源 -->
+      <div class="imp-pane hide" data-pane="1">
+        <div class="card-head"><div class="card-title">选择数据性质</div>
+          <div class="right"><span class="chip err">决定统计口径</span></div>
+        </div>
+        <div id="impSources">
+          {% for s in source_defs %}
+          <label class="imp-src">
+            <input type="radio" name="impSourceType" value="{{ s.value }}" {% if loop.first %}checked{% endif %}>
+            <span><b>{{ s.label }}</b><span class="muted small">{{ s.desc }}</span></span>
+          </label>
+          {% endfor %}
+        </div>
+        <div class="sep"></div>
+        <div class="grid g2">
+          <div class="field"><label for="impProvince">地区（可选）</label>
+            <input class="inp" id="impProvince" placeholder="如 辽宁省"></div>
+          <div class="field"><label for="impPeriod">价格期（可选，YYYY-MM）</label>
+            <input class="inp" id="impPeriod" placeholder="如 2026-08"></div>
+        </div>
+        <div class="note mt"><span>&#9432;</span><div>
+          仅 <b>已完工程</b> 计入历史均价统计。误将招标控制价 / 信息价标为已完工程，
+          会直接污染单价分析结果。
+        </div></div>
+      </div>
+
+      <!-- 步骤 3：字段映射 -->
+      <div class="imp-pane hide" data-pane="2">
+        <div class="card-head"><div class="card-title">字段映射</div>
+          <div class="right"><span class="chip" id="impMapCount">待解析</span></div>
+        </div>
+
+        <!-- 模板管理（M2 深化） -->
+        <div id="impTemplateBar" class="mb" style="display:none;padding:8px 0;border-bottom:1px solid #e5e7eb;margin-bottom:12px">
+          <div class="grid g3" style="align-items:end">
+            <div class="field">
+              <label for="impTplLoad">加载模板</label>
+              <select class="inp" id="impTplLoad" onchange="loadMappingTemplate(this.value)">
+                <option value="">— 选择模板 —</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="impTplName">模板名称</label>
+              <input class="inp" id="impTplName" placeholder="输入模板名称保存">
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-primary btn-sm" onclick="saveMappingTemplate()">保存模板</button>
+              <button class="btn btn-ghost btn-sm" onclick="resetMappingToAuto()">重置自动</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 可编辑映射表格 -->
+        <div id="impMapping">
+          <div class="empty">
+            <div class="ico">&#9635;</div>
+            <div class="t">尚未解析文件</div>
+            <div class="s">完成第 1 步上传后，系统会依据表头别名库自动匹配字段，可手动调整。</div>
+          </div>
+        </div>
+
+        <!-- 映射说明 -->
+        <div class="note mt" id="impMapNote" style="display:none"><span>&#9432;</span><div>
+          可手动调整每列对应的标准字段；调整后「预览校验」和「执行入库」将使用新映射。
+          保存为模板后，下次导入相同格式文件可直接加载。
+        </div></div>
+      </div>
+
+      <!-- 步骤 4：预览校验 -->
+      <div class="imp-pane hide" data-pane="3">
+        <div class="card-head"><div class="card-title">预览校验</div>
+          <div class="right"><span class="chip" id="impPreviewCount">待解析</span></div>
+        </div>
+
+        <!-- 校验报告（M2 深化：数据质量检查） -->
+        <div id="impValidation" class="mb" style="display:none">
+          <div class="card-head" style="padding:8px 0"><div class="card-title" style="font-size:14px">数据质量校验</div>
+            <div class="right"><span class="chip" id="impValidationStatus">待校验</span></div>
+          </div>
+          <div class="grid g3" style="margin:8px 0">
+            <div class="stat-card" style="padding:10px;border:1px solid #e5e7eb;border-radius:6px">
+              <div class="muted small" style="color:#6b7280">错误（阻断导入）</div>
+              <div class="mono" style="font-size:20px;font-weight:600;color:#dc2626" id="impValError">0</div>
+            </div>
+            <div class="stat-card" style="padding:10px;border:1px solid #e5e7eb;border-radius:6px">
+              <div class="muted small" style="color:#6b7280">警告（建议核对）</div>
+              <div class="mono" style="font-size:20px;font-weight:600;color:#d97706" id="impValWarning">0</div>
+            </div>
+            <div class="stat-card" style="padding:10px;border:1px solid #e5e7eb;border-radius:6px">
+              <div class="muted small" style="color:#6b7280">有效行 / 总行数</div>
+              <div class="mono" style="font-size:20px;font-weight:600;color:#059669" id="impValValid">0 / 0</div>
+            </div>
+          </div>
+          <!-- 校验结果详情（可折叠） -->
+          <div id="impValidationDetail" style="display:none;margin-top:8px">
+            <div class="sep"></div>
+            <div style="font-size:13px;font-weight:600;margin:8px 0">校验结果明细</div>
+            <div id="impValidationResults" style="max-height:200px;overflow-y:auto;font-size:12px"></div>
+          </div>
+          <button class="btn btn-ghost btn-sm mt" id="impValToggle" style="display:none" onclick="document.getElementById('impValidationDetail').style.display=document.getElementById('impValidationDetail').style.display==='none'?'block':'none';this.textContent=document.getElementById('impValidationDetail').style.display==='none'?'展开明细':'收起明细'">展开明细</button>
+        </div>
+
+        <div id="impPreview">
+          <div class="empty">
+            <div class="ico">&#128269;</div>
+            <div class="t">暂无预览数据</div>
+            <div class="s">解析完成后在此核对行数、编码解析结果与异常行。</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 步骤 5：确认入库 -->
+      <div class="imp-pane hide" data-pane="4">
+        <div class="card-head"><div class="card-title">确认入库</div></div>
+        <div id="impConfirm">
+          <div class="empty">
+            <div class="ico">&#10003;</div>
+            <div class="t">等待确认</div>
+            <div class="s">核对无误后执行入库，系统将创建批次、归档源文件并固化校验和。</div>
+          </div>
+        </div>
+        <button class="btn btn-primary mt" id="impExecute" disabled>执行入库</button>
+      </div>
+    </div>
+
+    <!-- ======= 右栏 ======= -->
+    <div>
+      <div class="card mb">
+        <div class="card-head"><div class="card-title">编码解析说明</div></div>
+        <div class="note mb"><span>&#9432;</span><div>
+          规范文件为 <b>9 位</b>编码；实际工程导入常为 <b>12 位</b>
+          （前 9 位清单码 + 后 3 位顺序码）。系统入库保留完整编码用于溯源，
+          <b>匹配与聚合统一取前 9 位</b>。
+        </div></div>
+        <div class="stat-line"><span class="muted">解析结果</span><b class="mono" id="impCodeStat">待解析</b></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">最近批次</div>
+          <div class="right"><a class="btn btn-ghost btn-sm" href="/batches">全部</a></div>
+        </div>
+        {% if batches %}
+          {% for b in batches %}
+          <div class="stat-line">
+            <span>{{ b.name|truncate(18, True) }}</span>
+            <b><span class="{{ b.typeChip }}">{{ b.typeLabel }}</span></b>
+          </div>
+          <div class="small muted" style="margin:-4px 0 8px">
+            {{ "{:,}".format(b.imported) }} 行 · 异常 {{ b.anomaly }} · {{ b.at }}
+          </div>
+          {% endfor %}
+        {% else %}
+        <div class="empty">
+          <div class="ico">&#9655;</div>
+          <div class="t">暂无历史批次</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+{% endblock %}

@@ -1,20 +1,20 @@
 # -*- coding: utf-8 -*-
-"""页面路由层 —— 渲染 9 个业务页面模板。
+"""页面路由层 —— 方案 A：单应用 + 路由前缀分离。
 
-设计原则：
-  - 复用 Odoo 版 nav_items.js 的导航结构（4 组 8 项），badge 由真实计数驱动
-  - 每个页面调用 page_services 获取数据，模板用 Jinja 循环渲染（非硬编码）
-  - **会话由 Depends(get_db) 注入**：测试期被 conftest 覆盖为内存库，
-    生产期走连接池；服务层不再自建连接，消除泄漏与方言耦合
-  - **autoescape 常开**：所有反射型参数（搜索词等）自动转义，防 XSS
-  - 渲染异常不抛出 500，统一渲染 error.html
+路由划分：
+- /portal/*  前端展示页（dashboard/search/price），可选登录，未登录可只读
+- /admin/*   后端管理页（dashboard/import/batches/dict/match/quality/settings），必须登录+角色
+- /login /logout  开发期认证（写入 zj_token + zj_role Cookie）
+- /          首页重定向到 /portal/dashboard
+- 旧路由（/dashboard /search 等）做 301 重定向到新前缀
 
-安全（M2.6.1 / P0-2 页面鉴权）：
-  - 所有页面路由加 Depends(get_page_user)，未带令牌 → 401
-  - 导入 / 批次 / 设置 三个写操作页加 require_page_admin（admin 角色）
-  - 开发期提供 /login?token= 写入 zj_token Cookie，浏览器一次认证全站
-  - 鉴权逻辑复用 app.core.security 的 dev_token 校验，OA SSO 对接后整体替换
-  - 不改动 security.py（维持泳道边界），仅在本文件内实现 cookie+header 双通道
+三用户角色：
+- admin      管理员：全部权限
+- estimator  造价工程师：查询 + 匹配确认 + 字典维护 + 批次查看
+- viewer     只读用户：查询 + 导出（Portal 页），无 Admin 页权限
+
+开发期角色指定：/login?token=<DEV_TOKEN>&role=<admin|estimator|viewer>
+生产期（OA SSO 对接后）：按 OA 用户部门/职位自动映射角色。
 """
 import logging
 from pathlib import Path
@@ -28,7 +28,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.services import page_services as svc
-from app.core.security import settings as sec_settings, ROLE_ADMIN
+from app.core.security import settings as sec_settings, ROLE_ADMIN, ROLE_ESTIMATOR, ROLE_VIEWER
 from data.match_score import HIGH_CONF_SCORE
 
 router = APIRouter()
@@ -44,17 +44,20 @@ _env = Environment(
 # 页面鉴权：cookie + header 双通道（开发期友好）
 _page_bearer = HTTPBearer(auto_error=False)
 
+# 角色权限矩阵：哪些角色可以访问 Admin 页
+ADMIN_ACCESS_ROLES = {ROLE_ADMIN, ROLE_ESTIMATOR}
+ADMIN_WRITE_ROLES = {ROLE_ADMIN}  # 导入/删除/设置等写操作仅 admin
 
-async def get_page_user(request: Request) -> dict:
-    """HTML 页面鉴权依赖。
 
-    - 优先取 Authorization: Bearer 头（API/脚本调用）
-    - 回退取 zj_token Cookie（浏览器导航 GET，无法自动带 Bearer 头）
-    - 开发期校验 settings.dev_token，返回固定 admin
-    - 生产期（OA SSO 未对接）拒绝一切访问（fail-closed）
+# ============================================================================
+# 鉴权依赖（三用户角色）
+# ============================================================================
 
-    注：逻辑与 app.core.security.get_current_user 的 dev 分支保持一致，
-    但额外支持 Cookie，便于浏览器整站导航认证；OA SSO 对接后此处一并替换。
+async def get_page_user_optional(request: Request) -> dict | None:
+    """Portal 页可选登录：未登录返回 None，已登录返回用户信息。
+
+    开发期：校验 zj_token Cookie 或 Authorization Bearer 头 == dev_token，
+    角色从 zj_role Cookie 读取（默认 admin，保持向后兼容）。
     """
     creds: HTTPAuthorizationCredentials | None = await _page_bearer(request)
     token = creds.credentials if creds else None
@@ -62,22 +65,19 @@ async def get_page_user(request: Request) -> dict:
         token = request.cookies.get("zj_token")
 
     if not token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="未登录：缺少访问令牌",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        return None  # 未登录
 
     if sec_settings.env == "development":
         if not sec_settings.dev_token or token != sec_settings.dev_token:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="令牌无效",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-        # 与 security.get_current_user 一致：写入 state 供 AuditMiddleware 落审计
-        request.state.username = "dev_admin"
-        return {"username": "dev_admin", "role": ROLE_ADMIN}
+            return None  # token 无效，视为未登录
+        # 角色从 zj_role Cookie 读取，默认 admin
+        role = request.cookies.get("zj_role", ROLE_ADMIN)
+        if role not in (ROLE_ADMIN, ROLE_ESTIMATOR, ROLE_VIEWER):
+            role = ROLE_ADMIN
+        username = f"dev_{role}"
+        request.state.username = username
+        request.state.user_role = role
+        return {"username": username, "role": role}
 
     # 生产期：OA SSO 未对接前拒绝（fail-closed）
     raise HTTPException(
@@ -86,35 +86,96 @@ async def get_page_user(request: Request) -> dict:
     )
 
 
-async def require_page_admin(user: dict = Depends(get_page_user)) -> dict:
-    """页面 admin 角色依赖（写操作页：导入 / 批次 / 设置）。
-
-    必须是「直接依赖函数 + 子依赖」形式，不能写成
-    ``def require_page_admin(): return checker`` 工厂——FastAPI 会把工厂的
-    返回值（checker 函数本身）直接注入为 user，而不会再解析其内部的
-    ``Depends(get_page_user)``，导致鉴权被完全绕过（P0 安全漏洞）。
-    """
-    if user.get("role") != ROLE_ADMIN:
+async def get_page_user(request: Request) -> dict:
+    """Admin 页必须登录：未登录 401。"""
+    user = await get_page_user_optional(request)
+    if not user:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"需要角色: {ROLE_ADMIN}",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="未登录：缺少访问令牌",
+            headers={"WWW-Authenticate": "Bearer"},
         )
     return user
 
+
+async def require_admin_role(user: dict = Depends(get_page_user)) -> dict:
+    """Admin 写操作页（导入/批次/设置）：必须 admin 角色。"""
+    if user.get("role") not in ADMIN_WRITE_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"需要角色: {ROLE_ADMIN}（当前: {user.get('role')}）",
+        )
+    return user
+
+
+async def require_admin_access(user: dict = Depends(get_page_user)) -> dict:
+    """Admin 普通页（字典/匹配/质量）：admin 或 estimator 角色。"""
+    if user.get("role") not in ADMIN_ACCESS_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"需要角色: {ROLE_ADMIN} 或 {ROLE_ESTIMATOR}（当前: {user.get('role')}）",
+        )
+    return user
+
+
+# ============================================================================
+# 导航配置（Portal 简洁3项 / Admin 完整8项）
+# ============================================================================
+
+PORTAL_NAV_GROUPS = [
+    {
+        "label": "数据查询",
+        "items": [
+            {"id": "dash", "label": "数据概览", "path": "/portal/dashboard", "icon": "◈", "badge_key": None},
+            {"id": "boq", "label": "清单检索", "path": "/portal/search", "icon": "▤", "badge_key": None},
+            {"id": "price", "label": "价格分析", "path": "/portal/price", "icon": "◑", "badge_key": None},
+        ],
+    },
+]
+
+ADMIN_NAV_GROUPS = [
+    {
+        "label": "数据管理",
+        "items": [
+            {"id": "dash", "label": "管理概览", "path": "/admin/dashboard", "icon": "◈", "badge_key": None},
+            {"id": "import", "label": "导入向导", "path": "/admin/import", "icon": "⇪", "badge_key": None},
+            {"id": "batch", "label": "批次管理", "path": "/admin/batches", "icon": "▷", "badge_key": None},
+        ],
+    },
+    {
+        "label": "标准化",
+        "items": [
+            {"id": "dict", "label": "物料字典", "path": "/admin/dict", "icon": "☰", "badge_key": None},
+            {"id": "match", "label": "匹配确认", "path": "/admin/match", "icon": "≋", "badge_key": "pending_match"},
+        ],
+    },
+    {
+        "label": "质量与设置",
+        "items": [
+            {"id": "quality", "label": "数据质量", "path": "/admin/quality", "icon": "◍", "badge_key": None},
+            {"id": "setting", "label": "系统设置", "path": "/admin/settings", "icon": "⚙", "badge_key": None},
+        ],
+    },
+]
+
+
+# ============================================================================
+# 渲染辅助
+# ============================================================================
 
 def _render(name: str, context: dict) -> HTMLResponse:
     """渲染模板；异常时降级到 error.html，不泄漏堆栈。"""
     try:
         html = _env.get_template(name).render(context)
         return HTMLResponse(content=html)
-    except Exception as exc:  # noqa: BLE001 —— 页面层兜底，避免 500 白屏
+    except Exception as exc:  # noqa: BLE001
         logger.exception("页面渲染失败: %s", name)
         try:
             html = _env.get_template("error.html").render({
                 "request": context.get("request"),
                 "active": context.get("active", ""),
                 "title": "页面错误",
-                "nav_groups": svc.NAV_GROUPS,
+                "nav_groups": context.get("nav_groups", ADMIN_NAV_GROUPS),
                 "nav_badges": {},
                 "message": f"页面「{context.get('title', name)}」渲染失败：{type(exc).__name__}",
                 "detail": str(exc),
@@ -124,17 +185,35 @@ def _render(name: str, context: dict) -> HTMLResponse:
             return HTMLResponse(content="<h1>500 页面渲染失败</h1>", status_code=500)
 
 
-def _ctx(request: Request, db: Session, active: str, title: str,
-         user: dict | None = None, **extra) -> dict:
-    """公共上下文：导航 + 动态 badge + 演示数据标记 + 当前用户。"""
+def _ctx_portal(request: Request, db: Session, active: str, title: str,
+                user: dict | None = None, **extra) -> dict:
+    """Portal 页公共上下文：Portal 导航 + 可选用户。"""
     ctx = {
         "request": request,
         "active": active,
         "title": title,
-        "nav_groups": svc.NAV_GROUPS,
+        "nav_groups": PORTAL_NAV_GROUPS,
+        "nav_badges": {},
+        "is_demo": svc.USE_MOCK_DATA,
+        "user": user,  # Portal 页 user 可能为 None（未登录）
+        "is_portal": True,
+    }
+    ctx.update(extra)
+    return ctx
+
+
+def _ctx_admin(request: Request, db: Session, active: str, title: str,
+               user: dict, **extra) -> dict:
+    """Admin 页公共上下文：Admin 导航 + 动态 badge + 必选用户。"""
+    ctx = {
+        "request": request,
+        "active": active,
+        "title": title,
+        "nav_groups": ADMIN_NAV_GROUPS,
         "nav_badges": svc.get_nav_badges(db),
         "is_demo": svc.USE_MOCK_DATA,
-        "user": user or {"username": "dev_admin", "role": ROLE_ADMIN},
+        "user": user,
+        "is_admin": True,
     }
     ctx.update(extra)
     return ctx
@@ -145,66 +224,103 @@ def _ctx(request: Request, db: Session, active: str, title: str,
 # ============================================================================
 
 @router.get("/login", include_in_schema=False)
-async def dev_login(token: str = "", next: str = "/"):
-    """开发期登录：写入 zj_token Cookie，浏览器一次认证全站。生产期 404。
+async def dev_login(token: str = "", role: str = ROLE_ADMIN, next: str = "/portal/dashboard"):
+    """开发期登录：写入 zj_token + zj_role Cookie，浏览器一次认证全站。
 
-    用法：/login?token=<DEV_TOKEN>&next=/dashboard
+    用法：/login?token=<DEV_TOKEN>&role=<admin|estimator|viewer>&next=/portal/dashboard
+    生产期 404。
     """
     if sec_settings.env != "development":
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not Found")
-    safe_next = next or "/"
+    safe_next = next or "/portal/dashboard"
     # 防开放重定向：仅允许站内相对路径
     if safe_next.startswith("http://") or safe_next.startswith("https://") \
             or safe_next.startswith("//"):
-        safe_next = "/"
+        safe_next = "/portal/dashboard"
     resp = RedirectResponse(url=safe_next, status_code=303)
     if token:
-        resp.set_cookie(
-            "zj_token", token,
-            # 开发期 httponly=False：app.js 的 getToken() 需从 cookie 读 token 放到
-            # Authorization: Bearer 头（API 路由的 get_current_user 仅认 Bearer 头）。
-            # TODO（OA SSO 对接后必须修复）：改为 httponly=True + samesite="strict" +
-            # secure=True，并让 API 路由同时支持 cookie 鉴权（credentials: include），
-            # 彻底消除 XSS 窃令牌风险。当前为开发期已知技术债务。
-            httponly=False,
-            samesite="lax",
-            max_age=60 * 60 * 24 * 7,
-        )
+        resp.set_cookie("zj_token", token, httponly=False, samesite="lax", max_age=60 * 60 * 24 * 7)
+        # 写入角色 Cookie（开发期指定角色，生产期由 OA SSO 映射）
+        if role not in (ROLE_ADMIN, ROLE_ESTIMATOR, ROLE_VIEWER):
+            role = ROLE_ADMIN
+        resp.set_cookie("zj_role", role, httponly=False, samesite="lax", max_age=60 * 60 * 24 * 7)
     return resp
 
 
 @router.get("/logout", include_in_schema=False)
-async def dev_logout(next: str = "/"):
-    """开发期登出：清除 zj_token Cookie。"""
-    safe_next = next or "/"
+async def dev_logout(next: str = "/portal/dashboard"):
+    """开发期登出：清除 zj_token + zj_role Cookie。"""
+    safe_next = next or "/portal/dashboard"
     resp = RedirectResponse(url=safe_next, status_code=303)
     resp.delete_cookie("zj_token")
+    resp.delete_cookie("zj_role")
     return resp
 
 
 # ============================================================================
-# 页面路由
+# 旧路由重定向（301 到新前缀）
+# ============================================================================
+@router.get("/dashboard", include_in_schema=False)
+async def old_dashboard():
+    return RedirectResponse(url="/portal/dashboard", status_code=301)
+
+
+@router.get("/search", include_in_schema=False)
+async def old_search():
+    return RedirectResponse(url="/portal/search", status_code=301)
+
+
+@router.get("/price", include_in_schema=False)
+async def old_price():
+    return RedirectResponse(url="/portal/price", status_code=301)
+
+
+@router.get("/import", include_in_schema=False)
+async def old_import():
+    return RedirectResponse(url="/admin/import", status_code=301)
+
+
+@router.get("/batches", include_in_schema=False)
+async def old_batches():
+    return RedirectResponse(url="/admin/batches", status_code=301)
+
+
+@router.get("/dict", include_in_schema=False)
+async def old_dict():
+    return RedirectResponse(url="/admin/dict", status_code=301)
+
+
+@router.get("/match", include_in_schema=False)
+async def old_match():
+    return RedirectResponse(url="/admin/match", status_code=301)
+
+
+@router.get("/quality", include_in_schema=False)
+async def old_quality():
+    return RedirectResponse(url="/admin/quality", status_code=301)
+
+
+@router.get("/settings", include_in_schema=False)
+async def old_settings():
+    return RedirectResponse(url="/admin/settings", status_code=301)
+
+
+# ============================================================================
+# Portal 前端展示页（/portal/*，可选登录）
 # ============================================================================
 
-@router.get("/", response_class=HTMLResponse, include_in_schema=False)
-async def root(request: Request, db: Session = Depends(get_db),
-              user: dict = Depends(get_page_user)):
-    """根路径 = 数据概览（与 /dashboard 同一模板，避免重复实现）。"""
-    return await dashboard_page(request, db, user)
-
-
-@router.get("/dashboard", response_class=HTMLResponse)
-async def dashboard_page(request: Request, db: Session = Depends(get_db),
-                         user: dict = Depends(get_page_user)):
-    """数据概览 —— 对标 dashboard.js。"""
+@router.get("/portal/dashboard", response_class=HTMLResponse)
+async def portal_dashboard(request: Request, db: Session = Depends(get_db),
+                           user: dict | None = Depends(get_page_user_optional)):
+    """Portal 数据概览 —— 未登录可访问（只读）。"""
     data = svc.get_dashboard_data(db)
-    return _render("dashboard.html", _ctx(request, db, "dash", "数据概览", user, **data))
+    return _render("portal/dashboard.html", _ctx_portal(request, db, "dash", "数据概览", user, **data))
 
 
-@router.get("/search", response_class=HTMLResponse)
-async def search_page(request: Request, db: Session = Depends(get_db),
-                      user: dict = Depends(get_page_user)):
-    """清单检索 —— 对标 boq.js。查询参数全量透传并回显。"""
+@router.get("/portal/search", response_class=HTMLResponse)
+async def portal_search(request: Request, db: Session = Depends(get_db),
+                        user: dict | None = Depends(get_page_user_optional)):
+    """Portal 清单检索 —— 未登录可访问（只读）。"""
     qp = request.query_params
     kw = qp.get("kw", "")
     f_major = qp.get("major", "")
@@ -222,7 +338,7 @@ async def search_page(request: Request, db: Session = Depends(get_db),
         db, kw=kw, f_major=f_major, f_code=f_code, f_name=f_name,
         f_source=f_source, f_anomaly=f_anomaly, std_status=std_status, page=page,
     )
-    return _render("search.html", _ctx(
+    return _render("portal/search.html", _ctx_portal(
         request, db, "boq", "清单检索", user,
         major_options=svc.MAJOR_DEFS,
         source_options=[{"id": k, "label": v} for k, v in svc.DATA_SOURCE_TYPES.items()],
@@ -232,10 +348,10 @@ async def search_page(request: Request, db: Session = Depends(get_db),
     ))
 
 
-@router.get("/price", response_class=HTMLResponse)
-async def price_page(request: Request, db: Session = Depends(get_db),
-                     user: dict = Depends(get_page_user)):
-    """单价分析 —— 对标 price.js。默认口径仅「已完工程」。"""
+@router.get("/portal/price", response_class=HTMLResponse)
+async def portal_price(request: Request, db: Session = Depends(get_db),
+                       user: dict | None = Depends(get_page_user_optional)):
+    """Portal 价格分析 —— 未登录可访问（只读）。"""
     qp = request.query_params
     try:
         range_months = int(qp.get("range", 24))
@@ -246,8 +362,8 @@ async def price_page(request: Request, db: Session = Depends(get_db),
     major = qp.get("major", "all")
 
     data = svc.get_price_analysis(db, range_months=range_months, major=major)
-    return _render("price.html", _ctx(
-        request, db, "price", "单价分析", user,
+    return _render("portal/price.html", _ctx_portal(
+        request, db, "price", "价格分析", user,
         range_options=[{"month": m, "label": f"近 {m} 月"} for m in (6, 12, 24, 36)],
         major_options=[{"prefix": "all", "label": "全部专业"}] + [
             {"prefix": m["prefix"], "label": m["name"]} for m in svc.MAJOR_DEFS
@@ -258,12 +374,24 @@ async def price_page(request: Request, db: Session = Depends(get_db),
     ))
 
 
-@router.get("/import", response_class=HTMLResponse)
-async def import_wizard_page(request: Request, db: Session = Depends(get_db),
-                             user: dict = Depends(require_page_admin)):
-    """导入向导 —— 对标 import.js。admin 专属。"""
+# ============================================================================
+# Admin 后端管理页（/admin/*，必须登录+角色）
+# ============================================================================
+
+@router.get("/admin/dashboard", response_class=HTMLResponse)
+async def admin_dashboard(request: Request, db: Session = Depends(get_db),
+                          user: dict = Depends(require_admin_access)):
+    """Admin 管理概览 —— admin/estimator 可访问。"""
+    data = svc.get_dashboard_data(db)
+    return _render("admin/dashboard.html", _ctx_admin(request, db, "dash", "管理概览", user, **data))
+
+
+@router.get("/admin/import", response_class=HTMLResponse)
+async def admin_import(request: Request, db: Session = Depends(get_db),
+                       user: dict = Depends(require_admin_role)):
+    """Admin 导入向导 —— 仅 admin。"""
     batches = svc.get_recent_batches(db, limit=5)
-    return _render("import_wizard.html", _ctx(
+    return _render("admin/import_wizard.html", _ctx_admin(
         request, db, "import", "导入向导", user,
         batches=batches,
         step_defs=[
@@ -284,67 +412,66 @@ async def import_wizard_page(request: Request, db: Session = Depends(get_db),
     ))
 
 
-@router.get("/batches", response_class=HTMLResponse)
-async def batches_page(request: Request, db: Session = Depends(get_db),
-                       user: dict = Depends(require_page_admin)):
-    """批次管理 —— 对标 batch.js。admin 专属。"""
+@router.get("/admin/batches", response_class=HTMLResponse)
+async def admin_batches(request: Request, db: Session = Depends(get_db),
+                        user: dict = Depends(require_admin_role)):
+    """Admin 批次管理 —— 仅 admin。"""
     data = svc.list_batches(db)
-    return _render("batches.html", _ctx(request, db, "batch", "批次管理", user, **data))
+    return _render("admin/batches.html", _ctx_admin(request, db, "batch", "批次管理", user, **data))
 
 
-@router.get("/batches/{batch_id}", response_class=HTMLResponse)
-async def batch_detail_page(request: Request, batch_id: int, db: Session = Depends(get_db),
-                            user: dict = Depends(require_page_admin)):
-    """批次详情 —— 批次元信息 + 清单项预览。admin 专属。"""
+@router.get("/admin/batches/{batch_id}", response_class=HTMLResponse)
+async def admin_batch_detail(request: Request, batch_id: int, db: Session = Depends(get_db),
+                              user: dict = Depends(require_admin_role)):
+    """Admin 批次详情 —— 仅 admin。"""
     data = svc.get_batch_detail(batch_id, db)
-    return _render("batch_detail.html", _ctx(request, db, "batch", "批次详情", user, **data))
+    return _render("admin/batch_detail.html", _ctx_admin(request, db, "batch", "批次详情", user, **data))
 
 
-@router.get("/dict", response_class=HTMLResponse)
-async def material_dict_page(request: Request, db: Session = Depends(get_db),
-                             user: dict = Depends(get_page_user)):
-    """物料字典 —— 对标 dict.js。支持 ?sel=<id> 选中节点。"""
+@router.get("/admin/dict", response_class=HTMLResponse)
+async def admin_dict(request: Request, db: Session = Depends(get_db),
+                     user: dict = Depends(require_admin_access)):
+    """Admin 物料字典 —— admin/estimator 可访问。"""
     try:
         sel = int(request.query_params.get("sel"))
     except (TypeError, ValueError):
         sel = None
     data = svc.get_material_dict_tree(db, selected=sel)
-    return _render("material_dict.html", _ctx(request, db, "dict", "物料字典", user, **data))
+    return _render("admin/material_dict.html", _ctx_admin(request, db, "dict", "物料字典", user, **data))
 
 
-@router.get("/match", response_class=HTMLResponse)
-async def match_confirm_page(request: Request, db: Session = Depends(get_db),
-                             user: dict = Depends(get_page_user)):
-    """匹配确认 —— 对标 match.js。候选由 data.match_score 确定性打分。"""
+@router.get("/admin/match", response_class=HTMLResponse)
+async def admin_match(request: Request, db: Session = Depends(get_db),
+                      user: dict = Depends(require_admin_access)):
+    """Admin 匹配确认 —— admin/estimator 可访问。"""
     data = svc.get_pending_matches(db)
-    return _render("match_confirm.html", _ctx(
+    return _render("admin/match_confirm.html", _ctx_admin(
         request, db, "match", "匹配确认", user,
         filter_options=[
             {"id": "all", "label": "全部"},
             {"id": "high", "label": "高置信（≥90）"},
             {"id": "low", "label": "低置信（<75）"},
         ],
-        # 阈值与 data.match_score / 设置页同源（import 常量，避免魔法数字）
         thresholds={"auto": HIGH_CONF_SCORE, "cand": 75.0},
         **data,
     ))
 
 
-@router.get("/quality", response_class=HTMLResponse)
-async def quality_page(request: Request, db: Session = Depends(get_db),
-                       user: dict = Depends(get_page_user)):
-    """数据质量 —— 对标 quality.js。"""
+@router.get("/admin/quality", response_class=HTMLResponse)
+async def admin_quality(request: Request, db: Session = Depends(get_db),
+                        user: dict = Depends(require_admin_access)):
+    """Admin 数据质量 —— admin/estimator 可访问。"""
     data = svc.get_quality_dashboard(db)
-    return _render("quality.html", _ctx(
+    return _render("admin/quality.html", _ctx_admin(
         request, db, "quality", "数据质量", user,
         source_labels=svc.DATA_SOURCE_TYPES,
         **data,
     ))
 
 
-@router.get("/settings", response_class=HTMLResponse)
-async def settings_page(request: Request, db: Session = Depends(get_db),
-                        user: dict = Depends(require_page_admin)):
-    """系统设置 —— 对标 setting.js。admin 专属。"""
+@router.get("/admin/settings", response_class=HTMLResponse)
+async def admin_settings(request: Request, db: Session = Depends(get_db),
+                         user: dict = Depends(require_admin_role)):
+    """Admin 系统设置 —— 仅 admin。"""
     data = svc.get_settings()
-    return _render("settings.html", _ctx(request, db, "setting", "系统设置", user, **data))
+    return _render("admin/settings.html", _ctx_admin(request, db, "setting", "系统设置", user, **data))

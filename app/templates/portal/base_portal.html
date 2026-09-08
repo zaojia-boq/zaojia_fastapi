@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+
+{# Portal 前端展示页基础模板 #}
+{# 导航：数据概览 | 清单检索 | 价格分析（简洁，3项） #}
+{# 鉴权：可选登录，未登录可只读访问 #}
+
+{% block title %}{{ page_title|default('造价数据门户') }}{% endblock %}
+
+{# Portal 专属样式覆盖（可在 portal.css 中定义） #}
+{% block head_extra %}
+<link rel="stylesheet" href="/static/css/portal.css?v=20260908a">
+{% endblock %}

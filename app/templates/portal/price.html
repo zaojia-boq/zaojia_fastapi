@@ -1,0 +1,220 @@
+{% extends "portal/base_portal.html" %}
+{% block title %}单价分析{% endblock %}
+
+{% macro q(p, m) -%}
+/price?range={{ p }}&amp;major={{ m }}
+{%- endmacro %}
+
+{% block content %}
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">单价分析</h1>
+      <div class="page-desc">
+        统计口径：仅 <b>已完工程</b>（completed）进入历史均价；
+        招标控制价 / 投标报价 / 信息价 / 待审清单不计入。
+        异常判定阈值 ±{{ kpis.threshold }}%，样本下限 {{ kpis.minSample }} 条。
+      </div>
+    </div>
+    <div class="page-actions">
+      <div class="seg">
+        {% for r in range_options %}
+        <a class="btn btn-sm {{ 'btn-primary' if current_range == r.month else 'btn-sec' }}"
+           href="{{ q(r.month, current_major) }}">{{ r.label }}</a>
+        {% endfor %}
+      </div>
+      <div class="seg">
+        {% for m in major_options %}
+        <a class="btn btn-sm {{ 'btn-primary' if current_major == m.prefix else 'btn-sec' }}"
+           href="{{ q(current_range, m.prefix) }}">{{ m.label }}</a>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  {% if not data_error %}
+  <!-- ======= KPI ======= -->
+  <div class="grid g4">
+    <div class="card kpi"><div class="kpi-bar"></div>
+      <div class="kpi-label">样本数</div>
+      <div class="kpi-val" style="font-size:26px">{{ "{:,}".format(kpis.sampleCount) }}</div>
+      <div class="kpi-foot">近 {{ current_range }} 个月有效单价行</div>
+    </div>
+    <div class="card kpi"><div class="kpi-bar k-ok"></div>
+      <div class="kpi-label">区间均价（元）</div>
+      <div class="kpi-val" style="font-size:26px">{{ "{:,.2f}".format(kpis.avg) if kpis.hasSamples else '—' }}</div>
+      <div class="kpi-foot"><span class="muted">最低 {{ "{:,.2f}".format(kpis.min) }} · 最高 {{ "{:,.2f}".format(kpis.max) }}</span></div>
+    </div>
+    <div class="card kpi"><div class="kpi-bar k-info"></div>
+      <div class="kpi-label">异常样本</div>
+      <div class="kpi-val" style="font-size:26px">{{ "{:,}".format(kpis.anomalyCount) }}</div>
+      <div class="kpi-foot">
+        {% if kpis.anomalyCount %}<span class="chip err">偏离 &gt; ±{{ kpis.threshold }}%</span>
+        {% else %}<span class="chip ok">无异常偏离</span>{% endif %}
+      </div>
+    </div>
+    <div class="card kpi"><div class="kpi-bar k-warn"></div>
+      <div class="kpi-label">离散系数 CV</div>
+      <div class="kpi-val" style="font-size:26px">{{ kpis.cv }}{% if kpis.cv != '—' %}%{% endif %}</div>
+      <div class="kpi-foot">
+        {% if kpis.cv != '—' and kpis.cv|float < 15 %}<span class="chip ok">离散度低 · 可直接引用</span>
+        {% elif kpis.cv != '—' %}<span class="chip warn">离散偏高 · 建议复核</span>
+        {% else %}<span class="muted">样本不足</span>{% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="grid g21">
+    <!-- ======= 趋势 ======= -->
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title">价格趋势与离散带</div>
+          <div class="card-sub">按价格期聚合（均价 ± 当期极值区间）</div>
+        </div>
+        <div class="right"><span class="chip">均价</span><span class="chip grey">极值区间</span></div>
+      </div>
+
+      {% if trend|length >= 2 %}
+        {% set W, H = 620, 170 %}
+        {% set avgs = trend|map(attribute='avg')|list %}
+        {% set vmax = [trend|map(attribute='max')|max, avgs|max]|max %}
+        {% set vmin = [trend|map(attribute='min')|min, avgs|min]|min %}
+        {% set span = (vmax - vmin) if (vmax - vmin) > 0 else 1 %}
+        {% set step = W / (trend|length - 1) %}
+        {% set acc = namespace(up=[], dn=[], ln=[]) %}
+        {% for t in trend %}
+          {% set x = loop.index0 * step %}
+          {% set ymax = H - 14 - (t.max - vmin) / span * (H - 28) %}
+          {% set ymin = H - 14 - (t.min - vmin) / span * (H - 28) %}
+          {% set ya = H - 14 - (t.avg - vmin) / span * (H - 28) %}
+          {% set acc.up = acc.up + ['%.1f,%.1f'|format(x, ymax)] %}
+          {% set acc.dn = acc.dn + ['%.1f,%.1f'|format(x, ymin)] %}
+          {% set acc.ln = acc.ln + ['%.1f,%.1f'|format(x, ya)] %}
+        {% endfor %}
+      <svg class="spark" viewBox="0 0 {{ W }} {{ H }}" preserveAspectRatio="none" style="height:170px"
+           role="img" aria-label="单价趋势图">
+        <polygon points="{{ (acc.up + (acc.dn|reverse|list))|join(' ') }}"
+                 fill="var(--c-accent-soft)" opacity=".85"></polygon>
+        <polyline points="{{ acc.ln|join(' ') }}" fill="none"
+                  stroke="var(--c-accent)" stroke-width="2.4" stroke-linejoin="round"></polyline>
+        {% for t in trend %}
+          <circle cx="{{ loop.index0 * step }}" cy="{{ H - 14 - (t.avg - vmin) / span * (H - 28) }}"
+                  r="3.2" fill="var(--c-accent)"><title>{{ t.period }}：均价 {{ t.avg }}（n={{ t.count }}）</title></circle>
+        {% endfor %}
+      </svg>
+      <div class="row mt small muted" style="justify-content:space-between">
+        {% for t in trend %}<span>{{ t.period }}</span>{% endfor %}
+      </div>
+      {% else %}
+      <div class="empty">
+        <div class="ico">&#128200;</div>
+        <div class="t">价格期不足，无法绘制趋势</div>
+        <div class="s">趋势至少需要 2 个不同价格期。当前有效价格期 {{ trend|length }} 个，
+          请确认清单导入时填写了价格期间（price_period）。</div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- ======= 直方图 + 分位 ======= -->
+    <div class="card">
+      <div class="card-head"><div class="card-title">单价分布直方图</div>
+        <div class="right"><span class="chip">10 等分桶</span></div>
+      </div>
+      {% if hist %}
+        {% set hmax = hist|map(attribute='count')|max %}
+      <div class="hist">
+        {% for h in hist %}
+        <i style="height:{{ (h.count / hmax * 100) if hmax else 0 }}%"
+           title="{{ h.lo }} ~ {{ h.hi }} 元：{{ h.count }} 条（{{ h.pct }}%）"></i>
+        {% endfor %}
+      </div>
+      <div class="row mt small muted" style="justify-content:space-between">
+        <span>{{ hist[0].lo }}</span><span>{{ hist[-1].hi }} 元</span>
+      </div>
+      {% else %}
+      <div class="empty">
+        <div class="ico">&#9636;</div>
+        <div class="t">暂无单价样本</div>
+        <div class="s">所选区间内没有带综合单价的「已完工程」条目。</div>
+      </div>
+      {% endif %}
+
+      <div class="sep"></div>
+      {% if statRows %}
+        {% for s in statRows %}
+        <div class="stat-line"><span class="muted">{{ s.k }}</span><b>{{ s.v }}</b></div>
+        {% endfor %}
+      {% else %}
+        <div class="muted small">样本不足，不输出分位数（避免以偏概全）。</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ======= 各聚合组对比 ======= -->
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title">聚合组报价对比</div>
+      <div class="right">
+        <span class="muted small">按 aggregate_id 聚合 · 偏离相对全区间均价</span>
+      </div>
+    </div>
+    {% if groups %}
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr><th>聚合身份</th><th class="td-num">样本数</th><th class="td-num">最低</th>
+              <th class="td-num">均价</th><th class="td-num">最高</th>
+              <th class="td-num">异常数</th><th class="td-num">偏离均价</th><th>判定</th></tr>
+        </thead>
+        <tbody>
+          {% for g in groups %}
+          <tr>
+            <td class="mono">{{ g.name }}</td>
+            <td class="td-num">{{ g.count }}</td>
+            <td class="td-num">{{ "{:,.2f}".format(g.min) }}</td>
+            <td class="td-num"><b>{{ "{:,.2f}".format(g.avg) }}</b></td>
+            <td class="td-num">{{ "{:,.2f}".format(g.max) }}</td>
+            <td class="td-num">{{ g.anomaly }}</td>
+            <td class="td-num">{{ "%+.1f"|format(g.deviation) }}%</td>
+            <td>
+              {% if g.deviation|abs > kpis.threshold %}<span class="chip err">偏离预警</span>
+              {% elif g.deviation|abs > kpis.threshold / 2 %}<span class="chip warn">关注</span>
+              {% else %}<span class="chip ok">区间内</span>{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty">
+      <div class="ico">&#9635;</div>
+      <div class="t">暂无可对比的聚合组</div>
+      <div class="s">需要同一聚合身份（aggregate_id）下存在多条带单价的已完工程记录。</div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- ======= 质量门禁（M4 准入）======= -->
+  {% if gate %}
+  <div class="card">
+    <div class="card-head"><div class="card-title">成本库准入门禁</div>
+      <div class="right">
+        {% if gate.passed %}<span class="chip ok">通过</span>{% else %}<span class="chip warn">未通过</span>{% endif %}
+      </div>
+    </div>
+    <div class="stat-line"><span class="muted">物料覆盖率</span>
+      <b>{{ "%.1f"|format((gate.coverage or 0) * 100) }}% <span class="muted small">/ 门槛 {{ "%.0f"|format(gate.thresholds.min_coverage * 100) }}%</span></b></div>
+    <div class="stat-line"><span class="muted">异常率</span>
+      <b>{{ "%.2f"|format((gate.anomaly_rate or 0) * 100) }}% <span class="muted small">/ 门槛 &lt; {{ "%.0f"|format(gate.thresholds.max_anomaly * 100) }}%</span></b></div>
+    {% if gate.blockers %}
+    <div class="note warn mt"><span>&#9888;</span>
+      <div>{% for b in gate.blockers %}<div>{{ b }}</div>{% endfor %}</div>
+    </div>
+    {% else %}
+    <div class="note mt"><span>&#9432;</span><div>双门槛均已达标，数据具备进入成本库的资格。</div></div>
+    {% endif %}
+  </div>
+  {% endif %}
+  {% endif %}
+{% endblock %}

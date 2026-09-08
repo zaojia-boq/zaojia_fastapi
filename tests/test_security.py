@@ -205,9 +205,12 @@ class TestAuthCoverage:
             for method, path in routes:
                 if path in ("/login", "/logout") and "pages.py" in py_file.name:
                     continue  # 开发期登录/登出公开
-                # 检查该路由函数是否有 Depends(get_current_user) 或 Depends(require_role
-                # 简化检查：文件中必须有 get_current_user 或 require_role 的 import
-                assert "get_current_user" in content or "require_role" in content, \
+                # 检查该路由函数是否有鉴权依赖
+                # pages.py 使用 get_page_user/get_page_user_optional/require_admin_role 等
+                # 其他 API 文件使用 get_current_user/require_role
+                auth_keywords = ["get_current_user", "require_role",
+                                  "get_page_user", "require_admin_role", "require_admin_access"]
+                assert any(kw in content for kw in auth_keywords), \
                     f"{py_file.name}: {method} {path} 所在文件缺少鉴权依赖 import"
 
 
