@@ -35,6 +35,7 @@ STANDARD_FIELDS = {
     'sub_division': {'label': '分部工程', 'required': False, 'type': 'string', 'aliases': ['分部工程', '分部', '专业工程']},
     'ordinal': {'label': '序号', 'required': False, 'type': 'string', 'aliases': ['序号', '编号', 'No', 'NO']},
     'remark': {'label': '备注', 'required': False, 'type': 'string', 'aliases': ['备注', '说明', '注']},
+    'provisional_sum': {'label': '暂估价', 'required': False, 'type': 'number', 'aliases': ['暂估价', '暂估金额', '暂估单价', '暂估', '暂定金额', '暂列金额']},
 }
 
 # 模板存储目录
