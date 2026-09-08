@@ -181,14 +181,19 @@ def get_cached_candidates(db: Session, boq_item_id: int) -> Optional[list[dict]]
     """从缓存读取匹配候选。
 
     Returns:
-        候选列表（缓存命中且未过期），None 表示缓存未命中或过期
+        候选列表（缓存命中且未过期），None 表示缓存未命中、过期或表不存在（降级为实时计算）
     """
-    cache = db.query(MatchCache).filter(MatchCache.boq_item_id == boq_item_id).first()
-    if not cache:
+    try:
+        cache = db.query(MatchCache).filter(MatchCache.boq_item_id == boq_item_id).first()
+        if not cache:
+            return None
+        if cache.is_expired(CACHE_TTL_HOURS):
+            return None
+        return cache.candidates
+    except Exception as e:
+        # 表不存在或查询出错时降级为实时计算，不影响页面正常使用
+        logger.warning(f"读取匹配缓存失败（降级为实时计算）: {type(e).__name__}: {e}")
         return None
-    if cache.is_expired(CACHE_TTL_HOURS):
-        return None
-    return cache.candidates
 
 
 def invalidate_cache(db: Session, boq_item_id: Optional[int] = None) -> int:

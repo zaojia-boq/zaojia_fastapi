@@ -8,7 +8,7 @@
     </div>
     <div class="page-actions">
       <a class="btn btn-ghost" href="/admin/batches">← 返回批次列表</a>
-      <a class="btn btn-sec" href="/search?batch_id={{ batch.id if batch else '' }}">检索该批次条目</a>
+      <a class="btn btn-sec" href="/portal/search?batch_id={{ batch.id if batch else '' }}">检索该批次条目</a>
     </div>
   </div>
 
@@ -88,7 +88,7 @@
       </table>
     </div>
     {% if itemCount > items|length %}
-    <div class="note mt"><span>&#9432;</span><div>仅显示前 100 条，<a href="/search?batch_id={{ batch.id }}">查看全部 {{ itemCount }} 条</a>。</div></div>
+    <div class="note mt"><span>&#9432;</span><div>仅显示前 100 条，<a href="/portal/search?batch_id={{ batch.id }}">查看全部 {{ itemCount }} 条</a>。</div></div>
     {% endif %}
     {% else %}
     <div class="empty">

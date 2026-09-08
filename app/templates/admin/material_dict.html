@@ -8,7 +8,7 @@
     <span class="tree-caret {% if n.hasChild %}open{% endif %}" data-caret="{{ n.id }}">
       {% if n.hasChild %}&#9654;{% endif %}
     </span>
-    <a href="/dict?sel={{ n.id }}" style="color:inherit;text-decoration:none;flex:1">{{ n.name }}</a>
+    <a href="/admin/dict?sel={{ n.id }}" style="color:inherit;text-decoration:none;flex:1">{{ n.name }}</a>
     {% if n.badge %}<span class="tree-badge">{{ n.badge }}</span>{% endif %}
   </div>
   {% if n.hasChild %}

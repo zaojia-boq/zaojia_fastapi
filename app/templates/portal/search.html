@@ -2,7 +2,7 @@
 {% block title %}清单检索{% endblock %}
 
 {% macro keep(p=1) -%}
-/search?kw={{ params.kw|urlencode }}&amp;major={{ params.major|urlencode }}&amp;code={{ params.code|urlencode }}&amp;name={{ params.name|urlencode }}&amp;source={{ params.source|urlencode }}&amp;anomaly={{ params.anomaly|urlencode }}&amp;status={{ params.status|urlencode }}&amp;page={{ p }}
+/portal/search?kw={{ params.kw|urlencode }}&amp;major={{ params.major|urlencode }}&amp;code={{ params.code|urlencode }}&amp;name={{ params.name|urlencode }}&amp;source={{ params.source|urlencode }}&amp;anomaly={{ params.anomaly|urlencode }}&amp;status={{ params.status|urlencode }}&amp;page={{ p }}
 {%- endmacro %}
 
 {% block content %}
@@ -91,8 +91,8 @@
       <div class="right">
         <div class="seg">
           <a class="btn btn-sm {{ 'btn-primary' if params.status == '' else 'btn-sec' }}" href="{{ keep(1) }}">全部</a>
-          <a class="btn btn-sm {{ 'btn-primary' if params.status == 'std' else 'btn-sec' }}" href="/search?status=std">已标准化</a>
-          <a class="btn btn-sm {{ 'btn-primary' if params.status == 'pending' else 'btn-sec' }}" href="/search?status=pending">待处理</a>
+          <a class="btn btn-sm {{ 'btn-primary' if params.status == 'std' else 'btn-sec' }}" href="/portal/search?status=std">已标准化</a>
+          <a class="btn btn-sm {{ 'btn-primary' if params.status == 'pending' else 'btn-sec' }}" href="/portal/search?status=pending">待处理</a>
         </div>
       </div>
     </div>
