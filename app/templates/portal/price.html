@@ -5,6 +5,10 @@
 /price?range={{ p }}&amp;major={{ m }}
 {%- endmacro %}
 
+{% block head_extra %}
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+{% endblock %}
+
 {% block content %}
   <div class="page-head">
     <div>
@@ -75,36 +79,8 @@
       </div>
 
       {% if trend|length >= 2 %}
-        {% set W, H = 620, 170 %}
-        {% set avgs = trend|map(attribute='avg')|list %}
-        {% set vmax = [trend|map(attribute='max')|max, avgs|max]|max %}
-        {% set vmin = [trend|map(attribute='min')|min, avgs|min]|min %}
-        {% set span = (vmax - vmin) if (vmax - vmin) > 0 else 1 %}
-        {% set step = W / (trend|length - 1) %}
-        {% set acc = namespace(up=[], dn=[], ln=[]) %}
-        {% for t in trend %}
-          {% set x = loop.index0 * step %}
-          {% set ymax = H - 14 - (t.max - vmin) / span * (H - 28) %}
-          {% set ymin = H - 14 - (t.min - vmin) / span * (H - 28) %}
-          {% set ya = H - 14 - (t.avg - vmin) / span * (H - 28) %}
-          {% set acc.up = acc.up + ['%.1f,%.1f'|format(x, ymax)] %}
-          {% set acc.dn = acc.dn + ['%.1f,%.1f'|format(x, ymin)] %}
-          {% set acc.ln = acc.ln + ['%.1f,%.1f'|format(x, ya)] %}
-        {% endfor %}
-      <svg class="spark" viewBox="0 0 {{ W }} {{ H }}" preserveAspectRatio="none" style="height:170px"
-           role="img" aria-label="单价趋势图">
-        <polygon points="{{ (acc.up + (acc.dn|reverse|list))|join(' ') }}"
-                 fill="var(--c-accent-soft)" opacity=".85"></polygon>
-        <polyline points="{{ acc.ln|join(' ') }}" fill="none"
-                  stroke="var(--c-accent)" stroke-width="2.4" stroke-linejoin="round"></polyline>
-        {% for t in trend %}
-          <circle cx="{{ loop.index0 * step }}" cy="{{ H - 14 - (t.avg - vmin) / span * (H - 28) }}"
-                  r="3.2" fill="var(--c-accent)"><title>{{ t.period }}：均价 {{ t.avg }}（n={{ t.count }}）</title></circle>
-        {% endfor %}
-      </svg>
-      <div class="row mt small muted" style="justify-content:space-between">
-        {% for t in trend %}<span>{{ t.period }}</span>{% endfor %}
-      </div>
+      <div id="priceTrendChart" style="width:100%;height:220px;"></div>
+      <script type="application/json" id="trendData">{{ trend|tojson }}</script>
       {% else %}
       <div class="empty">
         <div class="ico">&#128200;</div>
@@ -217,4 +193,88 @@
   </div>
   {% endif %}
   {% endif %}
+
+  <!-- ECharts 趋势图初始化 -->
+  <script>
+  (function() {
+    var chartEl = document.getElementById('priceTrendChart');
+    if (!chartEl || typeof echarts === 'undefined') return;
+    var chart = echarts.init(chartEl);
+    var raw = document.getElementById('trendData');
+    if (!raw) return;
+    var trend = JSON.parse(raw.textContent);
+    var periods = trend.map(function(t) { return t.period; });
+    var avgs = trend.map(function(t) { return t.avg; });
+    var maxs = trend.map(function(t) { return t.max; });
+    var mins = trend.map(function(t) { return t.min; });
+    var counts = trend.map(function(t) { return t.count; });
+
+    var option = {
+      tooltip: {
+        trigger: 'axis',
+        formatter: function(params) {
+          var idx = params[0].dataIndex;
+          var t = trend[idx];
+          return '<b>' + t.period + '</b><br/>' +
+                 '均价：<b>' + t.avg + ' 元</b><br/>' +
+                 '区间：' + t.min + ' ~ ' + t.max + ' 元<br/>' +
+                 '样本数：' + t.count + ' 条';
+        }
+      },
+      legend: {
+        data: ['均价', '极值区间'],
+        top: 0,
+        textStyle: { fontSize: 11, color: '#666' }
+      },
+      grid: { left: 50, right: 20, top: 35, bottom: 25 },
+      xAxis: {
+        type: 'category',
+        data: periods,
+        axisLabel: { fontSize: 11, color: '#888' },
+        axisLine: { lineStyle: { color: '#ddd' } }
+      },
+      yAxis: {
+        type: 'value',
+        name: '元',
+        nameTextStyle: { fontSize: 10, color: '#999' },
+        axisLabel: { fontSize: 10, color: '#888' },
+        splitLine: { lineStyle: { color: '#f0f0f0' } }
+      },
+      series: [
+        {
+          name: '区间下界',
+          type: 'line',
+          data: mins,
+          stack: 'band',
+          lineStyle: { opacity: 0 },
+          symbol: 'none',
+          areaStyle: { color: 'transparent' },
+          tooltip: { show: false }
+        },
+        {
+          name: '极值区间',
+          type: 'line',
+          data: maxs.map(function(v, i) { return v - mins[i]; }),
+          stack: 'band',
+          lineStyle: { opacity: 0 },
+          symbol: 'none',
+          areaStyle: { color: 'rgba(77, 124, 254, 0.12)' },
+          tooltip: { show: false }
+        },
+        {
+          name: '均价',
+          type: 'line',
+          data: avgs,
+          smooth: true,
+          symbol: 'circle',
+          symbolSize: 7,
+          lineStyle: { width: 2.5, color: '#4D7CFE' },
+          itemStyle: { color: '#4D7CFE', borderColor: '#fff', borderWidth: 2 }
+        }
+      ]
+    };
+    chart.setOption(option);
+    window.addEventListener('resize', function() { chart.resize(); });
+  })();
+  </script>
 {% endblock %}

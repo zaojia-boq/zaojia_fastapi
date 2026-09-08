@@ -275,10 +275,32 @@ async def upload_and_parse(
     if not file.filename:
         raise HTTPException(status_code=400, detail="未提供文件")
 
+    # N2：文件大小限制（60MB，防超大文件耗尽内存）
+    MAX_FILE_SIZE = 60 * 1024 * 1024  # 60MB
+    content_length = getattr(file, 'size', None) or getattr(file.file, 'seek', None)
+    # 先尝试从 content-length 头获取（如果可用）
+    if hasattr(file, 'headers') and 'content-length' in file.headers:
+        try:
+            declared_size = int(file.headers['content-length'])
+            if declared_size > MAX_FILE_SIZE:
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"文件过大：{declared_size / 1024 / 1024:.1f}MB，限制为 60MB",
+                )
+        except (ValueError, TypeError):
+            pass
+
     # 读取文件内容
     file_bytes = await file.read()
     if not file_bytes:
         raise HTTPException(status_code=400, detail="文件为空")
+
+    # N2：实际读取后再次校验大小（防 content-length 伪造）
+    if len(file_bytes) > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail=f"文件过大：{len(file_bytes) / 1024 / 1024:.1f}MB，限制为 60MB",
+        )
 
     # 解析（M2 深化：多格式支持 + 魔数校验）
     parsed = _parse_or_400(file_bytes, file.filename, sheet)

@@ -12,7 +12,10 @@
 - S8 备份恢复：每季度人工演练，无自动化（docs/backup_drill.md）
 - S9 审计四元组：operator/reason/trace_id/timestamp 非空
 
-反向用例 N1–N3 待补（P1，随 M2+/M3 测试扩展补齐）。
+反向用例 N1–N3 已补齐（2026-09-08，见 test_security_negative.py）：
+- N1：.xlsm 含宏文件 → 支持只读解析（不执行宏），魔数校验防伪造
+- N2：超大文件（>60MB）→ 返回 413，不进入解析
+- N3：归档失败 → 不阻断导入，数据仍入库且异常被记录
 """
 import os
 import re

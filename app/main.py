@@ -79,6 +79,8 @@ from app.api.quality import router as quality_router
 from app.api.batch_operation import router as batch_op_router
 from app.api.cost_catalog import router as cost_catalog_router
 from app.api.dict import router as dict_router
+from app.api.favorite import router as favorite_router
+from app.api.tag import router as tag_router
 
 app.include_router(import_router)
 app.include_router(query_router)
@@ -89,6 +91,8 @@ app.include_router(quality_router)
 app.include_router(batch_op_router)
 app.include_router(cost_catalog_router)
 app.include_router(dict_router)
+app.include_router(favorite_router)
+app.include_router(tag_router)
 
 # ------------------------------------------------------------------
 # 页面路由（M2.5 / M2.6）

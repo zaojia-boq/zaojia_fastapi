@@ -24,6 +24,14 @@ try:
     from app.models import cost_catalog  # noqa: F401
 except ImportError:
     pass
+try:
+    from app.models import favorite  # noqa: F401
+except ImportError:
+    pass
+try:
+    from app.models import tag  # noqa: F401
+except ImportError:
+    pass
 
 # 模块级测试 engine 和 SessionLocal（所有测试共享同一内存库）
 _test_engine = create_engine(
