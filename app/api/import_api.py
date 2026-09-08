@@ -15,7 +15,7 @@ import os
 import re
 import tempfile
 from datetime import datetime, timezone
-from typing import Optional, List
+from typing import Optional, List, Dict
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
 from sqlalchemy.orm import Session
@@ -75,6 +75,20 @@ def _parse_or_400(file_bytes: bytes, filename: str, sheet: Optional[str] = None)
     支持 .xlsx/.xlsm/.xls/.csv，使用魔数校验防扩展名伪造。
     任何解析失败统一转 400（不泄漏堆栈）。
     """
+    return _parse_or_400_with_mapping(file_bytes, filename, sheet, None)
+
+
+def _parse_or_400_with_mapping(
+    file_bytes: bytes,
+    filename: str,
+    sheet: Optional[str] = None,
+    custom_mapping: Optional[Dict[str, str]] = None,
+):
+    """解析文件（支持自定义映射）。
+
+    Args:
+        custom_mapping: 用户自定义字段映射（列名→字段名），为 None 时使用自动映射
+    """
     # M2 深化：魔数校验（防扩展名伪造）
     is_valid, file_type = validate_file_type(file_bytes, filename)
     if not is_valid:
@@ -93,7 +107,7 @@ def _parse_or_400(file_bytes: bytes, filename: str, sheet: Optional[str] = None)
     try:
         parsed = parse_file(file_bytes=file_bytes, filename=filename, sheet=sheet)
         # 转换为 import_service.parse_excel 的格式（兼容现有代码）
-        return _convert_to_legacy_format(parsed, file_bytes, filename)
+        return _convert_to_legacy_format(parsed, file_bytes, filename, custom_mapping)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:  # noqa: BLE001 —— 上传内容为不可信输入，统一降级为 400
@@ -101,7 +115,7 @@ def _parse_or_400(file_bytes: bytes, filename: str, sheet: Optional[str] = None)
         raise HTTPException(status_code=400, detail=f"文件解析失败：{e}")
 
 
-def _convert_to_legacy_format(parsed: dict, file_bytes: bytes, filename: str) -> dict:
+def _convert_to_legacy_format(parsed: dict, file_bytes: bytes, filename: str, custom_mapping: Optional[Dict[str, str]] = None) -> dict:
     """将多格式解析器的输出转换为 import_service.parse_excel 的兼容格式。
 
     完全兼容原始 parse_excel 的输出格式，包括：
@@ -110,6 +124,9 @@ def _convert_to_legacy_format(parsed: dict, file_bytes: bytes, filename: str) ->
     - unit_std 归一化（调用 normalize_unit）
     - anomaly_flag/anomaly_reason 异常标记
     - 章节/分部标题行过滤（无编码且无量价 → 跳过）
+
+    Args:
+        custom_mapping: 用户自定义映射（列名→字段名），为 None 时使用自动映射
     """
     import hashlib
     from data.gb_code import parse_gb_code
@@ -117,10 +134,10 @@ def _convert_to_legacy_format(parsed: dict, file_bytes: bytes, filename: str) ->
 
     file_hash = hashlib.sha256(file_bytes).hexdigest()
 
-    # 使用字段映射自动映射表头
+    # 使用字段映射（用户自定义优先，否则自动映射）
     headers = parsed.get('headers', [])
     rows_raw = parsed.get('rows', [])
-    mapping = auto_map_headers(headers)
+    mapping = custom_mapping if custom_mapping else auto_map_headers(headers)
 
     # 应用映射到每行，并转换为兼容格式
     rows = []
@@ -312,6 +329,7 @@ async def execute_import(
     data_source_type: str = Form("completed"),
     province: Optional[str] = Form(None),
     price_period: Optional[str] = Form(None),
+    field_mapping: Optional[str] = Form(None),
     user=Depends(require_role(ROLE_ADMIN)),
     db: Session = Depends(get_db),
 ):
@@ -324,6 +342,9 @@ async def execute_import(
     4. upsert_rows 入库（A 类覆盖/B 类保留/孤儿回灌）
     5. 固化校验和（checksum_count/checksum_total/checksum_hash）
     6. 写审计日志
+
+    Args:
+        field_mapping: 用户自定义字段映射（JSON 字符串，列名→字段名），为 None 时使用自动映射
     """
     # 路径穿越闸门（2026-09-06 审查修复）：必须位于临时目录且文件名匹配 file_token
     safe_path = _validate_tmp_path(tmp_path, file_token)
@@ -333,8 +354,17 @@ async def execute_import(
     with open(safe_path, 'rb') as f:
         file_bytes = f.read()
 
-    # 重新解析
-    parsed = _parse_or_400(file_bytes, os.path.basename(safe_path))
+    # 解析用户自定义映射（JSON 字符串）
+    custom_mapping = None
+    if field_mapping:
+        try:
+            import json
+            custom_mapping = json.loads(field_mapping)
+        except (json.JSONDecodeError, TypeError):
+            logger.warning(f"字段映射 JSON 解析失败，使用自动映射: {field_mapping[:100]}")
+
+    # 重新解析（使用用户自定义映射）
+    parsed = _parse_or_400_with_mapping(file_bytes, os.path.basename(safe_path), None, custom_mapping)
 
     # 1. 创建批次
     batch_name = f"{parsed.get('filename', '未命名')}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
@@ -582,3 +612,93 @@ async def list_batch_items(
             for item in items
         ],
     }
+
+
+# ====== M2 深化：字段映射模板管理 API ======
+
+from data.field_mapper import (
+    save_template, load_template, list_templates, delete_template,
+    STANDARD_FIELDS, validate_mapping,
+)
+from pydantic import BaseModel
+
+
+class TemplateSaveRequest(BaseModel):
+    name: str
+    mapping: Dict[str, str]
+    headers: List[str]
+    filename_pattern: str = ''
+    description: str = ''
+
+
+@router.get("/templates")
+async def list_import_templates(
+    user=Depends(get_current_user),
+):
+    """列出所有字段映射模板。"""
+    templates = list_templates()
+    return {'templates': templates, 'total': len(templates)}
+
+
+@router.post("/templates")
+async def save_import_template(
+    req: TemplateSaveRequest,
+    user=Depends(require_role(ROLE_ADMIN)),
+):
+    """保存字段映射模板。"""
+    # 校验映射
+    validation = validate_mapping(req.mapping, req.headers)
+    if not validation['valid']:
+        raise HTTPException(status_code=400, detail='; '.join(validation['errors']))
+
+    result = save_template(
+        template_name=req.name,
+        mapping=req.mapping,
+        headers=req.headers,
+        filename_pattern=req.filename_pattern,
+        description=req.description,
+    )
+    if not result['ok']:
+        raise HTTPException(status_code=500, detail=result['message'])
+    return result
+
+
+@router.get("/templates/{name}")
+async def get_import_template(
+    name: str,
+    user=Depends(get_current_user),
+):
+    """加载指定字段映射模板。"""
+    template = load_template(name)
+    if not template:
+        raise HTTPException(status_code=404, detail=f"模板「{name}」不存在")
+    return template
+
+
+@router.delete("/templates/{name}")
+async def delete_import_template(
+    name: str,
+    user=Depends(require_role(ROLE_ADMIN)),
+):
+    """删除字段映射模板。"""
+    ok = delete_template(name)
+    if not ok:
+        raise HTTPException(status_code=404, detail=f"模板「{name}」不存在")
+    return {'ok': True, 'message': f"模板「{name}」已删除"}
+
+
+@router.get("/standard-fields")
+async def get_standard_fields(
+    user=Depends(get_current_user),
+):
+    """获取标准字段定义（用于前端映射下拉框）。"""
+    fields = []
+    for field_name, field_def in STANDARD_FIELDS.items():
+        fields.append({
+            'name': field_name,
+            'label': field_def['label'],
+            'required': field_def['required'],
+            'type': field_def['type'],
+            'aliases': field_def['aliases'],
+        })
+    return {'fields': fields, 'total': len(fields)}

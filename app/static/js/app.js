@@ -234,7 +234,11 @@
       tmp_path: data.tmp_path,
       filename: data.filename,
       sheet_name: data.sheet_name,
+      headers: data.headers || [],
+      auto_mapping: data.field_mapping || {},
+      rows: data.rows || [],
     };
+    window.__impMapping = Object.assign({}, data.field_mapping || {});
 
     showFileInfo(
       '<div class="stat-line"><span>文件</span><b>' + escapeHtml(data.filename || file.name) + '</b></div>' +
@@ -251,20 +255,186 @@
     toast('解析完成，请继续配置后执行入库', 'ok');
   }
 
+  // M2 深化：标准字段列表（用于映射下拉框）
+  let __standardFields = [];
+  let __templateList = [];
+
+  // 页面加载时获取标准字段和模板列表
+  async function initMappingData() {
+    try {
+      const [fieldsResp, tplResp] = await Promise.all([
+        apiFetch('/api/import/standard-fields'),
+        apiFetch('/api/import/templates'),
+      ]);
+      if (fieldsResp.ok) {
+        const data = await fieldsResp.json();
+        __standardFields = data.fields || [];
+      }
+      if (tplResp.ok) {
+        const data = await tplResp.json();
+        __templateList = data.templates || [];
+        updateTemplateSelect();
+      }
+    } catch (e) {
+      console.warn('获取映射数据失败:', e);
+    }
+  }
+
+  function updateTemplateSelect() {
+    const sel = $('#impTplLoad');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">— 选择模板 —</option>';
+    for (const tpl of __templateList) {
+      const opt = document.createElement('option');
+      opt.value = tpl.name;
+      opt.textContent = tpl.name + (tpl.description ? ' — ' + tpl.description : '');
+      sel.appendChild(opt);
+    }
+  }
+
   function renderMapping(data) {
     const box = $('#impMapping');
     const count = $('#impMapCount');
+    const tplBar = $('#impTemplateBar');
+    const mapNote = $('#impMapNote');
     if (!box) return;
+
+    const headers = data.headers || [];
+    const mapping = data.field_mapping || {};
+
+    if (tplBar) tplBar.style.display = 'block';
+    if (mapNote) mapNote.style.display = 'block';
+
+    // 渲染可编辑映射表格
+    let html = '<table class="data-table" style="width:100%;font-size:13px"><thead><tr>' +
+      '<th style="text-align:left;padding:6px 8px;border-bottom:1px solid #e5e7eb">原始列名</th>' +
+      '<th style="text-align:left;padding:6px 8px;border-bottom:1px solid #e5e7eb">映射到标准字段</th>' +
+      '<th style="text-align:left;padding:6px 8px;border-bottom:1px solid #e5e7eb">示例值</th>' +
+      '</tr></thead><tbody>';
+
+    for (let i = 0; i < headers.length; i++) {
+      const header = headers[i] || '';
+      if (!header.trim()) continue;
+      const currentField = mapping[header] || '';
+      // 取第一行的示例值
+      const sampleVal = (data.rows && data.rows[0] && data.rows[0][i] !== undefined) ? String(data.rows[0][i]).slice(0, 30) : '';
+
+      html += '<tr>' +
+        '<td style="padding:6px 8px;border-bottom:1px solid #f3f4f6;font-family:monospace">' + escapeHtml(header) + '</td>' +
+        '<td style="padding:4px 8px;border-bottom:1px solid #f3f4f6">' +
+        '<select class="inp map-field-select" data-header="' + escapeHtml(header) + '" style="width:100%;padding:4px 8px;font-size:13px" onchange="updateFieldMapping(this)">' +
+        '<option value="">— 不映射 —</option>';
+      for (const f of __standardFields) {
+        const selected = currentField === f.name ? 'selected' : '';
+        const reqMark = f.required ? ' *' : '';
+        html += '<option value="' + f.name + '" ' + selected + '>' + f.label + reqMark + ' (' + f.type + ')</option>';
+      }
+      html += '</select></td>' +
+        '<td style="padding:6px 8px;border-bottom:1px solid #f3f4f6;color:#6b7280;font-size:12px">' + escapeHtml(sampleVal) + '</td>' +
+        '</tr>';
+    }
+    html += '</tbody></table>';
+
+    // 未识别列提示
     const unrec = (data.unrecognized_columns || []);
-    const warns = (data.warnings || []);
-    box.innerHTML =
-      '<div class="stat-line"><span class="muted">识别行数</span><b class="mono">' + (data.row_count || 0) + '</b></div>' +
-      '<div class="stat-line"><span class="muted">跳过行</span><b class="mono">' + (data.skipped_count || 0) + '</b></div>' +
-      '<div class="stat-line"><span class="muted">异常行</span><b class="mono">' + (data.anomaly_count || 0) + '</b></div>' +
-      (unrec.length ? '<div class="note mt"><span>ⓘ</span><div>未识别列：' + escapeHtml(unrec.join('、')) + '</div></div>' : '') +
-      (warns.length ? '<div class="note mt"><span>⚠</span><div>' + escapeHtml(warns.join('；')) + '</div></div>' : '') +
-      '<div class="note mt"><span>ⓘ</span><div>字段映射依据表头别名库自动完成；下方「确认入库」将按所选数据性质写入。</div></div>';
+    if (unrec.length) {
+      html += '<div class="note mt"><span>ⓘ</span><div>未自动识别列：' + escapeHtml(unrec.join('、')) + '，请手动选择映射字段或忽略。</div></div>';
+    }
+
+    box.innerHTML = html;
     if (count) count.textContent = (data.row_count || 0) + ' 行';
+
+    // 保存当前映射到全局变量
+    window.__impMapping = Object.assign({}, mapping);
+  }
+
+  // 更新单个字段映射
+  function updateFieldMapping(selectEl) {
+    const header = selectEl.dataset.header;
+    const field = selectEl.value;
+    if (!window.__impMapping) window.__impMapping = {};
+    if (field) {
+      window.__impMapping[header] = field;
+    } else {
+      delete window.__impMapping[header];
+    }
+  }
+
+  // 保存映射模板
+  async function saveMappingTemplate() {
+    const nameEl = $('#impTplName');
+    const name = nameEl ? nameEl.value.trim() : '';
+    if (!name) { toast('请输入模板名称', 'err'); return; }
+    if (!window.__impMapping || Object.keys(window.__impMapping).length === 0) {
+      toast('没有可保存的映射', 'err'); return;
+    }
+
+    const headers = window.__impFile ? (window.__impFile.headers || []) : [];
+    try {
+      const resp = await apiFetch('/api/import/templates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: name,
+          mapping: window.__impMapping,
+          headers: headers,
+          description: '用户手动保存的字段映射模板',
+        }),
+      });
+      if (resp.ok) {
+        toast('模板「' + name + '」已保存', 'ok');
+        // 刷新模板列表
+        const tplResp = await apiFetch('/api/import/templates');
+        if (tplResp.ok) {
+          const data = await tplResp.json();
+          __templateList = data.templates || [];
+          updateTemplateSelect();
+        }
+      } else {
+        const err = await resp.text().catch(() => '');
+        toast('保存失败：' + err.slice(0, 100), 'err');
+      }
+    } catch (e) {
+      toast('保存失败：' + e.message, 'err');
+    }
+  }
+
+  // 加载映射模板
+  async function loadMappingTemplate(name) {
+    if (!name) return;
+    try {
+      const resp = await apiFetch('/api/import/templates/' + encodeURIComponent(name));
+      if (resp.ok) {
+        const tpl = await resp.json();
+        if (tpl.mapping) {
+          window.__impMapping = Object.assign({}, tpl.mapping);
+          // 更新下拉框选中状态
+          const selects = document.querySelectorAll('.map-field-select');
+          for (const sel of selects) {
+            const header = sel.dataset.header;
+            sel.value = tpl.mapping[header] || '';
+          }
+          toast('模板「' + name + '」已加载', 'ok');
+        }
+      } else {
+        toast('加载模板失败', 'err');
+      }
+    } catch (e) {
+      toast('加载失败：' + e.message, 'err');
+    }
+  }
+
+  // 重置为自动映射
+  function resetMappingToAuto() {
+    if (window.__impFile && window.__impFile.auto_mapping) {
+      window.__impMapping = Object.assign({}, window.__impFile.auto_mapping);
+      const selects = document.querySelectorAll('.map-field-select');
+      for (const sel of selects) {
+        const header = sel.dataset.header;
+        sel.value = window.__impMapping[header] || '';
+      }
+      toast('已重置为自动映射', 'ok');
+    }
   }
 
   function renderPreview(data) {
@@ -363,6 +533,10 @@
     fd.append('data_source_type', src);
     if (province) fd.append('province', province);
     if (period) fd.append('price_period', period);
+    // M2 深化：传入用户调整后的字段映射
+    if (window.__impMapping && Object.keys(window.__impMapping).length > 0) {
+      fd.append('field_mapping', JSON.stringify(window.__impMapping));
+    }
 
     if (exec) { exec.disabled = true; exec.textContent = '入库中…'; }
     let resp;
@@ -1020,6 +1194,8 @@
     bindMatchConfirm();
     bindColResize();
     bindDictModal();
+    // M2 深化：加载字段映射模板数据
+    if (typeof initMappingData === 'function') initMappingData();
   }
 
   if (document.readyState === 'loading') {

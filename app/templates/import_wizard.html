@@ -78,13 +78,41 @@
         <div class="card-head"><div class="card-title">字段映射</div>
           <div class="right"><span class="chip" id="impMapCount">待解析</span></div>
         </div>
+
+        <!-- 模板管理（M2 深化） -->
+        <div id="impTemplateBar" class="mb" style="display:none;padding:8px 0;border-bottom:1px solid #e5e7eb;margin-bottom:12px">
+          <div class="grid g3" style="align-items:end">
+            <div class="field">
+              <label for="impTplLoad">加载模板</label>
+              <select class="inp" id="impTplLoad" onchange="loadMappingTemplate(this.value)">
+                <option value="">— 选择模板 —</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="impTplName">模板名称</label>
+              <input class="inp" id="impTplName" placeholder="输入模板名称保存">
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-primary btn-sm" onclick="saveMappingTemplate()">保存模板</button>
+              <button class="btn btn-ghost btn-sm" onclick="resetMappingToAuto()">重置自动</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 可编辑映射表格 -->
         <div id="impMapping">
           <div class="empty">
             <div class="ico">&#9635;</div>
             <div class="t">尚未解析文件</div>
-            <div class="s">完成第 1 步上传后，系统会依据表头别名库自动匹配字段。</div>
+            <div class="s">完成第 1 步上传后，系统会依据表头别名库自动匹配字段，可手动调整。</div>
           </div>
         </div>
+
+        <!-- 映射说明 -->
+        <div class="note mt" id="impMapNote" style="display:none"><span>&#9432;</span><div>
+          可手动调整每列对应的标准字段；调整后「预览校验」和「执行入库」将使用新映射。
+          保存为模板后，下次导入相同格式文件可直接加载。
+        </div></div>
       </div>
 
       <!-- 步骤 4：预览校验 -->
