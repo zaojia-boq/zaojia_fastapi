@@ -246,6 +246,17 @@
       '<div class="stat-line"><span>文件类型</span><b class="mono">' + escapeHtml(data.file_type || 'xlsx') + '</b></div>' +
       '<div class="stat-line"><span>解析行数</span><b class="mono">' + (data.row_count || 0) + '</b></div>'
     );
+
+    // M2 深化：模板自动匹配 — 如果有推荐模板，自动应用并提示
+    if (data.recommended_template) {
+      const tpl = data.recommended_template;
+      if (tpl.mapping && Object.keys(tpl.mapping).length > 0) {
+        window.__impMapping = Object.assign({}, tpl.mapping);
+        window.__impFile.auto_mapping = Object.assign({}, tpl.mapping);
+        toast('已自动应用推荐模板「' + tpl.name + '」（相似度 ' + tpl.similarity + '）', 'ok');
+      }
+    }
+
     renderMapping(data);
     renderPreview(data);
     renderValidation(data);

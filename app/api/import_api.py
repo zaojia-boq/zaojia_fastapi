@@ -319,6 +319,22 @@ async def upload_and_parse(
         'results': [r.to_dict() for r in validation_report.results[:50]],  # 最多返回前 50 条
     }
 
+    # M2 深化：模板自动匹配（根据表头和文件名推荐最佳模板）
+    headers = parsed.get('headers', [])
+    filename = parsed.get('filename', '')
+    best_template, best_score = find_best_template(headers, filename)
+    if best_template and best_score >= 0.3:  # 相似度阈值 0.3
+        preview['recommended_template'] = {
+            'name': best_template.get('name', ''),
+            'description': best_template.get('description', ''),
+            'mapping': best_template.get('mapping', {}),
+            'similarity': round(best_score, 3),
+            'auto_applied': False,  # 前端可选择是否自动应用
+        }
+        logger.info(f"模板自动匹配：文件「{filename}」推荐模板「{best_template.get('name')}」，相似度 {best_score:.3f}")
+    else:
+        preview['recommended_template'] = None
+
     return preview
 
 
@@ -618,7 +634,7 @@ async def list_batch_items(
 
 from data.field_mapper import (
     save_template, load_template, list_templates, delete_template,
-    STANDARD_FIELDS, validate_mapping,
+    STANDARD_FIELDS, validate_mapping, find_best_template,
 )
 from pydantic import BaseModel
 
