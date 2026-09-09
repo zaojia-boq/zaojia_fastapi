@@ -55,7 +55,10 @@ def get_db():
 
 
 def init_db():
-    """创建所有表（开发期用，生产期用 Alembic 迁移）。
+    """初始化数据库 schema。
+
+    生产/开发环境：使用 Alembic 迁移（alembic upgrade head），支持版本化、回滚、审计。
+    测试环境：使用 create_all（SQLite 内存库，conftest.py 自己管理表生命周期）。
 
     调用：from app.db import init_db; init_db()
     """
@@ -65,4 +68,27 @@ def init_db():
         from app.models import cost_catalog  # noqa: F401
     except ImportError:
         pass
-    Base.metadata.create_all(bind=engine)
+    try:
+        from app.models import favorite  # noqa: F401
+    except ImportError:
+        pass
+    try:
+        from app.models import tag  # noqa: F401
+    except ImportError:
+        pass
+
+    # 测试环境（SQLite 内存库）直接 create_all
+    if settings.database_url.startswith("sqlite"):
+        Base.metadata.create_all(bind=engine)
+        return
+
+    # 生产/开发环境使用 Alembic 迁移
+    from alembic import command
+    from alembic.config import Config as AlembicConfig
+    from pathlib import Path
+
+    project_root = Path(__file__).resolve().parent.parent
+    alembic_ini = project_root / "alembic.ini"
+    alembic_cfg = AlembicConfig(str(alembic_ini))
+    alembic_cfg.set_main_option("sqlalchemy.url", settings.database_url)
+    command.upgrade(alembic_cfg, "head")

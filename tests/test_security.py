@@ -9,7 +9,7 @@
 - S5 审计完整：所有写操作有审计记录（见 test_audit.py）
 - S6 归档幂等：见 test_archive.py
 - S7 待审不污染：price_service 仅统计 completed 域
-- S8 备份恢复：每季度人工演练，无自动化（docs/backup_drill.md）
+- S8 备份恢复：每季度执行 `scripts/verify_backup_restore.py` 自动化验证（临时库 pg_restore + 表结构/数据/B类字段抽样校验），人工补充抽样 10 条与原始 Excel 逐字比对，结果记入 docs/backup_drill.md
 - S9 审计四元组：operator/reason/trace_id/timestamp 非空
 
 反向用例 N1–N3 已补齐（2026-09-08，见 test_security_negative.py）：

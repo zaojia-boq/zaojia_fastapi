@@ -82,7 +82,12 @@
   ```
   判据：**无输出**。真实工程 Excel 与数据库备份禁止进仓库。
 
-- **备份恢复演练**（S8，每季度一次，**无自动化**）：在临时库完整恢复 `pg_dump`，抽样 10 条与原始 Excel 逐字比对，结果记入 `docs/backup_drill.md`。**未演练过的备份视为无效**，审查时须如实标注「S8 本季度已/未演练」。
+- **备份恢复演练**（S8，每季度一次，**有自动化脚本**）：
+  ```
+  C:\Users\ht835\AppData\Local\Programs\Python\Python312\python.exe scripts/verify_backup_restore.py <backup_file.dump>
+  ```
+  自动化流程：创建临时库 → pg_restore 恢复 → 校验表结构（6 关键表存在）+ 数据行数（boq_item/import_batch > 0）+ B 类字段非空率抽样 → 自动清理临时库。判据：输出 `RESULT: PASS`（退出码 0）。
+  人工补充：抽样 10 条与原始 Excel 逐字比对，结果记入 `docs/backup_drill.md`。**未演练过的备份视为无效**，审查时须如实标注「S8 本季度已/未演练」。
 
 - **硬删闸门校验**（改动删除/回收站逻辑后必跑，Odoo 版 R1 缺陷教训）：
   ```
@@ -90,7 +95,7 @@
   ```
   判据：硬删前 CSV 快照失败时，物理删除必须被拒绝（不得放行）。
 
-> **状态注（2026-09-05，M1.1 时点）**：`tests/test_security.py`（S1–S9）与 `tests/test_hard_delete_gate.py` **尚未创建**，属 M1.x 审计/权限泳道交付内容；当前执行上两条命令会报「file or directory not found」。创建前这两道闸门**不可执行**，任何交付不得将「未跑」标注为「通过」。创建后须回写本文件判据基线。
+> **状态注（2026-09-09 更新）**：`tests/test_security.py`（S1–S9，含 `@pytest.mark.security` marker）与 `tests/test_hard_delete_gate.py`（6 测试）**均已创建并通过**。S8 备份恢复演练自动化脚本 `scripts/verify_backup_restore.py` 已创建。所有安全门禁均可执行。
 
 > 原则：测试命令必须**唯一且可复现**——任何人（或 Agent）在同一环境下执行该命令，都应得到一致的结果。
 > **安全用例的优先级高于功能用例**：S1–S9 任一失败，视为整体不通过，不得交付。

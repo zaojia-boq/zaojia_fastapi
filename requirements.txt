@@ -10,6 +10,7 @@ uvicorn[standard]==0.52.4
 # ORM & 数据库
 sqlalchemy==2.0.52
 psycopg2-binary==2.9.12
+alembic==1.19.2
 
 # 数据校验 & 配置
 pydantic==2.13.4
