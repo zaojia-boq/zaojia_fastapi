@@ -24,7 +24,7 @@ from __future__ import annotations
 import os
 from collections import defaultdict
 from contextlib import contextmanager
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Iterator
 
 from sqlalchemy import String, cast, case, func
@@ -300,7 +300,7 @@ def get_dashboard_data(db: Session | None = None, only_std: bool = False) -> dic
         return _empty_result(is_demo=True, **{
             "kpi": d["kpi"], "months": d["months"], "donut": d["donut"],
             "progress": d["progress"], "todos": d["todos"], "batches": d["batches"],
-            "meta": {"updatedAt": datetime.now().strftime("%Y-%m-%d %H:%M")},
+            "meta": {"updatedAt": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")},
         })
 
     try:

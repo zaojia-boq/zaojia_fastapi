@@ -44,7 +44,7 @@
   ```
   C:\Users\ht835\AppData\Local\Programs\Python\Python312\python.exe -m pytest tests/ -v
   ```
-  判据：**13 passed**（M1.1 基线），零失败。测试使用隔离数据库：当前 conftest 以 SQLite 内存库 + override `get_db`；M1 建 PG 引擎后经 `TEST_DATABASE_URL` 切换（不碰开发/生产库）。
+  判据：**309 passed**（2026-09-09 实测基线，含 S1-S9 安全用例 + N1-N3 反向用例 + 收藏/标签体验增强），零失败。测试使用隔离数据库：当前 conftest 以 SQLite 内存库 + override `get_db`；M1 建 PG 引擎后经 `TEST_DATABASE_URL` 切换（不碰开发/生产库）。
 
 - **应用启动验证**（改 `app/main.py`/路由/配置后必跑）：
   ```

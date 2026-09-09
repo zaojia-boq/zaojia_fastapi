@@ -183,5 +183,6 @@ def _build_excel(rows: List[dict]) -> bytes:
         ws.column_dimensions[ws.cell(row=1, column=col_idx).column_letter].width = min(max_len + 4, 50)
 
     buf = io.BytesIO()
+    # 允许例外：导出向内存 BytesIO 生成全新导出文件，不触碰导入源文件
     wb.save(buf)
     return buf.getvalue()

@@ -5,6 +5,10 @@
 阶段2：对接易达 ECMS OA SSO，替换认证层。
 """
 import os
+import warnings
+
+# 过滤 jieba 内部的 SyntaxWarning（invalid escape sequence），不影响功能
+warnings.filterwarnings("ignore", category=SyntaxWarning, module="jieba")
 
 from fastapi import FastAPI, Depends
 from fastapi.staticfiles import StaticFiles

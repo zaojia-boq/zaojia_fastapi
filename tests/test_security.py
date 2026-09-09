@@ -26,6 +26,9 @@ import pytest
 from app.config import settings
 from app.core.security import ROLE_ADMIN, ROLE_ESTIMATOR, ROLE_VIEWER
 
+# 整个文件的测试都标记为 security（S1-S9 安全用例优先级高于功能用例）
+pytestmark = pytest.mark.security
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 APP_DIR = PROJECT_ROOT / "app"
 

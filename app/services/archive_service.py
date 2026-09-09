@@ -186,7 +186,7 @@ def _resolve_target(root: Path, source_path: Path, file_hash: str) -> Path:
 
     若目标已存在（同名），加 <hash[:8]> 后缀避免覆盖。
     """
-    ts = datetime.now()
+    ts = datetime.now(timezone.utc)
     year_month = ts.strftime('%Y/%m')
     short_hash = file_hash[:2]
     filename = source_path.name
