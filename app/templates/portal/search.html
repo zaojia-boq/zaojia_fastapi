@@ -24,7 +24,7 @@
   </div>
 
   <!-- ======= 大搜索框（统计信息下，主入口）======= -->
-  <form class="hero-search" method="get" action="/search">
+  <form class="hero-search" method="get" action="/portal/search">
     <input class="hero-search-inp" name="kw" value="{{ params.kw }}"
            placeholder="搜索清单名称 / 编码 / 项目特征 / 来源工程…" autofocus>
     <button class="btn btn-primary hero-search-btn" type="submit">检索</button>
@@ -32,7 +32,7 @@
 
   <!-- ======= 筛选区（GET 表单，条件可分享/可回退）======= -->
   <div class="card mb">
-    <form class="filters" method="get" action="/search">
+    <form class="filters" method="get" action="/portal/search">
       <input type="hidden" name="kw" value="{{ params.kw }}">
       <div class="field">
         <label for="f-major">专业工程</label>
