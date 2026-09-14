@@ -71,6 +71,8 @@
           <div class="field"><label>完整类目路径</label><input class="inp" value="{{ detail.cat_path }}" readonly></div>
           <div class="field"><label>子级数量</label><input class="inp" value="{{ detail.badge }}" readonly></div>
         </div>
+        {% if detail.level == 'l5' %}
+        <!-- 第五级（规格叶子）：显示材料属性 -->
         {% if detail.attr_material_name or detail.attr_spec or detail.attr_material or detail.attr_model or detail.attr_unit %}
         <div class="grid g2 mt">
           {% if detail.attr_material_name %}
@@ -89,6 +91,23 @@
           <div class="field"><label>单位</label><input class="inp" value="{{ detail.attr_unit }}" readonly></div>
           {% endif %}
         </div>
+        {% endif %}
+        {% else %}
+        <!-- 前四级（分类节点）：显示下级分类列表 -->
+        {% if detail.children %}
+        <div class="mt">
+          <div class="card-sub mb-sm">下级分类（{{ detail.children|length }}{% if detail.badge > 100 %}，共 {{ detail.badge }} 条{% endif %}）</div>
+          <div class="row wrap">
+            {% for c in detail.children %}
+            <a href="/admin/dict?sel={{ c.id }}" class="chip" style="text-decoration:none;cursor:pointer">
+              {% if c.code %}<span style="color:#64748b;font-family:monospace;font-size:11px;margin-right:4px">{{ c.code }}</span>{% endif %}{{ c.name }}
+            </a>
+            {% endfor %}
+          </div>
+        </div>
+        {% else %}
+        <div class="muted small mt">暂无下级分类</div>
+        {% endif %}
         {% endif %}
         {% if detail.note %}
         <div class="note mt"><span>&#9432;</span><div>{{ detail.note }}</div></div>

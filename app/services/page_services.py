@@ -647,6 +647,40 @@ def get_batch_detail(batch_id: int, db: Session | None = None) -> dict[str, Any]
 # 物料字典 —— 对标 dict.js loadAll() + _rebuildAll()
 # ============================================================================
 
+# 单位归一化映射（中文单位 → 标准符号）
+_UNIT_NORMALIZE_MAP = {
+    "立方米": "m³", "立方": "m³", "方": "m³",
+    "平方米": "m²", "平方": "m²", "平米": "m²",
+    "米": "m", "公尺": "m",
+    "千米": "km", "公里": "km",
+    "厘米": "cm", "公分": "cm",
+    "毫米": "mm", "公厘": "mm",
+    "千克": "kg", "公斤": "kg",
+    "克": "g", "毫克": "mg",
+    "吨": "t",
+    "升": "L", "公升": "L",
+    "毫升": "mL", "公撮": "mL",
+    "千瓦时": "kWh", "度": "kWh",
+    "瓦": "W", "千瓦": "kW",
+    "米/平方米": "m/m²",
+}
+
+
+def _normalize_unit(unit: str) -> str:
+    """单位归一化：立方米→m³、平方米→m²、千克→kg 等。"""
+    if not unit:
+        return ""
+    unit = unit.strip()
+    # 精确匹配
+    if unit in _UNIT_NORMALIZE_MAP:
+        return _UNIT_NORMALIZE_MAP[unit]
+    # 包含匹配（如"立方米/年"→"m³/年"）
+    for cn, sym in _UNIT_NORMALIZE_MAP.items():
+        if cn in unit:
+            return unit.replace(cn, sym)
+    return unit
+
+
 def _dict_node(n, depth: int, parent_path: str = "") -> dict[str, Any]:
     """MaterialDict → 树节点（含 match_score 需要的 category_path）。"""
     path = f"{parent_path}/{n.name}" if parent_path else (n.name or "")
@@ -659,7 +693,7 @@ def _dict_node(n, depth: int, parent_path: str = "") -> dict[str, Any]:
         attr_spec = synonyms_raw.get("规格", "") or ""
         attr_material = synonyms_raw.get("材质", "") or ""
         attr_model = synonyms_raw.get("型号", "") or ""
-        attr_unit = synonyms_raw.get("单位", "") or ""
+        attr_unit = _normalize_unit(synonyms_raw.get("单位", "") or "")
         attr_material_name = synonyms_raw.get("材料名称", "") or ""
         # 同义词列表（排除属性字段后的其他值，或 "list" key）
         syn_list = synonyms_raw.get("list", [])
@@ -680,7 +714,7 @@ def _dict_node(n, depth: int, parent_path: str = "") -> dict[str, Any]:
         if not attr_spec and spec_raw.get("规格"):
             attr_spec = spec_raw["规格"]
         if not attr_unit and spec_raw.get("单位"):
-            attr_unit = spec_raw["单位"]
+            attr_unit = _normalize_unit(spec_raw["单位"])
     else:
         spec_list = spec_raw if isinstance(spec_raw, list) else []
 
@@ -766,6 +800,22 @@ def get_material_dict_tree(db: Session | None = None, selected: int | None = Non
                 if node is not None:
                     detail = _dict_node(node, 0, "")
                     detail["cat_path"] = detail["category_path"]
+                    # 前四级（l1-l4）添加直接子节点列表，用于详情页展示
+                    if node.level != "l5":
+                        child_rows = s.query(
+                            MaterialDict.id,
+                            MaterialDict.name,
+                            MaterialDict.code,
+                            MaterialDict.level,
+                        ).filter(
+                            MaterialDict.parent_id == node.id
+                        ).order_by(MaterialDict.name).limit(100).all()
+                        detail["children"] = [
+                            {"id": c.id, "name": c.name, "code": c.code or "", "level": c.level}
+                            for c in child_rows
+                        ]
+                    else:
+                        detail["children"] = []
 
             return _empty_result(tree=tree, total=int(total), shown=len(tree),
                                  selected=sel, detail=detail)
