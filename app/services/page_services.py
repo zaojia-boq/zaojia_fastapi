@@ -882,6 +882,9 @@ def get_price_analysis(
                 "price_period": _period(r.price_period),
                 "project_name": r.project_name or "—",
                 "aggregate_id": r.aggregate_id or "",
+                "item_code": r.item_code or "",
+                "item_name": r.item_name or "",
+                "material_dict_id": r.material_dict_id,
             } for r in items]
 
             kpis_raw = compute_kpis(rows)
@@ -912,10 +915,146 @@ def get_price_analysis(
                 cv = f"{_stddev(vals) / kpis_raw['avg'] * 100:.1f}"
 
             # 各工程对比（复用 analyze_group 的 aggregate_id 维度）
+            # 先收集所有 dict:<id> 格式的 aggregate_id，批量查询材料字典名称
+            from app.models.material_dict import MaterialDict
+            from app.models.list_material_mapping import ListMaterialMapping
+            raw_groups = analyze_group(rows, "aggregate_id")
+            dict_ids = set()
+            for g in raw_groups:
+                agg = g.get("group") or ""
+                if agg.startswith("dict:"):
+                    try:
+                        dict_ids.add(int(agg.split(":")[1]))
+                    except (ValueError, IndexError):
+                        pass
+            # 批量查询材料字典名称和分类路径
+            dict_name_map = {}
+            if dict_ids:
+                dict_nodes = s.query(MaterialDict).filter(MaterialDict.id.in_(dict_ids)).all()
+                # 构建 id -> node 映射，用于自底向上拼分类路径
+                node_by_id = {n.id: n for n in dict_nodes}
+                # 还需要查询所有祖先节点
+                all_parent_ids = set()
+                for n in dict_nodes:
+                    cur = n
+                    guard = 0
+                    while cur.parent_id and guard < 10:
+                        all_parent_ids.add(cur.parent_id)
+                        cur = node_by_id.get(cur.parent_id)
+                        if cur is None:
+                            break
+                        guard += 1
+                if all_parent_ids:
+                    parent_nodes = s.query(MaterialDict).filter(MaterialDict.id.in_(all_parent_ids)).all()
+                    for pn in parent_nodes:
+                        node_by_id[pn.id] = pn
+                # 拼名称和分类路径
+                for n in dict_nodes:
+                    parts = []
+                    cur = n
+                    guard = 0
+                    while cur is not None and guard < 10:
+                        parts.append(cur.name or "")
+                        cur = node_by_id.get(cur.parent_id) if cur.parent_id else None
+                        guard += 1
+                    cat_path = "/".join(reversed(parts))
+                    dict_name_map[n.id] = f"{n.name}（{cat_path}）"
+
+            # 批量查询清单-材料映射表（list_item_code -> material_name）
+            # 用于将国标码映射到材料名称，提高聚合身份可读性
+            list_code_map = {}
+            all_item_codes = set()
+            for r in rows:
+                code = r.get("item_code", "")
+                if code and len(code) >= 9:
+                    all_item_codes.add(code[:9])
+            if all_item_codes:
+                mapping_rows = s.query(ListMaterialMapping).filter(
+                    ListMaterialMapping.list_item_code.in_(list(all_item_codes))
+                ).all()
+                # 取相似度最高的映射
+                for m in mapping_rows:
+                    code = m.list_item_code
+                    if code not in list_code_map or m.similarity > list_code_map[code][1]:
+                        list_code_map[code] = (m.material_name, m.similarity, m.material_code)
+
+            def _friendly_agg_name(agg: str, sample_row: dict | None = None) -> str:
+                """将 aggregate_id 原始值转为友好显示名称。
+                dict模式：显示材料字典名称 + 分类路径
+                code模式：先查清单-材料映射表，有映射显示材料名称；无映射显示9位国标码 + 清单项目名称
+                std模式：显示标准化名称 + 规格
+                raw模式：显示原始名称
+                """
+                if not agg:
+                    return "—"
+                if agg.startswith("dict:"):
+                    try:
+                        did = int(agg.split(":")[1])
+                        return dict_name_map.get(did, f"字典项#{did}")
+                    except (ValueError, IndexError):
+                        return agg
+                if agg.startswith("code:"):
+                    # code:<version>:<9位国标码>|<单位>
+                    parts = agg.split(":", 2)
+                    if len(parts) == 3:
+                        code_unit = parts[2]
+                        cu = code_unit.rsplit("|", 1)
+                        code = cu[0] if cu else code_unit
+                        unit = cu[1] if len(cu) > 1 else ""
+                        # 先查清单-材料映射表，有映射则显示材料名称
+                        if code in list_code_map:
+                            material_name, similarity, material_code = list_code_map[code]
+                            item_name = sample_row.get("item_name", "") if sample_row else ""
+                            # 显示材料名称 + 国标码（便于溯源）
+                            if item_name and item_name != material_name:
+                                return f"{material_name}（{code} {item_name}）"
+                            return f"{material_name}（{code}）"
+                        # 无映射，显示9位国标码 + 清单项目名称
+                        item_name = sample_row.get("item_name", "") if sample_row else ""
+                        if item_name:
+                            return f"{code} {item_name}" + (f"（{unit}）" if unit else "")
+                        return f"{code}" + (f"（{unit}）" if unit else "")
+                    return agg
+                if agg.startswith("std:"):
+                    # std:<std_name>|<std_spec>|<单位>
+                    parts = agg[4:].rsplit("|", 2)
+                    if len(parts) >= 2:
+                        name = parts[0]
+                        spec = parts[1] if len(parts) > 1 else ""
+                        unit = parts[2] if len(parts) > 2 else ""
+                        # 当std_name和std_spec相同时只显示一次
+                        if name == spec:
+                            return f"标准化 {name}" + (f"（{unit}）" if unit else "")
+                        return f"标准化 {name}" + (f" {spec}" if spec else "") + (f"（{unit}）" if unit else "")
+                    return agg
+                if agg.startswith("raw:"):
+                    # raw:<version>:<norm_name>|<norm_feature>|<单位>
+                    parts = agg.split(":", 2)
+                    if len(parts) == 3:
+                        name_feat_unit = parts[2]
+                        nfu = name_feat_unit.rsplit("|", 2)
+                        name = nfu[0] if nfu else name_feat_unit
+                        # 从样本行获取原始项目名称
+                        item_name = sample_row.get("item_name", "") if sample_row else ""
+                        display_name = item_name if item_name else name
+                        return f"原始 {display_name}"
+                    return agg
+                return agg
+
+            # 构建 aggregate_id -> 样本行 映射（取每个聚合组的第一条数据）
+            agg_sample_map = {}
+            for r in rows:
+                agg = r.get("aggregate_id", "")
+                if agg and agg not in agg_sample_map:
+                    agg_sample_map[agg] = r
+
             groups = []
-            for g in analyze_group(rows, "aggregate_id"):
+            for g in raw_groups:
+                agg_raw = g.get("group") or "—"
+                sample_row = agg_sample_map.get(agg_raw)
                 groups.append({
-                    "name": g.get("group") or "—",
+                    "name": _friendly_agg_name(agg_raw, sample_row),
+                    "raw_id": agg_raw,
                     "avg": round(g.get("avg") or 0, 2),
                     "min": round(g.get("min") or 0, 2),
                     "max": round(g.get("max") or 0, 2),
