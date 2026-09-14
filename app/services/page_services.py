@@ -697,9 +697,28 @@ def get_material_dict_tree(db: Session | None = None, selected: int | None = Non
 
             total = s.query(func.count(MaterialDict.id)).scalar() or 0
 
-            # 构建扁平树列表（前端按 parent_id 渲染缩进）
-            tree: list[dict] = []
+            # 按层级嵌套排序：l1按name排序，每个l1后面紧跟它的l2子节点（按name排序）
+            l1_rows = sorted([r for r in rows if r.level == "l1"], key=lambda r: r.name or "")
+            l2_by_parent = {}
             for r in rows:
+                if r.level == "l2" and r.parent_id:
+                    l2_by_parent.setdefault(r.parent_id, []).append(r)
+            for pid in l2_by_parent:
+                l2_by_parent[pid].sort(key=lambda r: r.name or "")
+
+            ordered_rows = []
+            for l1 in l1_rows:
+                ordered_rows.append(l1)
+                ordered_rows.extend(l2_by_parent.get(l1.id, []))
+            # 处理parent_id不在l1中的l2（理论上不应存在）
+            l1_ids = {r.id for r in l1_rows}
+            for r in rows:
+                if r.level == "l2" and (not r.parent_id or r.parent_id not in l1_ids):
+                    ordered_rows.append(r)
+
+            # 构建扁平树列表（前端按 depth 渲染缩进）
+            tree: list[dict] = []
+            for r in ordered_rows:
                 depth = 0 if r.level == "l1" else 1
                 tree.append({
                     "id": r.id,
