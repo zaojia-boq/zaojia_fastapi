@@ -1,0 +1,30 @@
+{
+  "name": "测试模板-机电安装",
+  "mapping": {
+    "项目编码": "gb_code",
+    "项目名称": "item_name",
+    "项目特征": "item_feature",
+    "计量单位": "unit",
+    "工程量": "quantity",
+    "综合单价": "unit_rate",
+    "合价": "total",
+    "工程名称": "project_name",
+    "序号": "ordinal"
+  },
+  "headers": [
+    "项目编码",
+    "项目名称",
+    "项目特征",
+    "计量单位",
+    "工程量",
+    "综合单价",
+    "合价",
+    "工程名称",
+    "子分部",
+    "序号"
+  ],
+  "filename_pattern": "",
+  "description": "用户手动保存的字段映射模板",
+  "created_at": 1788847399.6216989,
+  "usage_count": 0
+}

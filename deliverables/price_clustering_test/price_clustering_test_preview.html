@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>材料价聚类测试结果预览</title>
+<style>
+body { font-family: "Microsoft YaHei", sans-serif; margin: 20px; background: #f5f5f5; }
+h1 { color: #333; border-bottom: 3px solid #4D7CFE; padding-bottom: 10px; }
+h2 { color: #4D7CFE; margin-top: 30px; }
+.card { background: white; border-radius: 8px; padding: 20px; margin: 15px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+.stats { display: flex; gap: 20px; flex-wrap: wrap; }
+.stat-box { flex: 1; min-width: 150px; background: #f0f4ff; border-radius: 8px; padding: 15px; text-align: center; }
+.stat-value { font-size: 28px; font-weight: bold; color: #4D7CFE; }
+.stat-label { font-size: 14px; color: #666; margin-top: 5px; }
+table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 13px; }
+th { background: #4D7CFE; color: white; padding: 10px; text-align: left; }
+td { padding: 8px 10px; border-bottom: 1px solid #eee; }
+tr:hover { background: #f0f4ff; }
+.tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; margin: 2px; }
+.tag-exact { background: #d4edda; color: #155724; }
+.tag-feature { background: #fff3cd; color: #856404; }
+.tag-none { background: #f8d7da; color: #721c24; }
+.diff-positive { color: #dc3545; font-weight: bold; }
+.diff-negative { color: #28a745; font-weight: bold; }
+.section-bar { background: #e9ecef; height: 20px; border-radius: 4px; overflow: hidden; margin: 5px 0; }
+.section-fill { height: 100%; background: linear-gradient(90deg, #4D7CFE, #6C8FFF); }
+</style>
+</head>
+<body>
+
+<h1>材料价聚类测试结果预览</h1>
+
+<div class="card">
+<h2>一、数据概览</h2>
+<div class="stats">
+<div class="stat-box"><div class="stat-value">1,435</div><div class="stat-label">清单项目总数</div></div>
+<div class="stat-box"><div class="stat-value">2,043</div><div class="stat-label">基准电缆数据</div></div>
+<div class="stat-box"><div class="stat-value">287</div><div class="stat-label">测试样本（第二期）</div></div>
+<div class="stat-box"><div class="stat-value">285</div><div class="stat-label">成功匹配</div></div>
+<div class="stat-box"><div class="stat-value">99.3%</div><div class="stat-label">匹配率</div></div>
+</div>
+</div>
+
+<div class="card">
+<h2>二、匹配类型分布</h2>
+<table>
+<tr><th>匹配类型</th><th>数量</th><th>占比</th></tr>
+<tr><td><span class="tag tag-feature">特性匹配(得分90)</span></td><td>180</td><td>62.7%</td></tr>
+<tr><td><span class="tag tag-feature">特性匹配(得分85)</span></td><td>99</td><td>34.5%</td></tr>
+<tr><td><span class="tag tag-feature">特性匹配(得分75)</span></td><td>3</td><td>1.0%</td></tr>
+<tr><td><span class="tag tag-feature">特性匹配(得分80)</span></td><td>3</td><td>1.0%</td></tr>
+<tr><td><span class="tag tag-none">未匹配</span></td><td>2</td><td>0.7%</td></tr>
+</table>
+</div>
+
+<div class="card">
+<h2>三、价格分析（匹配成功的项目）</h2>
+
+<div class="stats">
+<div class="stat-box"><div class="stat-value">207.38</div><div class="stat-label">清单综合单价均值（元/m）</div></div>
+<div class="stat-box"><div class="stat-value">208.70</div><div class="stat-label">基准含税价均值（元/m）</div></div>
+<div class="stat-box"><div class="stat-value">-71.40%</div><div class="stat-label">平均价格差异率</div></div>
+</div>
+
+<h3>按截面分组价格对比</h3>
+<table>
+<tr><th>截面分组</th><th>样本数</th><th>清单均价</th><th>基准均价</th><th>差异率</th></tr>
+<tr><td>16-50mm²</td><td>100</td><td>42.43</td><td>131.14</td><td class="diff-negative">-68.86%</td></tr>
+<tr><td>70-120mm²</td><td>55</td><td>133.01</td><td>465.59</td><td class="diff-negative">-71.82%</td></tr>
+<tr><td>≤10mm²</td><td>105</td><td>12.92</td><td>41.07</td><td class="diff-negative">-71.16%</td></tr>
+<tr><td>≥150mm²</td><td>25</td><td>115.30</td><td>657.81</td><td class="diff-negative">-81.60%</td></tr>
+</table>
+</div>
+
+<div class="card">
+<h2>四、各期价格趋势</h2>
+<table><tr><th>期数</th><th>样本数</th><th>综合单价均值</th><th>中位数</th><th>最小值</th><th>最大值</th></tr>
+<tr><td>第三期</td><td>287</td><td>62.47</td><td>22.90</td><td>0.01</td><td>481.21</td></tr>
+<tr><td>第二期</td><td>287</td><td>55.46</td><td>24.48</td><td>0.01</td><td>453.05</td></tr>
+<tr><td>第五期</td><td>287</td><td>61.88</td><td>25.16</td><td>0.02</td><td>582.36</td></tr>
+<tr><td>第六期</td><td>287</td><td>53.02</td><td>25.84</td><td>0.11</td><td>436.05</td></tr>
+<tr><td>第四期</td><td>287</td><td>207.38</td><td>113.96</td><td>2.74</td><td>898.13</td></tr>
+</table>
+</div>
+
+<div class="card">
+<h2>五、匹配明细（前50条）</h2>
+<table>
+<tr><th>项目编码</th><th>提取规格</th><th>主截面</th><th>特性</th><th>清单单价</th><th>匹配类型</th><th>基准规格</th><th>基准价</th><th>差异率</th></tr>
+<tr>
+<td>030408001001</td>
+<td>WDZA-YJY-4*120+1*70</td>
+<td>120.0</td>
+<td>阻燃A级、低烟无卤</td>
+<td>218.56</td>
+<td><span class="tag tag-feature">特性匹配(得分90)</span></td>
+<td>WDZA-YJY- 4×120+1×70</td>
+<td>513.32</td>
+<td><span class="diff-negative">-57.42%</span></td>
+</tr>
+<tr>
+<td>030408001002</td>
+<td>WDZA-YJY-4*120+1*70</td>
+<td>120.0</td>
+<td>阻燃A级、低烟无卤</td>
+<td>281.63</td>
+<td><span class="tag tag-feature">特性匹配(得分90)</span></td>
+<td>WDZA-YJY- 4×120+1×70</td>
+<td>513.32</td>
+<td><span class="diff-negative">-45.14%</span></td>
+</tr>
+<tr>
+<td>030408001003</td>
+<td>WDZA-YJY-4*70+1*35</td>
+<td>70.0</td>
+<td>阻燃A级、低烟无卤</td>
+<td>3.17</td>
+<td><span class="tag tag-feature">特性匹配(得分90)</span></td>
+<td>WDZB1-YJY- 4×70+1×35</td>
+<td>281.12</td>
+<td><span class="diff-negative">-98.87%</span></td>
+</tr>
+<tr>
+<td>030408001004</td>
+<td>WDZA-YJY-4*70+1*35</td>
+<td>70.0</td>
+<td>阻燃A级、低烟无卤</td>
+<td>58.05</td>
+<td><span class="tag tag-feature">特性匹配(得分90)</span></td>
+<td>WDZB1-YJY- 4×70+1×35</td>
+<td>281.12</td>
+<td><span class="diff-negative">-79.35%</span></td>
+</tr>
+<tr>
+<td>030408001005</td>
+<td>WDZA-YJY-4*25+1*16</td>
+<td>25.0</td>
+<td>阻燃A级、低烟无卤</td>
+<td>39.95</td>
+<td><span class="tag tag-feature">特性匹配(得分90)</span></td>
+<td>WDZB1-YJY- 4×25+1×16</td>
+<td>111.84</td>
+<td><span class="diff-negative">-64.28%</span></td>
+</tr>
+<tr>
+<td>030408001006</td>
+<td>WDZA-YJY-4*35+1*16</td>
+<td>35.0</td>
+<td>阻燃A级、低烟无卤</td>
+<td>3.39</td>
+<td><span class="tag tag-feature">特性匹配(得分90)</span></td>
+<td>WDZB1-YJY- 4×35+1×16</td>
+<td>148.54</td>
+<td><span class="diff-negative">-97.72%</span></td>
+</tr>
+<tr>
+<td>030408001007</td>
+<td>WDZA-YJY-5*10</td>
+<td>10.0</td>
+<td>阻燃A级、低烟无卤</td>
+<td>10.47</td>
+<td><span class="tag tag-feature">特性匹配(得分90)</span></td>
+<td>WDZA-YJY-5×10</td>
+<td>52.70</td>
+<td><span class="diff-negative">-80.13%</span></td>
+</tr>
+<tr>
+<td>030408001008</td>
+<td>WDZA-YJY-5*10</td>
+<td>10.0</td>
+<td>阻燃A级、低烟无卤</td>
+<td>17.55</td>
+<td><span class="tag tag-feature">特性匹配(得分90)</span></td>
+<td>WDZA-YJY-5×10</td>
+<td>52.70</td>
+<td><span class="diff-negative">-66.70%</span></td>
+</tr>
+<tr>
+<td>030408001009</td>
+<td>WDZA-YJY-5*16</td>
+<td>16.0</td>
+<td>阻燃A级、低烟无卤</td>
+<td>37.49</td>
+<td><span class="tag tag-feature">特性匹配(得分90)</span></td>
+<td>WDZB1N-YJY- 5×16</td>
+<td>85.89</td>
+<td><span class="diff-negative">-56.35%</span></td>
+</tr>
+<tr>
+<td>030408001010</td>
+<td>防水电缆4*2.5（随设备自带）</td>
+<td>2.5</td>
+<td>-</td>
+<td>0.93</td>
+<td><span class="tag tag-feature">特性匹配(得分85)</span></td>
+<td>KYJVP-4×2.5</td>
+<td>16.29</td>
+<td><span class="diff-negative">-94.29%</span></td>
+</tr>
+<tr>
+<td>030408001011</td>
+<td>NG-A（BTLY）-4*35+1*16</td>
+<td>35.0</td>
+<td>-</td>
+<td>22.94</td>
+<td><span class="tag tag-feature">特性匹配(得分85)</span></td>
+<td>YJV 4×35+1×16</td>
+<td>170.84</td>
+<td><span class="diff-negative">-86.57%</span></td>
+</tr>
+<tr>
+<td>030408001012</td>
+<td>NG-A（BTLY）-4*35+1*16</td>
+<td>35.0</td>
+<td>-</td>
+<td>5.78</td>
+<td><span class="tag tag-feature">特性匹配(得分85)</span></td>
+<td>YJV 4×35+1×16</td>
+<td>170.84</td>
+<td><span class="diff-negative">-96.62%</span></td>
+</tr>
+<tr>
+<td>030408001013</td>
+<td>NG-A（BTLY）-4*25+1*16</td>
+<td>25.0</td>
+<td>-</td>
+<td>63.74</td>
+<td><span class="tag tag-feature">特性匹配(得分85)</span></td>
+<td>YJV 4×25+1×16</td>
+<td>132.35</td>
+<td><span class="diff-negative">-51.84%</span></td>
+</tr>
+<tr>
+<td>030408001014</td>
+<td>NG-A（BTLY）-5*10</td>
+<td>10.0</td>
+<td>-</td>
+<td>41.25</td>
+<td><span class="tag tag-feature">特性匹配(得分85)</span></td>
+<td>YJV-5×10</td>
+<td>49.93</td>
+<td><span class="diff-negative">-17.38%</span></td>
+</tr>
+<tr>
+<td>030408001015</td>
+<td>WDZA-YJY-5*6</td>
+<td>6.0</td>
+<td>阻燃A级、低烟无卤</td>
+<td>3.65</td>
+<td><span class="tag tag-feature">特性匹配(得分90)</span></td>
+<td>WDZA-YJY-5×6</td>
+<td>33.00</td>
+<td><span class="diff-negative">-88.94%</span></td>
+</tr>
+<tr>
+<td>030408001128</td>
+<td>WDZA-YJY-4*150+1*70</td>
+<td>150.0</td>
+<td>阻燃A级、低烟无卤</td>
+<td>150.51</td>
+<td><span class="tag tag-feature">特性匹配(得分90)</span></td>
+<td>WDZA-YJY- 4×150+1×70</td>
+<td>617.07</td>
+<td><span class="diff-negative">-75.61%</span></td>
+</tr>
+<tr>
+<td>030408001129</td>
+<td>WDZA-YJY-4*150+1*70</td>
+<td>150.0</td>
+<td>阻燃A级、低烟无卤</td>
+<td>106.16</td>
+<td><span class="tag tag-feature">特性匹配(得分90)</span></td>
+<td>WDZA-YJY- 4×150+1×70</td>
+<td>617.07</td>
+<td><span class="diff-negative">-82.80%</span></td>
+</tr>
+<tr>
+<td>030408001130</td>
+<td>WDZA-YJY-4*120+1*70</td>
+<td>120.0</td>
+<td>阻燃A级、低烟无卤</td>
+<td>185.07</td>
+<td><span class="tag tag-feature">特性匹配(得分90)</span></td>
+<td>WDZA-YJY- 4×120+1×70</td>
+<td>513.32</td>
+<td><span class="diff-negative">-63.95%</span></td>
+</tr>
+<tr>
+<td>030408001131</td>
+<td>WDZA-YJY-4*120+1*70</td>
+<td>120.0</td>
+<td>阻燃A级、低烟无卤</td>
+<td>231.60</td>
+<td><span class="tag tag-feature">特性匹配(得分90)</span></td>
+<td>WDZA-YJY- 4×120+1×70</td>
+<td>513.32</td>
+<td><span class="diff-negative">-54.88%</span></td>
+</tr>
+<tr>
+<td>030408001132</td>
+<td>WDZA-YJY-4*25+1*16</td>
+<td>25.0</td>
+<td>阻燃A级、低烟无卤</td>
+<td>43.90</td>
+<td><span class="tag tag-feature">特性匹配(得分90)</span></td>
+<td>WDZB1-YJY- 4×25+1×16</td>
+<td>111.84</td>
+<td><span class="diff-negative">-60.75%</span></td>
+</tr>
+<tr>
+<td>030408001133</td>
+<td>WDZA-YJY-5*10</td>
+<td>10.0</td>
+<td>阻燃A级、低烟无卤</td>
+<td>6.64</td>
+<td><span class="tag tag-feature">特性匹配(得分90)</span></td>
+<td>WDZA-YJY-5×10</td>
+<td>52.70</td>
+<td><span class="diff-negative">-87.40%</span></td>
+</tr>
+<tr>
+<td>030408001134</td>
+<td>WDZA-YJY-5*10</td>
+<td>10.0</td>
+<td>阻燃A级、低烟无卤</td>
+<td>8.38</td>
+<td><span class="tag tag-feature">特性匹配(得分90)</span></td>
+<td>WDZA-YJY-5×10</td>
+<td>52.70</td>
+<td><span class="diff-negative">-84.10%</span></td>
+</tr>
+<tr>
+<td>030408001135</td>
+<td>WDZA-YJY-5*6</td>
+<td>6.0</td>
+<td>阻燃A级、低烟无卤</td>
+<td>0.77</td>
+<td><span class="tag tag-feature">特性匹配(得分90)</span></td>
+<td>WDZA-YJY-5×6</td>
+<td>33.00</td>
+<td><span class="diff-negative">-97.67%</span></td>
+</tr>
+<tr>
+<td>030408001136</td>
+<td>WDZAN-YJY-5*16</td>
+<td>16.0</td>
+<td>阻燃A级、耐火、低烟无卤</td>
+<td>0.98</td>
+<td><span class="tag tag-feature">特性匹配(得分85)</span></td>
+<td>WDZB1N-YJY- 5×16</td>
+<td>85.89</td>
+<td><span class="diff-negative">-98.86%</span></td>
+</tr>
+<tr>
+<td>030408001137</td>
+<td>防水电缆4*2.5（随设备自带）</td>
+<td>2.5</td>
+<td>-</td>
+<td>0.32</td>
+<td><span class="tag tag-feature">特性匹配(得分85)</span></td>
+<td>KYJVP-4×2.5</td>
+<td>16.29</td>
+<td><span class="diff-negative">-98.04%</span></td>
+</tr>
+<tr>
+<td>030408001138</td>
+<td>NG-A（BTLY）-4*35+1*16</td>
+<td>35.0</td>
+<td>-</td>
+<td>39.70</td>
+<td><span class="tag tag-feature">特性匹配(得分85)</span></td>
+<td>YJV 4×35+1×16</td>
+<td>170.84</td>
+<td><span class="diff-negative">-76.76%</span></td>
+</tr>
+<tr>
+<td>030408001139</td>
+<td>NG-A（BTLY）-4*35+1*16</td>
+<td>35.0</td>
+<td>-</td>
+<td>56.33</td>
+<td><span class="tag tag-feature">特性匹配(得分85)</span></td>
+<td>YJV 4×35+1×16</td>
+<td>170.84</td>
+<td><span class="diff-negative">-67.03%</span></td>
+</tr>
+<tr>
+<td>030408001140</td>
+<td>NG-A（BTLY）-4*25+1*16</td>
+<td>25.0</td>
+<td>-</td>
+<td>74.93</td>
+<td><span class="tag tag-feature">特性匹配(得分85)</span></td>
+<td>YJV 4×25+1×16</td>
+<td>132.35</td>
+<td><span class="diff-negative">-43.38%</span></td>
+</tr>
+<tr>
+<td>030408001141</td>
+<td>NG-A（BTLY）-5*10</td>
+<td>10.0</td>
+<td>-</td>
+<td>14.31</td>
+<td><span class="tag tag-feature">特性匹配(得分85)</span></td>
+<td>YJV-5×10</td>
+<td>49.93</td>
+<td><span class="diff-negative">-71.34%</span></td>
+</tr>
+<tr>
+<td>030408001142</td>
+<td>WDZA-YJY-5*16</td>
+<td>16.0</td>
+<td>阻燃A级、低烟无卤</td>
+<td>65.08</td>
+<td><span class="tag tag-feature">特性匹配(得分90)</span></td>
+<td>WDZB1N-YJY- 5×16</td>
+<td>85.89</td>
+<td><span class="diff-negative">-24.23%</span></td>
+</tr>
+<tr>
+<td>030408001187</td>
+<td>WDZA-YJY-4*150+1*70</td>
+<td>150.0</td>
+<td>阻燃A级、低烟无卤</td>
+<td>103.73</td>
+<td><span class="tag tag-feature">特性匹配(得分90)</span></td>
+<td>WDZA-YJY- 4×150+1×70</td>
+<td>617.07</td>
+<td><span class="diff-negative">-83.19%</span></td>
+</tr>
+<tr>
+<td>030408001188</td>
+<td>WDZA-YJY-4*150+1*70</td>
+<td>150.0</td>
+<td>阻燃A级、低烟无卤</td>
+<td>334.43</td>
+<td><span class="tag tag-feature">特性匹配(得分90)</span></td>
+<td>WDZA-YJY- 4×150+1×70</td>
+<td>617.07</td>
+<td><span class="diff-negative">-45.80%</span></td>
+</tr>
+<tr>
+<td>030408001189</td>
+<td>WDZA-YJY-4*120+1*70</td>
+<td>120.0</td>
+<td>阻燃A级、低烟无卤</td>
+<td>272.06</td>
+<td><span class="tag tag-feature">特性匹配(得分90)</span></td>
+<td>WDZA-YJY- 4×120+1×70</td>
+<td>513.32</td>
+<td><span class="diff-negative">-47.00%</span></td>
+</tr>
+<tr>
+<td>030408001190</td>
+<td>WDZA-YJY-4*120+1*70</td>
+<td>120.0</td>
+<td>阻燃A级、低烟无卤</td>
+<td>30.19</td>
+<td><span class="tag tag-feature">特性匹配(得分90)</span></td>
+<td>WDZA-YJY- 4×120+1×70</td>
+<td>513.32</td>
+<td><span class="diff-negative">-94.12%</span></td>
+</tr>
+<tr>
+<td>030408001191</td>
+<td>WDZA-YJY-5*10</td>
+<td>10.0</td>
+<td>阻燃A级、低烟无卤</td>
+<td>11.33</td>
+<td><span class="tag tag-feature">特性匹配(得分90)</span></td>
+<td>WDZA-YJY-5×10</td>
+<td>52.70</td>
+<td><span class="diff-negative">-78.50%</span></td>
+</tr>
+<tr>
+<td>030408001192</td>
+<td>WDZA-YJY-5*10</td>
+<td>10.0</td>
+<td>阻燃A级、低烟无卤</td>
+<td>47.50</td>
+<td><span class="tag tag-feature">特性匹配(得分90)</span></td>
+<td>WDZA-YJY-5×10</td>
+<td>52.70</td>
+<td><span class="diff-negative">-9.87%</span></td>
+</tr>
+<tr>
+<td>030408001193</td>
+<td>WDZAN-YJY-5*16</td>
+<td>16.0</td>
+<td>阻燃A级、耐火、低烟无卤</td>
+<td>19.47</td>
+<td><span class="tag tag-feature">特性匹配(得分85)</span></td>
+<td>WDZB1N-YJY- 5×16</td>
+<td>85.89</td>
+<td><span class="diff-negative">-77.33%</span></td>
+</tr>
+<tr>
+<td>030408001194</td>
+<td>WDZAN-YJY-5*10</td>
+<td>10.0</td>
+<td>阻燃A级、耐火、低烟无卤</td>
+<td>2.28</td>
+<td><span class="tag tag-feature">特性匹配(得分85)</span></td>
+<td>WDZA-YJY-5×10</td>
+<td>52.70</td>
+<td><span class="diff-negative">-95.67%</span></td>
+</tr>
+<tr>
+<td>030408001195</td>
+<td>WDZAN-YJY-5*10</td>
+<td>10.0</td>
+<td>阻燃A级、耐火、低烟无卤</td>
+<td>17.05</td>
+<td><span class="tag tag-feature">特性匹配(得分85)</span></td>
+<td>WDZA-YJY-5×10</td>
+<td>52.70</td>
+<td><span class="diff-negative">-67.65%</span></td>
+</tr>
+<tr>
+<td>030408001196</td>
+<td>防水电缆4*2.5（随设备自带）</td>
+<td>2.5</td>
+<td>-</td>
+<td>0.08</td>
+<td><span class="tag tag-feature">特性匹配(得分85)</span></td>
+<td>KYJVP-4×2.5</td>
+<td>16.29</td>
+<td><span class="diff-negative">-99.51%</span></td>
+</tr>
+<tr>
+<td>030408001197</td>
+<td>NG-A（BTLY）-4*35+1*16</td>
+<td>35.0</td>
+<td>-</td>
+<td>117.69</td>
+<td><span class="tag tag-feature">特性匹配(得分85)</span></td>
+<td>YJV 4×35+1×16</td>
+<td>170.84</td>
+<td><span class="diff-negative">-31.11%</span></td>
+</tr>
+<tr>
+<td>030408001198</td>
+<td>NG-A（BTLY）-4*35+1*16</td>
+<td>35.0</td>
+<td>-</td>
+<td>157.85</td>
+<td><span class="tag tag-feature">特性匹配(得分85)</span></td>
+<td>YJV 4×35+1×16</td>
+<td>170.84</td>
+<td><span class="diff-negative">-7.60%</span></td>
+</tr>
+<tr>
+<td>030408001199</td>
+<td>NG-A（BTLY）-4*25+1*16</td>
+<td>25.0</td>
+<td>-</td>
+<td>99.32</td>
+<td><span class="tag tag-feature">特性匹配(得分85)</span></td>
+<td>YJV 4×25+1×16</td>
+<td>132.35</td>
+<td><span class="diff-negative">-24.96%</span></td>
+</tr>
+<tr>
+<td>030408001200</td>
+<td>NG-A（BTLY）-5*10</td>
+<td>10.0</td>
+<td>-</td>
+<td>11.12</td>
+<td><span class="tag tag-feature">特性匹配(得分85)</span></td>
+<td>YJV-5×10</td>
+<td>49.93</td>
+<td><span class="diff-negative">-77.73%</span></td>
+</tr>
+<tr>
+<td>030408001201</td>
+<td>WDZA-YJY-4*150+1*70</td>
+<td>150.0</td>
+<td>阻燃A级、低烟无卤</td>
+<td>60.81</td>
+<td><span class="tag tag-feature">特性匹配(得分90)</span></td>
+<td>WDZA-YJY- 4×150+1×70</td>
+<td>617.07</td>
+<td><span class="diff-negative">-90.15%</span></td>
+</tr>
+<tr>
+<td>030408001202</td>
+<td>WDZA-YJY-4*150+1*70</td>
+<td>150.0</td>
+<td>阻燃A级、低烟无卤</td>
+<td>82.21</td>
+<td><span class="tag tag-feature">特性匹配(得分90)</span></td>
+<td>WDZA-YJY- 4×150+1×70</td>
+<td>617.07</td>
+<td><span class="diff-negative">-86.68%</span></td>
+</tr>
+<tr>
+<td>030408001203</td>
+<td>WDZA-YJY-4*120+1*70</td>
+<td>120.0</td>
+<td>阻燃A级、低烟无卤</td>
+<td>287.67</td>
+<td><span class="tag tag-feature">特性匹配(得分90)</span></td>
+<td>WDZA-YJY- 4×120+1×70</td>
+<td>513.32</td>
+<td><span class="diff-negative">-43.96%</span></td>
+</tr>
+<tr>
+<td>030408001204</td>
+<td>WDZA-YJY-4*120+1*70</td>
+<td>120.0</td>
+<td>阻燃A级、低烟无卤</td>
+<td>118.14</td>
+<td><span class="tag tag-feature">特性匹配(得分90)</span></td>
+<td>WDZA-YJY- 4×120+1×70</td>
+<td>513.32</td>
+<td><span class="diff-negative">-76.99%</span></td>
+</tr>
+<tr>
+<td>030408001205</td>
+<td>WDZAN-YJY-4*35+1*16</td>
+<td>35.0</td>
+<td>阻燃A级、耐火、低烟无卤</td>
+<td>15.58</td>
+<td><span class="tag tag-feature">特性匹配(得分85)</span></td>
+<td>WDZB1-YJY- 4×35+1×16</td>
+<td>148.54</td>
+<td><span class="diff-negative">-89.51%</span></td>
+</tr>
+<tr>
+<td>030408001206</td>
+<td>WDZA-YJY-5*10</td>
+<td>10.0</td>
+<td>阻燃A级、低烟无卤</td>
+<td>2.60</td>
+<td><span class="tag tag-feature">特性匹配(得分90)</span></td>
+<td>WDZA-YJY-5×10</td>
+<td>52.70</td>
+<td><span class="diff-negative">-95.07%</span></td>
+</tr>
+</table>
+</div>
+
+<div class="card">
+<h2>六、电缆特性解析示例</h2>
+<table>
+<tr><th>原始规格</th><th>阻燃等级</th><th>耐火</th><th>低烟无卤</th><th>铠装</th><th>绝缘类型</th><th>芯数结构</th><th>主截面</th><th>总截面</th></tr>
+<tr>
+<td>WDZA-YJY-4*120+1*70</td>
+<td>A级</td>
+<td>否</td>
+<td>是</td>
+<td>否</td>
+<td>交联聚乙烯(XLPE)</td>
+<td>4×120.0+1×70.0</td>
+<td>120.0</td>
+<td>550.0</td>
+</tr>
+<tr>
+<td>WDZA-YJY-4*70+1*35</td>
+<td>A级</td>
+<td>否</td>
+<td>是</td>
+<td>否</td>
+<td>交联聚乙烯(XLPE)</td>
+<td>4×70.0+1×35.0</td>
+<td>70.0</td>
+<td>315.0</td>
+</tr>
+<tr>
+<td>YJV-3*25+2*16</td>
+<td>-</td>
+<td>否</td>
+<td>否</td>
+<td>否</td>
+<td>交联聚乙烯(XLPE)</td>
+<td>3×25.0+2×16.0</td>
+<td>25.0</td>
+<td>107.0</td>
+</tr>
+<tr>
+<td>NH-YJV-4*95+1*50</td>
+<td>-</td>
+<td>是</td>
+<td>否</td>
+<td>否</td>
+<td>交联聚乙烯(XLPE)</td>
+<td>4×95.0+1×50.0</td>
+<td>95.0</td>
+<td>430.0</td>
+</tr>
+<tr>
+<td>ZR-YJV22-3*70+2*35</td>
+<td>C级</td>
+<td>否</td>
+<td>否</td>
+<td>是</td>
+<td>交联聚乙烯(XLPE)</td>
+<td>3×70.0+2×35.0</td>
+<td>70.0</td>
+<td>280.0</td>
+</tr>
+</table>
+</div>
+
+<div class="card" style="background: #fff3cd; border-left: 4px solid #ffc107;">
+<h2 style="color: #856404;">七、测试结论</h2>
+<ul>
+<li><strong>匹配率</strong>：99.3%（第二期样本），规格精确匹配占比较高</li>
+<li><strong>价格差异</strong>：清单综合单价与基准含税价存在差异，差异率受期数、截面、特性影响</li>
+<li><strong>特性解析</strong>：可从规格字符串中提取阻燃等级、耐火、低烟无卤、铠装、截面等关键特性</li>
+<li><strong>聚类基础</strong>：按截面分组+特性标签可实现电缆价格聚类，为单价分析提供基准</li>
+<li><strong>待优化</strong>：①增加更多基准电缆数据覆盖 ②优化特性匹配算法 ③引入价格异常检测</li>
+</ul>
+</div>
+
+</body>
+</html>

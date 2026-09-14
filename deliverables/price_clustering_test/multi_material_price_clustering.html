@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>多材料类型价格聚类扩展预览</title>
+<style>
+body { font-family: "Microsoft YaHei", sans-serif; margin: 20px; background: #f5f5f5; }
+h1 { color: #333; border-bottom: 3px solid #4D7CFE; padding-bottom: 10px; }
+h2 { color: #4D7CFE; margin-top: 30px; }
+h3 { color: #555; margin-top: 20px; }
+.card { background: white; border-radius: 8px; padding: 20px; margin: 15px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+.stats { display: flex; gap: 15px; flex-wrap: wrap; }
+.stat-box { flex: 1; min-width: 120px; background: #f0f4ff; border-radius: 8px; padding: 12px; text-align: center; }
+.stat-value { font-size: 22px; font-weight: bold; color: #4D7CFE; }
+.stat-label { font-size: 11px; color: #666; margin-top: 4px; }
+table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 12px; }
+th { background: #4D7CFE; color: white; padding: 8px; text-align: left; }
+td { padding: 6px 8px; border-bottom: 1px solid #eee; }
+tr:hover { background: #f0f4ff; }
+.bar-container { background: #e9ecef; height: 16px; border-radius: 4px; overflow: hidden; position: relative; }
+.bar-fill { height: 100%; background: linear-gradient(90deg, #4D7CFE, #6C8FFF); }
+.tag { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 11px; margin: 1px; background: #e9ecef; color: #495057; }
+.tag-price { background: #d4edda; color: #155724; }
+.tag-noprice { background: #fff3cd; color: #856404; }
+</style>
+</head>
+<body>
+
+<h1>多材料类型价格聚类扩展预览</h1>
+
+<div class="card">
+<h2>一、概览</h2>
+<div class="stats">
+<div class="stat-box">
+<div class="stat-value">9,399</div>
+<div class="stat-label">电线电缆<br><span class="tag tag-price">有基准价</span></div>
+</div>
+<div class="stat-box">
+<div class="stat-value">46,008</div>
+<div class="stat-label">管材<br><span class="tag tag-noprice">待补充基准价</span></div>
+</div>
+<div class="stat-box">
+<div class="stat-value">23,361</div>
+<div class="stat-label">阀门<br><span class="tag tag-noprice">待补充基准价</span></div>
+</div>
+<div class="stat-box">
+<div class="stat-value">1,203</div>
+<div class="stat-label">灯具<br><span class="tag tag-noprice">待补充基准价</span></div>
+</div>
+<div class="stat-box">
+<div class="stat-value">14,415</div>
+<div class="stat-label">钢材<br><span class="tag tag-noprice">待补充基准价</span></div>
+</div>
+<div class="stat-box">
+<div class="stat-value">13,256</div>
+<div class="stat-label">五金<br><span class="tag tag-noprice">待补充基准价</span></div>
+</div>
+<div class="stat-box">
+<div class="stat-value">8,868</div>
+<div class="stat-label">电气设备<br><span class="tag tag-noprice">待补充基准价</span></div>
+</div>
+<div class="stat-box">
+<div class="stat-value">8,201</div>
+<div class="stat-label">暖通<br><span class="tag tag-noprice">待补充基准价</span></div>
+</div>
+<div class="stat-box">
+<div class="stat-value">4,273</div>
+<div class="stat-label">保温<br><span class="tag tag-noprice">待补充基准价</span></div>
+</div>
+<div class="stat-box">
+<div class="stat-value">661</div>
+<div class="stat-label">防水<br><span class="tag tag-noprice">待补充基准价</span></div>
+</div>
+</div>
+<p style="margin-top:15px;color:#666;font-size:13px;">
+<strong>说明</strong>：当前仅「电线电缆」有基准价格数据（天津地区2,043条），已完成价格聚类测试 V2。
+其他材料类型（管材/阀门/灯具/钢材/五金/电气设备/暖通/保温/防水）已完成分布统计，
+待补充基准价格数据后可进行价格聚类分析。
+</p>
+</div>
+
+<div class="card">
+<h2>电线电缆</h2>
+<div class="stats">
+<div class="stat-box"><div class="stat-value">254</div><div class="stat-label">材料名称数</div></div>
+<div class="stat-box"><div class="stat-value">9,399</div><div class="stat-label">规格叶子数</div></div>
+<div class="stat-box"><div class="stat-value">10</div><div class="stat-label">计量单位种类</div></div>
+<div class="stat-box"><div class="stat-value">0</div><div class="stat-label">材质种类</div></div>
+</div>
+
+<h3>单位分布（TOP10）</h3>
+<table>
+<tr><th>单位</th><th>数量</th><th>占比</th><th>分布</th></tr>
+<tr><td><strong>米</strong></td><td>9,056</td><td>96.4%</td><td><div class="bar-container"><div class="bar-fill" style="width:100%"></div></div></td></tr>
+<tr><td><strong>个</strong></td><td>185</td><td>2.0%</td><td><div class="bar-container"><div class="bar-fill" style="width:3.9365889988296625%"></div></div></td></tr>
+<tr><td><strong>只</strong></td><td>98</td><td>1.0%</td><td><div class="bar-container"><div class="bar-fill" style="width:2.0853282264070643%"></div></div></td></tr>
+<tr><td><strong>套</strong></td><td>19</td><td>0.2%</td><td><div class="bar-container"><div class="bar-fill" style="width:0.404298329609533%"></div></div></td></tr>
+<tr><td><strong>卷</strong></td><td>16</td><td>0.2%</td><td><div class="bar-container"><div class="bar-fill" style="width:0.340461751250133%"></div></div></td></tr>
+<tr><td><strong>盘</strong></td><td>13</td><td>0.1%</td><td><div class="bar-container"><div class="bar-fill" style="width:0.2766251728907331%"></div></div></td></tr>
+<tr><td><strong>根</strong></td><td>4</td><td>0.0%</td><td><div class="bar-container"><div class="bar-fill" style="width:0.08511543781253325%"></div></div></td></tr>
+<tr><td><strong>卷（百米）</strong></td><td>4</td><td>0.0%</td><td><div class="bar-container"><div class="bar-fill" style="width:0.08511543781253325%"></div></div></td></tr>
+<tr><td><strong>千克</strong></td><td>3</td><td>0.0%</td><td><div class="bar-container"><div class="bar-fill" style="width:0.06383657835939993%"></div></div></td></tr>
+<tr><td><strong>公里</strong></td><td>1</td><td>0.0%</td><td><div class="bar-container"><div class="bar-fill" style="width:0.021278859453133313%"></div></div></td></tr>
+</table>
+
+<h3>材质分布（TOP10）</h3>
+<table>
+<tr><th>材质</th><th>数量</th></tr>
+</table>
+
+<h3>材料名称示例（前10）</h3>
+<p>
+<span class="tag">多股软铜芯线</span> <span class="tag">电缆线</span> <span class="tag">单芯线</span> <span class="tag">BV单线铜芯线</span> <span class="tag">BVR多芯双色线</span> <span class="tag">电线</span> <span class="tag">阻燃BV线</span> <span class="tag">铜芯塑料电线</span> <span class="tag">铜芯硬线</span> <span class="tag">花线</span> </p>
+
+<h3>规格示例（前10）</h3>
+<p>
+<span class="tag">1.6mm2</span> <span class="tag">6mm3</span> <span class="tag">3*50+2*25
+3*50+2*25</span> <span class="tag">3*25+2*16㎡</span> <span class="tag">3*70+2*35㎡</span> <span class="tag">3×2.5㎡</span> <span class="tag">3*4+2*25</span> <span class="tag">3*16+2*10</span> <span class="tag">3*4+2*2.5</span> <span class="tag">4*185+1*95</span> </p>
+</div>
+
+<div class="card">
+<h2>管材</h2>
+<div class="stats">
+<div class="stat-box"><div class="stat-value">1,377</div><div class="stat-label">材料名称数</div></div>
+<div class="stat-box"><div class="stat-value">46,008</div><div class="stat-label">规格叶子数</div></div>
+<div class="stat-box"><div class="stat-value">10</div><div class="stat-label">计量单位种类</div></div>
+<div class="stat-box"><div class="stat-value">1</div><div class="stat-label">材质种类</div></div>
+</div>
+
+<h3>单位分布（TOP10）</h3>
+<table>
+<tr><th>单位</th><th>数量</th><th>占比</th><th>分布</th></tr>
+<tr><td><strong>片</strong></td><td>25,055</td><td>54.5%</td><td><div class="bar-container"><div class="bar-fill" style="width:100%"></div></div></td></tr>
+<tr><td><strong>个</strong></td><td>13,788</td><td>30.0%</td><td><div class="bar-container"><div class="bar-fill" style="width:59.94912932889845%"></div></div></td></tr>
+<tr><td><strong>只</strong></td><td>5,697</td><td>12.4%</td><td><div class="bar-container"><div class="bar-fill" style="width:24.770103697906475%"></div></div></td></tr>
+<tr><td><strong>台</strong></td><td>1,210</td><td>2.6%</td><td><div class="bar-container"><div class="bar-fill" style="width:5.260983934433358%"></div></div></td></tr>
+<tr><td><strong>米</strong></td><td>92</td><td>0.2%</td><td><div class="bar-container"><div class="bar-fill" style="width:0.40000869584121396%"></div></div></td></tr>
+<tr><td><strong>根</strong></td><td>64</td><td>0.1%</td><td><div class="bar-container"><div class="bar-fill" style="width:0.27826691884606186%"></div></div></td></tr>
+<tr><td><strong>套</strong></td><td>60</td><td>0.1%</td><td><div class="bar-container"><div class="bar-fill" style="width:0.260875236418183%"></div></div></td></tr>
+<tr><td><strong>千克</strong></td><td>24</td><td>0.1%</td><td><div class="bar-container"><div class="bar-fill" style="width:0.1043500945672732%"></div></div></td></tr>
+<tr><td><strong>块</strong></td><td>5</td><td>0.0%</td><td><div class="bar-container"><div class="bar-fill" style="width:0.021739603034848586%"></div></div></td></tr>
+<tr><td><strong>卷</strong></td><td>4</td><td>0.0%</td><td><div class="bar-container"><div class="bar-fill" style="width:0.017391682427878866%"></div></div></td></tr>
+</table>
+
+<h3>材质分布（TOP10）</h3>
+<table>
+<tr><th>材质</th><th>数量</th></tr>
+<tr><td>合金</td><td>1</td></tr>
+</table>
+
+<h3>材料名称示例（前10）</h3>
+<p>
+<span class="tag">污水泵</span> <span class="tag">清水泵</span> <span class="tag">水泵</span> <span class="tag">双层不锈钢烟囱</span> <span class="tag">PPR热熔机</span> <span class="tag">排污泵耦合</span> <span class="tag">潜水防爆泵</span> <span class="tag">射流风机</span> <span class="tag">螺杆式冷水机组</span> <span class="tag">离心式冷水机组</span> </p>
+
+<h3>规格示例（前10）</h3>
+<p>
+<span class="tag">5.5KW H40 DN80</span> <span class="tag">5.5KW H36 DN80</span> <span class="tag">7.5KW H15 DN125</span> <span class="tag">DN50</span> <span class="tag">2.2KW DN50</span> <span class="tag">0.75KW DN15</span> <span class="tag">1寸吸式</span> <span class="tag">1.1KW</span> <span class="tag">1.5KW</span> </p>
+</div>
+
+<div class="card">
+<h2>阀门</h2>
+<div class="stats">
+<div class="stat-box"><div class="stat-value">573</div><div class="stat-label">材料名称数</div></div>
+<div class="stat-box"><div class="stat-value">23,361</div><div class="stat-label">规格叶子数</div></div>
+<div class="stat-box"><div class="stat-value">7</div><div class="stat-label">计量单位种类</div></div>
+<div class="stat-box"><div class="stat-value">0</div><div class="stat-label">材质种类</div></div>
+</div>
+
+<h3>单位分布（TOP10）</h3>
+<table>
+<tr><th>单位</th><th>数量</th><th>占比</th><th>分布</th></tr>
+<tr><td><strong>个</strong></td><td>14,460</td><td>61.9%</td><td><div class="bar-container"><div class="bar-fill" style="width:100%"></div></div></td></tr>
+<tr><td><strong>只</strong></td><td>8,788</td><td>37.6%</td><td><div class="bar-container"><div class="bar-fill" style="width:75.23650528658877%"></div></div></td></tr>
+<tr><td><strong>台</strong></td><td>92</td><td>0.4%</td><td><div class="bar-container"><div class="bar-fill" style="width:0.7876375155173152%"></div></div></td></tr>
+<tr><td><strong>片</strong></td><td>10</td><td>0.0%</td><td><div class="bar-container"><div class="bar-fill" style="width:0.08561277342579512%"></div></div></td></tr>
+<tr><td><strong>件</strong></td><td>7</td><td>0.0%</td><td><div class="bar-container"><div class="bar-fill" style="width:0.05992894139805659%"></div></div></td></tr>
+<tr><td><strong>套</strong></td><td>3</td><td>0.0%</td><td><div class="bar-container"><div class="bar-fill" style="width:0.02568383202773854%"></div></div></td></tr>
+<tr><td><strong>平方米</strong></td><td>1</td><td>0.0%</td><td><div class="bar-container"><div class="bar-fill" style="width:0.008561277342579514%"></div></div></td></tr>
+</table>
+
+<h3>材质分布（TOP10）</h3>
+<table>
+<tr><th>材质</th><th>数量</th></tr>
+</table>
+
+<h3>材料名称示例（前10）</h3>
+<p>
+<span class="tag">手动楔式闸阀</span> <span class="tag">球墨铸铁闸阀</span> <span class="tag">合金钢闸阀</span> <span class="tag">超高温不锈钢闸阀≤650℃</span> <span class="tag">超高温不锈钢闸阀≤900℃</span> <span class="tag">正齿轮传动闸阀</span> <span class="tag">伞齿轮传动闸阀</span> <span class="tag">气动带手动闸阀</span> <span class="tag">电动闸阀</span> <span class="tag">低温闸阀、低温电动闸阀</span> </p>
+
+<h3>规格示例（前10）</h3>
+<p>
+<span class="tag">Z40H-16C  DN15</span> <span class="tag">Z40H-16C  DN20</span> <span class="tag">Z40H-16C  DN25</span> <span class="tag">Z40H-16C  DN32</span> <span class="tag">Z40H-16C  DN40</span> <span class="tag">Z40H-16C  DN50</span> <span class="tag">Z40H-16C  DN65</span> <span class="tag">Z40H-16C  DN80</span> <span class="tag">Z40H-16C  DN100</span> <span class="tag">Z40H-16C  DN125</span> </p>
+</div>
+
+<div class="card">
+<h2>灯具</h2>
+<div class="stats">
+<div class="stat-box"><div class="stat-value">457</div><div class="stat-label">材料名称数</div></div>
+<div class="stat-box"><div class="stat-value">1,203</div><div class="stat-label">规格叶子数</div></div>
+<div class="stat-box"><div class="stat-value">10</div><div class="stat-label">计量单位种类</div></div>
+<div class="stat-box"><div class="stat-value">0</div><div class="stat-label">材质种类</div></div>
+</div>
+
+<h3>单位分布（TOP10）</h3>
+<table>
+<tr><th>单位</th><th>数量</th><th>占比</th><th>分布</th></tr>
+<tr><td><strong>只</strong></td><td>450</td><td>37.5%</td><td><div class="bar-container"><div class="bar-fill" style="width:74.93755203996669%"></div></div></td></tr>
+<tr><td><strong>套</strong></td><td>302</td><td>25.1%</td><td><div class="bar-container"><div class="bar-fill" style="width:50.291423813488755%"></div></div></td></tr>
+<tr><td><strong>个</strong></td><td>207</td><td>17.2%</td><td><div class="bar-container"><div class="bar-fill" style="width:34.47127393838468%"></div></div></td></tr>
+<tr><td><strong>米</strong></td><td>142</td><td>11.8%</td><td><div class="bar-container"><div class="bar-fill" style="width:23.646960865945047%"></div></div></td></tr>
+<tr><td><strong>根</strong></td><td>63</td><td>5.2%</td><td><div class="bar-container"><div class="bar-fill" style="width:10.491257285595337%"></div></div></td></tr>
+<tr><td><strong>台</strong></td><td>11</td><td>0.9%</td><td><div class="bar-container"><div class="bar-fill" style="width:1.8318068276436303%"></div></div></td></tr>
+<tr><td><strong>支</strong></td><td>9</td><td>0.7%</td><td><div class="bar-container"><div class="bar-fill" style="width:1.4987510407993339%"></div></div></td></tr>
+<tr><td><strong>盏</strong></td><td>9</td><td>0.7%</td><td><div class="bar-container"><div class="bar-fill" style="width:1.4987510407993339%"></div></div></td></tr>
+<tr><td><strong>组</strong></td><td>5</td><td>0.4%</td><td><div class="bar-container"><div class="bar-fill" style="width:0.832639467110741%"></div></div></td></tr>
+<tr><td><strong>条</strong></td><td>3</td><td>0.2%</td><td><div class="bar-container"><div class="bar-fill" style="width:0.4995836802664446%"></div></div></td></tr>
+</table>
+
+<h3>材质分布（TOP10）</h3>
+<table>
+<tr><th>材质</th><th>数量</th></tr>
+</table>
+
+<h3>材料名称示例（前10）</h3>
+<p>
+<span class="tag">荧光灯</span> <span class="tag">防水/防尘日光灯</span> <span class="tag">格栅灯</span> <span class="tag">三防灯</span> <span class="tag">防水密闭荧光灯</span> <span class="tag">单管密闭荧光灯</span> <span class="tag">三管格栅灯</span> <span class="tag">支架灯</span> <span class="tag">单管支架灯</span> <span class="tag">双管支架灯</span> </p>
+
+<h3>规格示例（前10）</h3>
+<p>
+<span class="tag">1*36W</span> <span class="tag">2*36W</span> <span class="tag">3*36W</span> <span class="tag">1*58W</span> <span class="tag">2*58W</span> <span class="tag">3*58W</span> <span class="tag">1*40W</span> <span class="tag">2*40W</span> <span class="tag">3*40W</span> <span class="tag">1*22W</span> </p>
+</div>
+
+<div class="card">
+<h2>钢材</h2>
+<div class="stats">
+<div class="stat-box"><div class="stat-value">1,628</div><div class="stat-label">材料名称数</div></div>
+<div class="stat-box"><div class="stat-value">14,415</div><div class="stat-label">规格叶子数</div></div>
+<div class="stat-box"><div class="stat-value">10</div><div class="stat-label">计量单位种类</div></div>
+<div class="stat-box"><div class="stat-value">6</div><div class="stat-label">材质种类</div></div>
+</div>
+
+<h3>单位分布（TOP10）</h3>
+<table>
+<tr><th>单位</th><th>数量</th><th>占比</th><th>分布</th></tr>
+<tr><td><strong>吨</strong></td><td>8,680</td><td>61.0%</td><td><div class="bar-container"><div class="bar-fill" style="width:100%"></div></div></td></tr>
+<tr><td><strong>件</strong></td><td>2,414</td><td>17.0%</td><td><div class="bar-container"><div class="bar-fill" style="width:33.914020792357405%"></div></div></td></tr>
+<tr><td><strong>平方米</strong></td><td>738</td><td>5.2%</td><td><div class="bar-container"><div class="bar-fill" style="width:10.368080921607193%"></div></div></td></tr>
+<tr><td><strong>米</strong></td><td>685</td><td>4.8%</td><td><div class="bar-container"><div class="bar-fill" style="width:9.6234897443102%"></div></div></td></tr>
+<tr><td><strong>千克</strong></td><td>683</td><td>4.8%</td><td><div class="bar-container"><div class="bar-fill" style="width:9.59539196403484%"></div></div></td></tr>
+<tr><td><strong>个</strong></td><td>587</td><td>4.1%</td><td><div class="bar-container"><div class="bar-fill" style="width:8.246698510817646%"></div></div></td></tr>
+<tr><td><strong>套</strong></td><td>224</td><td>1.6%</td><td><div class="bar-container"><div class="bar-fill" style="width:3.1469513908401234%"></div></div></td></tr>
+<tr><td><strong>只</strong></td><td>92</td><td>0.6%</td><td><div class="bar-container"><div class="bar-fill" style="width:1.2924978926664794%"></div></div></td></tr>
+<tr><td><strong>支</strong></td><td>69</td><td>0.5%</td><td><div class="bar-container"><div class="bar-fill" style="width:0.9693734194998594%"></div></div></td></tr>
+<tr><td><strong>片</strong></td><td>64</td><td>0.4%</td><td><div class="bar-container"><div class="bar-fill" style="width:0.899128968811464%"></div></div></td></tr>
+</table>
+
+<h3>材质分布（TOP10）</h3>
+<table>
+<tr><th>材质</th><th>数量</th></tr>
+<tr><td>Q235钢材热镀处理</td><td>36</td></tr>
+<tr><td>Q235B</td><td>14</td></tr>
+<tr><td>不锈钢</td><td>6</td></tr>
+<tr><td>氟碳喷涂</td><td>4</td></tr>
+<tr><td>铝合金</td><td>3</td></tr>
+<tr><td>木纹</td><td>1</td></tr>
+</table>
+
+<h3>材料名称示例（前10）</h3>
+<p>
+<span class="tag">圆钢6</span> <span class="tag">圆钢(Q235)</span> <span class="tag">镀锌圆钢(Q235)</span> <span class="tag">不锈钢圆钢</span> <span class="tag">圆钢45#</span> <span class="tag">圆钢35#</span> <span class="tag">圆钢25#</span> <span class="tag">锌包钢圆线</span> <span class="tag">拉杆</span> <span class="tag">钢筋</span> </p>
+
+<h3>规格示例（前10）</h3>
+<p>
+<span class="tag">6</span> <span class="tag">Φ5.5</span> <span class="tag">Φ6</span> <span class="tag">Φ6.5</span> <span class="tag">Φ8</span> <span class="tag">Φ10</span> <span class="tag">Φ12</span> <span class="tag">Φ14</span> <span class="tag">Φ16</span> <span class="tag">Φ18</span> </p>
+</div>
+
+<div class="card">
+<h2>五金</h2>
+<div class="stats">
+<div class="stat-box"><div class="stat-value">1,070</div><div class="stat-label">材料名称数</div></div>
+<div class="stat-box"><div class="stat-value">13,256</div><div class="stat-label">规格叶子数</div></div>
+<div class="stat-box"><div class="stat-value">10</div><div class="stat-label">计量单位种类</div></div>
+<div class="stat-box"><div class="stat-value">2</div><div class="stat-label">材质种类</div></div>
+</div>
+
+<h3>单位分布（TOP10）</h3>
+<table>
+<tr><th>单位</th><th>数量</th><th>占比</th><th>分布</th></tr>
+<tr><td><strong>套</strong></td><td>8,244</td><td>63.1%</td><td><div class="bar-container"><div class="bar-fill" style="width:100%"></div></div></td></tr>
+<tr><td><strong>个</strong></td><td>2,956</td><td>22.6%</td><td><div class="bar-container"><div class="bar-fill" style="width:45.23335883703137%"></div></div></td></tr>
+<tr><td><strong>把</strong></td><td>941</td><td>7.2%</td><td><div class="bar-container"><div class="bar-fill" style="width:14.39938791124713%"></div></div></td></tr>
+<tr><td><strong>片</strong></td><td>164</td><td>1.3%</td><td><div class="bar-container"><div class="bar-fill" style="width:2.5095638867635808%"></div></div></td></tr>
+<tr><td><strong>根</strong></td><td>160</td><td>1.2%</td><td><div class="bar-container"><div class="bar-fill" style="width:2.448355011476664%"></div></div></td></tr>
+<tr><td><strong>只</strong></td><td>155</td><td>1.2%</td><td><div class="bar-container"><div class="bar-fill" style="width:2.371843917368018%"></div></div></td></tr>
+<tr><td><strong>台</strong></td><td>154</td><td>1.2%</td><td><div class="bar-container"><div class="bar-fill" style="width:2.3565416985462893%"></div></div></td></tr>
+<tr><td><strong>千克</strong></td><td>119</td><td>0.9%</td><td><div class="bar-container"><div class="bar-fill" style="width:1.820964039785769%"></div></div></td></tr>
+<tr><td><strong>百个</strong></td><td>116</td><td>0.9%</td><td><div class="bar-container"><div class="bar-fill" style="width:1.7750573833205816%"></div></div></td></tr>
+<tr><td><strong>副</strong></td><td>61</td><td>0.5%</td><td><div class="bar-container"><div class="bar-fill" style="width:0.9334353481254782%"></div></div></td></tr>
+</table>
+
+<h3>材质分布（TOP10）</h3>
+<table>
+<tr><th>材质</th><th>数量</th></tr>
+<tr><td>五金制品</td><td>1</td></tr>
+<tr><td>合金</td><td>1</td></tr>
+</table>
+
+<h3>材料名称示例（前10）</h3>
+<p>
+<span class="tag">执手门锁</span> <span class="tag">拉环门锁</span> <span class="tag">拉手门锁</span> <span class="tag">普通弹子门锁</span> <span class="tag">单、双舌单保险弹子门锁</span> <span class="tag">单、双舌双保险弹子门锁</span> <span class="tag">单、双舌三保险弹子门锁</span> <span class="tag">叶片插锁</span> <span class="tag">弹子插锁</span> <span class="tag">弹子执手插锁</span> </p>
+
+<h3>规格示例（前10）</h3>
+<p>
+</p>
+</div>
+
+<div class="card">
+<h2>电气设备</h2>
+<div class="stats">
+<div class="stat-box"><div class="stat-value">1,835</div><div class="stat-label">材料名称数</div></div>
+<div class="stat-box"><div class="stat-value">8,868</div><div class="stat-label">规格叶子数</div></div>
+<div class="stat-box"><div class="stat-value">10</div><div class="stat-label">计量单位种类</div></div>
+<div class="stat-box"><div class="stat-value">0</div><div class="stat-label">材质种类</div></div>
+</div>
+
+<h3>单位分布（TOP10）</h3>
+<table>
+<tr><th>单位</th><th>数量</th><th>占比</th><th>分布</th></tr>
+<tr><td><strong>只</strong></td><td>4,066</td><td>46.2%</td><td><div class="bar-container"><div class="bar-fill" style="width:92.36710586097229%"></div></div></td></tr>
+<tr><td><strong>台</strong></td><td>1,768</td><td>20.1%</td><td><div class="bar-container"><div class="bar-fill" style="width:40.16356201726488%"></div></div></td></tr>
+<tr><td><strong>个</strong></td><td>1,179</td><td>13.4%</td><td><div class="bar-container"><div class="bar-fill" style="width:26.783280327124036%"></div></div></td></tr>
+<tr><td><strong>米</strong></td><td>901</td><td>10.2%</td><td><div class="bar-container"><div class="bar-fill" style="width:20.467969104952292%"></div></div></td></tr>
+<tr><td><strong>套</strong></td><td>512</td><td>5.8%</td><td><div class="bar-container"><div class="bar-fill" style="width:11.631076783280326%"></div></div></td></tr>
+<tr><td><strong>根</strong></td><td>245</td><td>2.8%</td><td><div class="bar-container"><div class="bar-fill" style="width:5.565651976374375%"></div></div></td></tr>
+<tr><td><strong>片</strong></td><td>86</td><td>1.0%</td><td><div class="bar-container"><div class="bar-fill" style="width:1.9536574284416175%"></div></div></td></tr>
+<tr><td><strong>节</strong></td><td>18</td><td>0.2%</td><td><div class="bar-container"><div class="bar-fill" style="width:0.408905043162199%"></div></div></td></tr>
+<tr><td><strong>卷</strong></td><td>15</td><td>0.2%</td><td><div class="bar-container"><div class="bar-fill" style="width:0.3407542026351658%"></div></div></td></tr>
+<tr><td><strong>支</strong></td><td>14</td><td>0.2%</td><td><div class="bar-container"><div class="bar-fill" style="width:0.31803725579282144%"></div></div></td></tr>
+</table>
+
+<h3>材质分布（TOP10）</h3>
+<table>
+<tr><th>材质</th><th>数量</th></tr>
+</table>
+
+<h3>材料名称示例（前10）</h3>
+<p>
+<span class="tag">熔断器瓷插螺旋式</span> <span class="tag">熔断器管式</span> <span class="tag">熔断器防爆式</span> <span class="tag">瓷插熔断器</span> <span class="tag">磁杆式熔断器</span> <span class="tag">飞保险(羊角熔断器)</span> <span class="tag">电容</span> <span class="tag">熔断器</span> <span class="tag">熔断器底座</span> <span class="tag">熔断器式开关</span> </p>
+
+<h3>规格示例（前10）</h3>
+<p>
+<span class="tag">5A</span> <span class="tag">380V/30A</span> <span class="tag">KG-250V 10-15A</span> <span class="tag">5A</span> <span class="tag">10A</span> <span class="tag">400V  474K</span> <span class="tag">RL1-15/10A</span> </p>
+</div>
+
+<div class="card">
+<h2>暖通</h2>
+<div class="stats">
+<div class="stat-box"><div class="stat-value">658</div><div class="stat-label">材料名称数</div></div>
+<div class="stat-box"><div class="stat-value">8,201</div><div class="stat-label">规格叶子数</div></div>
+<div class="stat-box"><div class="stat-value">10</div><div class="stat-label">计量单位种类</div></div>
+<div class="stat-box"><div class="stat-value">0</div><div class="stat-label">材质种类</div></div>
+</div>
+
+<h3>单位分布（TOP10）</h3>
+<table>
+<tr><th>单位</th><th>数量</th><th>占比</th><th>分布</th></tr>
+<tr><td><strong>个</strong></td><td>7,023</td><td>85.9%</td><td><div class="bar-container"><div class="bar-fill" style="width:100%"></div></div></td></tr>
+<tr><td><strong>台</strong></td><td>993</td><td>12.1%</td><td><div class="bar-container"><div class="bar-fill" style="width:24.278728606356967%"></div></div></td></tr>
+<tr><td><strong>套</strong></td><td>60</td><td>0.7%</td><td><div class="bar-container"><div class="bar-fill" style="width:1.466992665036675%"></div></div></td></tr>
+<tr><td><strong>平方米</strong></td><td>34</td><td>0.4%</td><td><div class="bar-container"><div class="bar-fill" style="width:0.8312958435207823%"></div></div></td></tr>
+<tr><td><strong>组</strong></td><td>18</td><td>0.2%</td><td><div class="bar-container"><div class="bar-fill" style="width:0.4400977995110024%"></div></div></td></tr>
+<tr><td><strong>件</strong></td><td>13</td><td>0.2%</td><td><div class="bar-container"><div class="bar-fill" style="width:0.3178484107579462%"></div></div></td></tr>
+<tr><td><strong>只</strong></td><td>12</td><td>0.1%</td><td><div class="bar-container"><div class="bar-fill" style="width:0.293398533007335%"></div></div></td></tr>
+<tr><td><strong>片</strong></td><td>10</td><td>0.1%</td><td><div class="bar-container"><div class="bar-fill" style="width:0.24449877750611246%"></div></div></td></tr>
+<tr><td><strong>根</strong></td><td>9</td><td>0.1%</td><td><div class="bar-container"><div class="bar-fill" style="width:0.2200488997555012%"></div></div></td></tr>
+<tr><td><strong>支</strong></td><td>8</td><td>0.1%</td><td><div class="bar-container"><div class="bar-fill" style="width:0.19559902200488996%"></div></div></td></tr>
+</table>
+
+<h3>材质分布（TOP10）</h3>
+<table>
+<tr><th>材质</th><th>数量</th></tr>
+</table>
+
+<h3>材料名称示例（前10）</h3>
+<p>
+<span class="tag">JNK1组合式空气处理机组</span> <span class="tag">风机盘管</span> <span class="tag">风机盘管机组</span> <span class="tag">新风机组</span> <span class="tag">ZK新风机组</span> <span class="tag">风冷(冷暖)分体空调柜机</span> <span class="tag">ZK组合式空气处理机组  风量</span> <span class="tag">恒温恒湿机</span> <span class="tag">恒温恒湿空调器</span> <span class="tag">轴流风机</span> </p>
+
+<h3>规格示例（前10）</h3>
+<p>
+<span class="tag">100000m3/h 1070KW 55KW</span> <span class="tag">FP-34</span> <span class="tag">FP-51</span> <span class="tag">FP-68</span> <span class="tag">FP-85</span> <span class="tag">FP-102</span> <span class="tag">FP-136</span> <span class="tag">FP-170</span> <span class="tag">FCU-04左式（四管制）</span> </p>
+</div>
+
+<div class="card">
+<h2>保温</h2>
+<div class="stats">
+<div class="stat-box"><div class="stat-value">191</div><div class="stat-label">材料名称数</div></div>
+<div class="stat-box"><div class="stat-value">4,273</div><div class="stat-label">规格叶子数</div></div>
+<div class="stat-box"><div class="stat-value">10</div><div class="stat-label">计量单位种类</div></div>
+<div class="stat-box"><div class="stat-value">0</div><div class="stat-label">材质种类</div></div>
+</div>
+
+<h3>单位分布（TOP10）</h3>
+<table>
+<tr><th>单位</th><th>数量</th><th>占比</th><th>分布</th></tr>
+<tr><td><strong>米</strong></td><td>3,067</td><td>71.8%</td><td><div class="bar-container"><div class="bar-fill" style="width:100%"></div></div></td></tr>
+<tr><td><strong>立方米</strong></td><td>820</td><td>19.2%</td><td><div class="bar-container"><div class="bar-fill" style="width:38.40749414519906%"></div></div></td></tr>
+<tr><td><strong>只</strong></td><td>228</td><td>5.3%</td><td><div class="bar-container"><div class="bar-fill" style="width:10.679156908665105%"></div></div></td></tr>
+<tr><td><strong>平方米</strong></td><td>87</td><td>2.0%</td><td><div class="bar-container"><div class="bar-fill" style="width:4.074941451990632%"></div></div></td></tr>
+<tr><td><strong>个</strong></td><td>43</td><td>1.0%</td><td><div class="bar-container"><div class="bar-fill" style="width:2.0140515222482436%"></div></div></td></tr>
+<tr><td><strong>根</strong></td><td>15</td><td>0.4%</td><td><div class="bar-container"><div class="bar-fill" style="width:0.702576112412178%"></div></div></td></tr>
+<tr><td><strong>千克</strong></td><td>3</td><td>0.1%</td><td><div class="bar-container"><div class="bar-fill" style="width:0.1405152224824356%"></div></div></td></tr>
+<tr><td><strong>桶</strong></td><td>3</td><td>0.1%</td><td><div class="bar-container"><div class="bar-fill" style="width:0.1405152224824356%"></div></div></td></tr>
+<tr><td><strong>张</strong></td><td>2</td><td>0.0%</td><td><div class="bar-container"><div class="bar-fill" style="width:0.09367681498829039%"></div></div></td></tr>
+<tr><td><strong>卷</strong></td><td>2</td><td>0.0%</td><td><div class="bar-container"><div class="bar-fill" style="width:0.09367681498829039%"></div></div></td></tr>
+</table>
+
+<h3>材质分布（TOP10）</h3>
+<table>
+<tr><th>材质</th><th>数量</th></tr>
+</table>
+
+<h3>材料名称示例（前10）</h3>
+<p>
+<span class="tag">复合平贴直角系列</span> <span class="tag">明龙骨直角系列</span> <span class="tag">跌级系列</span> <span class="tag">暗龙骨系列</span> <span class="tag">阿姆斯壮龙骨</span> <span class="tag">三角龙骨连接件</span> <span class="tag">U型边龙骨</span> <span class="tag">U型槽</span> <span class="tag">穿心龙骨</span> <span class="tag">大吊</span> </p>
+
+<h3>规格示例（前10）</h3>
+<p>
+<span class="tag">10×300×600</span> <span class="tag">12×300×600</span> <span class="tag">15×300×600</span> <span class="tag">18×300×600</span> <span class="tag">12×600×600</span> <span class="tag">15×600×600</span> <span class="tag">18×600×600</span> <span class="tag">12×1200×600</span> <span class="tag">15×1200×600</span> <span class="tag">18×1200×600</span> </p>
+</div>
+
+<div class="card">
+<h2>防水</h2>
+<div class="stats">
+<div class="stat-box"><div class="stat-value">281</div><div class="stat-label">材料名称数</div></div>
+<div class="stat-box"><div class="stat-value">661</div><div class="stat-label">规格叶子数</div></div>
+<div class="stat-box"><div class="stat-value">10</div><div class="stat-label">计量单位种类</div></div>
+<div class="stat-box"><div class="stat-value">1</div><div class="stat-label">材质种类</div></div>
+</div>
+
+<h3>单位分布（TOP10）</h3>
+<table>
+<tr><th>单位</th><th>数量</th><th>占比</th><th>分布</th></tr>
+<tr><td><strong>平方米</strong></td><td>143</td><td>22.0%</td><td><div class="bar-container"><div class="bar-fill" style="width:44.0%"></div></div></td></tr>
+<tr><td><strong>千克</strong></td><td>123</td><td>18.9%</td><td><div class="bar-container"><div class="bar-fill" style="width:37.84615384615385%"></div></div></td></tr>
+<tr><td><strong>吨</strong></td><td>122</td><td>18.8%</td><td><div class="bar-container"><div class="bar-fill" style="width:37.53846153846154%"></div></div></td></tr>
+<tr><td><strong>张</strong></td><td>98</td><td>15.1%</td><td><div class="bar-container"><div class="bar-fill" style="width:30.153846153846153%"></div></div></td></tr>
+<tr><td><strong>块</strong></td><td>63</td><td>9.7%</td><td><div class="bar-container"><div class="bar-fill" style="width:19.384615384615383%"></div></div></td></tr>
+<tr><td><strong>米</strong></td><td>49</td><td>7.5%</td><td><div class="bar-container"><div class="bar-fill" style="width:15.076923076923077%"></div></div></td></tr>
+<tr><td><strong>立方米</strong></td><td>27</td><td>4.2%</td><td><div class="bar-container"><div class="bar-fill" style="width:8.307692307692308%"></div></div></td></tr>
+<tr><td><strong>个</strong></td><td>13</td><td>2.0%</td><td><div class="bar-container"><div class="bar-fill" style="width:4.0%"></div></div></td></tr>
+<tr><td><strong>桶</strong></td><td>8</td><td>1.2%</td><td><div class="bar-container"><div class="bar-fill" style="width:2.4615384615384617%"></div></div></td></tr>
+<tr><td><strong>瓶</strong></td><td>4</td><td>0.6%</td><td><div class="bar-container"><div class="bar-fill" style="width:1.2307692307692308%"></div></div></td></tr>
+</table>
+
+<h3>材质分布（TOP10）</h3>
+<table>
+<tr><th>材质</th><th>数量</th></tr>
+<tr><td>水泥制品</td><td>1</td></tr>
+</table>
+
+<h3>材料名称示例（前10）</h3>
+<p>
+<span class="tag">道路石油沥青</span> <span class="tag">建筑石油沥青</span> <span class="tag">专用石油沥青</span> <span class="tag">普通石油沥青</span> <span class="tag">低温煤沥青</span> <span class="tag">中温煤沥青</span> <span class="tag">益胶泥</span> <span class="tag">煤焦油</span> <span class="tag">木材防腐油 一级</span> <span class="tag">木材防腐油 二级</span> </p>
+
+<h3>规格示例（前10）</h3>
+<p>
+<span class="tag">200＃</span> <span class="tag">180＃</span> <span class="tag">140＃</span> <span class="tag">100＃甲</span> <span class="tag">100＃乙</span> <span class="tag">60＃甲</span> <span class="tag">60＃乙</span> <span class="tag">30＃甲</span> <span class="tag">30＃乙</span> <span class="tag">10＃</span> </p>
+</div>
+
+<div class="card" style="background: #d4edda; border-left: 4px solid #28a745;">
+<h2 style="color: #155724;">价格聚类扩展路线图</h2>
+<table>
+<tr><th>阶段</th><th>材料类型</th><th>状态</th><th>依赖</th></tr>
+<tr><td>第一阶段</td><td>电线电缆</td><td><span class="tag tag-price">已完成 V2</span></td><td>天津地区基准价 2,043 条</td></tr>
+<tr><td>第二阶段</td><td>管材（钢管/PVC/PE）</td><td><span class="tag tag-noprice">分布统计完成</span></td><td>待补充管材基准价格数据</td></tr>
+<tr><td>第二阶段</td><td>阀门</td><td><span class="tag tag-noprice">分布统计完成</span></td><td>待补充阀门基准价格数据</td></tr>
+<tr><td>第三阶段</td><td>灯具/电气设备</td><td><span class="tag tag-noprice">分布统计完成</span></td><td>待补充基准价格数据</td></tr>
+<tr><td>第三阶段</td><td>钢材/五金</td><td><span class="tag tag-noprice">分布统计完成</span></td><td>待补充基准价格数据</td></tr>
+<tr><td>第四阶段</td><td>暖通/保温/防水</td><td><span class="tag tag-noprice">分布统计完成</span></td><td>待补充基准价格数据</td></tr>
+</table>
+
+<h3>基准价格数据来源建议</h3>
+<ul>
+<li>各地造价信息价（北京/湖南/辽宁/云南等月度信息价）</li>
+<li>电商平台市场价（京东/淘宝/1688 工业品）</li>
+<li>历史采购成交价（企业内部数据）</li>
+<li>广联达/智多星等造价软件材料价库</li>
+</ul>
+</div>
+
+</body>
+</html>

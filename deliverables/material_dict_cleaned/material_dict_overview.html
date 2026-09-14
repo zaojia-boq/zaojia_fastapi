@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>中建材料字典综合预览</title>
+<style>
+body { font-family: "Microsoft YaHei", sans-serif; margin: 20px; background: #f5f5f5; }
+h1 { color: #333; border-bottom: 3px solid #4D7CFE; padding-bottom: 10px; }
+h2 { color: #4D7CFE; margin-top: 30px; }
+.card { background: white; border-radius: 8px; padding: 20px; margin: 15px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+.stats { display: flex; gap: 15px; flex-wrap: wrap; }
+.stat-box { flex: 1; min-width: 130px; background: #f0f4ff; border-radius: 8px; padding: 15px; text-align: center; }
+.stat-value { font-size: 24px; font-weight: bold; color: #4D7CFE; }
+.stat-label { font-size: 12px; color: #666; margin-top: 5px; }
+table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 13px; }
+th { background: #4D7CFE; color: white; padding: 10px; text-align: left; }
+td { padding: 8px 10px; border-bottom: 1px solid #eee; }
+tr:hover { background: #f0f4ff; }
+.bar-container { background: #e9ecef; height: 18px; border-radius: 4px; overflow: hidden; position: relative; }
+.bar-fill { height: 100%; background: linear-gradient(90deg, #4D7CFE, #6C8FFF); }
+.bar-text { position: absolute; left: 8px; top: 1px; font-size: 11px; color: #333; font-weight: bold; }
+.tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin: 2px; }
+.tag-l1 { background: #d4edda; color: #155724; }
+.tag-l2 { background: #cce5ff; color: #004085; }
+.tag-l3 { background: #fff3cd; color: #856404; }
+.tag-l4 { background: #f8d7da; color: #721c24; }
+.tag-l5 { background: #e2e3e5; color: #383d41; }
+</style>
+</head>
+<body>
+
+<h1>中建材料字典综合预览</h1>
+
+<div class="card">
+<h2>一、数据概览</h2>
+<div class="stats">
+<div class="stat-box"><div class="stat-value">156,733</div><div class="stat-label">总数据条数</div></div>
+<div class="stat-box"><div class="stat-value">39</div><div class="stat-label">根节点（大类）</div></div>
+<div class="stat-box"><div class="stat-value">13,790</div><div class="stat-label">材料名称（层级4）</div></div>
+<div class="stat-box"><div class="stat-value">142,098</div><div class="stat-label">规格叶子（层级5）</div></div>
+<div class="stat-box"><div class="stat-value">77</div><div class="stat-label">计量单位种类</div></div>
+<div class="stat-box"><div class="stat-value">59</div><div class="stat-label">材质种类</div></div>
+</div>
+</div>
+
+<div class="card">
+<h2>二、各层级数据统计</h2>
+<table>
+<tr><th>层级</th><th>名称</th><th>数量</th><th>有规格</th><th>有单位</th><th>有材质</th></tr>
+<tr>
+<td><span class="tag tag-l1">层级1</span></td>
+<td>根节点（大类）</td>
+<td>39</td>
+<td>0 (0.0%)</td>
+<td>0 (0.0%)</td>
+<td>0 (0.0%)</td>
+</tr>
+<tr>
+<td><span class="tag tag-l2">层级2</span></td>
+<td>二级分类</td>
+<td>197</td>
+<td>0 (0.0%)</td>
+<td>0 (0.0%)</td>
+<td>0 (0.0%)</td>
+</tr>
+<tr>
+<td><span class="tag tag-l3">层级3</span></td>
+<td>中类</td>
+<td>609</td>
+<td>0 (0.0%)</td>
+<td>0 (0.0%)</td>
+<td>0 (0.0%)</td>
+</tr>
+<tr>
+<td><span class="tag tag-l4">层级4</span></td>
+<td>材料名称</td>
+<td>13,790</td>
+<td>0 (0.0%)</td>
+<td>0 (0.0%)</td>
+<td>0 (0.0%)</td>
+</tr>
+<tr>
+<td><span class="tag tag-l5">层级5</span></td>
+<td>规格叶子</td>
+<td>142,098</td>
+<td>138,590 (97.5%)</td>
+<td>142,098 (100.0%)</td>
+<td>553 (0.4%)</td>
+</tr>
+</table>
+</div>
+
+<div class="card">
+<h2>三、各大类材料分布（按规格叶子数排序）</h2>
+<table>
+<tr><th>排名</th><th>编码</th><th>大类名称</th><th>材料名称数</th><th>规格叶子数</th><th>占比</th><th>分布</th></tr>
+<tr>
+<td>1</td>
+<td><code>I018</code></td>
+<td>管道安装设备及其它材料</td>
+<td>754</td>
+<td><strong>25,258</strong></td>
+<td>17.8%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:35.5501133020873%"></div><div class="bar-text">17.8%</div></div></td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>I017</code></td>
+<td>阀门</td>
+<td>573</td>
+<td><strong>23,361</strong></td>
+<td>16.4%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:32.88012498416586%"></div><div class="bar-text">16.4%</div></div></td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>I019</code></td>
+<td>金属管配件</td>
+<td>623</td>
+<td><strong>20,750</strong></td>
+<td>14.6%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:29.20519641374263%"></div><div class="bar-text">14.6%</div></div></td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>I001</code></td>
+<td>钢材及有色金属</td>
+<td>1,628</td>
+<td><strong>14,415</strong></td>
+<td>10.1%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:20.288814761643373%"></div><div class="bar-text">10.1%</div></div></td>
+</tr>
+<tr>
+<td>5</td>
+<td><code>I020</code></td>
+<td>五金制品</td>
+<td>1,070</td>
+<td><strong>13,256</strong></td>
+<td>9.3%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:18.657546200509508%"></div><div class="bar-text">9.3%</div></div></td>
+</tr>
+<tr>
+<td>6</td>
+<td><code>I031</code></td>
+<td>电线电缆</td>
+<td>254</td>
+<td><strong>9,399</strong></td>
+<td>6.6%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:13.22889836591648%"></div><div class="bar-text">6.6%</div></div></td>
+</tr>
+<tr>
+<td>7</td>
+<td><code>I014</code></td>
+<td>电气安装材料及设备</td>
+<td>1,835</td>
+<td><strong>8,868</strong></td>
+<td>6.2%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:12.481526833593717%"></div><div class="bar-text">6.2%</div></div></td>
+</tr>
+<tr>
+<td>8</td>
+<td><code>I026</code></td>
+<td>暖气、通风安装材料</td>
+<td>658</td>
+<td><strong>8,201</strong></td>
+<td>5.8%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:11.542738110318231%"></div><div class="bar-text">5.8%</div></div></td>
+</tr>
+<tr>
+<td>9</td>
+<td><code>I022</code></td>
+<td>隔音保温材料</td>
+<td>191</td>
+<td><strong>4,273</strong></td>
+<td>3.0%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:6.014159242213121%"></div><div class="bar-text">3.0%</div></div></td>
+</tr>
+<tr>
+<td>10</td>
+<td><code>I012</code></td>
+<td>塑料、橡胶制品</td>
+<td>541</td>
+<td><strong>2,748</strong></td>
+<td>1.9%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:3.8677532407211923%"></div><div class="bar-text">1.9%</div></div></td>
+</tr>
+<tr>
+<td>11</td>
+<td><code>I013</code></td>
+<td>石材石料及制品</td>
+<td>810</td>
+<td><strong>1,561</strong></td>
+<td>1.1%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:2.19707525792059%"></div><div class="bar-text">1.1%</div></div></td>
+</tr>
+<tr>
+<td>12</td>
+<td><code>I027</code></td>
+<td>焊接材料及设备</td>
+<td>87</td>
+<td><strong>891</strong></td>
+<td>0.6%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:1.2540640966093821%"></div><div class="bar-text">0.6%</div></div></td>
+</tr>
+<tr>
+<td>13</td>
+<td><code>I008</code></td>
+<td>木材及制品</td>
+<td>402</td>
+<td><strong>751</strong></td>
+<td>0.5%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:1.057016988275697%"></div><div class="bar-text">0.5%</div></div></td>
+</tr>
+<tr>
+<td>14</td>
+<td><code>I007</code></td>
+<td>防水、防腐、防火材料</td>
+<td>281</td>
+<td><strong>661</strong></td>
+<td>0.5%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:0.9303438472040423%"></div><div class="bar-text">0.5%</div></div></td>
+</tr>
+<tr>
+<td>15</td>
+<td><code>I021</code></td>
+<td>仪表安装材料及仪器</td>
+<td>154</td>
+<td><strong>643</strong></td>
+<td>0.5%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:0.9050092189897113%"></div><div class="bar-text">0.5%</div></div></td>
+</tr>
+<tr>
+<td>16</td>
+<td><code>I035</code></td>
+<td>其他</td>
+<td>467</td>
+<td><strong>618</strong></td>
+<td>0.4%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:0.8698222353586961%"></div><div class="bar-text">0.4%</div></div></td>
+</tr>
+<tr>
+<td>17</td>
+<td><code>I009</code></td>
+<td>幕墙材料</td>
+<td>376</td>
+<td><strong>608</strong></td>
+<td>0.4%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:0.8557474419062899%"></div><div class="bar-text">0.4%</div></div></td>
+</tr>
+<tr>
+<td>18</td>
+<td><code>I028</code></td>
+<td>施工机械及配件</td>
+<td>216</td>
+<td><strong>573</strong></td>
+<td>0.4%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:0.8064856648228687%"></div><div class="bar-text">0.4%</div></div></td>
+</tr>
+<tr>
+<td>19</td>
+<td><code>I025</code></td>
+<td>周转材料</td>
+<td>113</td>
+<td><strong>565</strong></td>
+<td>0.4%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:0.7952258300609438%"></div><div class="bar-text">0.4%</div></div></td>
+</tr>
+<tr>
+<td>20</td>
+<td><code>I011</code></td>
+<td>油漆、涂料及化工材料</td>
+<td>493</td>
+<td><strong>557</strong></td>
+<td>0.4%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:0.7839659952990189%"></div><div class="bar-text">0.4%</div></div></td>
+</tr>
+<tr>
+<td>21</td>
+<td><code>I003</code></td>
+<td>砼</td>
+<td>107</td>
+<td><strong>460</strong></td>
+<td>0.3%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:0.64744049881068%"></div><div class="bar-text">0.3%</div></div></td>
+</tr>
+<tr>
+<td>22</td>
+<td><code>I015</code></td>
+<td>门窗</td>
+<td>185</td>
+<td><strong>430</strong></td>
+<td>0.3%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:0.6052161184534617%"></div><div class="bar-text">0.3%</div></div></td>
+</tr>
+<tr>
+<td>23</td>
+<td><code>I036</code></td>
+<td>费用</td>
+<td>126</td>
+<td><strong>416</strong></td>
+<td>0.3%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:0.5855114076200931%"></div><div class="bar-text">0.3%</div></div></td>
+</tr>
+<tr>
+<td>24</td>
+<td><code>I005</code></td>
+<td>玻璃及玻璃制品</td>
+<td>221</td>
+<td><strong>407</strong></td>
+<td>0.3%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:0.5728440935129278%"></div><div class="bar-text">0.3%</div></div></td>
+</tr>
+<tr>
+<td>25</td>
+<td><code>I024</code></td>
+<td>厨卫洁具</td>
+<td>302</td>
+<td><strong>395</strong></td>
+<td>0.3%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:0.5559543413700404%"></div><div class="bar-text">0.3%</div></div></td>
+</tr>
+<tr>
+<td>26</td>
+<td><code>I032</code></td>
+<td>办公用品</td>
+<td>263</td>
+<td><strong>306</strong></td>
+<td>0.2%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:0.4306886796436263%"></div><div class="bar-text">0.2%</div></div></td>
+</tr>
+<tr>
+<td>27</td>
+<td><code>I002</code></td>
+<td>水泥、石膏及制品</td>
+<td>124</td>
+<td><strong>297</strong></td>
+<td>0.2%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:0.41802136553646074%"></div><div class="bar-text">0.2%</div></div></td>
+</tr>
+<tr>
+<td>28</td>
+<td><code>I029</code></td>
+<td>劳保及安全用品</td>
+<td>227</td>
+<td><strong>287</strong></td>
+<td>0.2%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:0.4039465720840547%"></div><div class="bar-text">0.2%</div></div></td>
+</tr>
+<tr>
+<td>29</td>
+<td><code>I016</code></td>
+<td>消防器材</td>
+<td>128</td>
+<td><strong>230</strong></td>
+<td>0.2%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:0.32372024940534%"></div><div class="bar-text">0.2%</div></div></td>
+</tr>
+<tr>
+<td>30</td>
+<td><code>I010</code></td>
+<td>地面装饰材料</td>
+<td>149</td>
+<td><strong>228</strong></td>
+<td>0.2%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:0.32090529071485874%"></div><div class="bar-text">0.2%</div></div></td>
+</tr>
+<tr>
+<td>31</td>
+<td><code>I034</code></td>
+<td>母线</td>
+<td>54</td>
+<td><strong>198</strong></td>
+<td>0.1%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:0.27868091035764053%"></div><div class="bar-text">0.1%</div></div></td>
+</tr>
+<tr>
+<td>32</td>
+<td><code>I037</code></td>
+<td>织物及皮草装饰材料</td>
+<td>83</td>
+<td><strong>139</strong></td>
+<td>0.1%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:0.19563962898844459%"></div><div class="bar-text">0.1%</div></div></td>
+</tr>
+<tr>
+<td>33</td>
+<td><code>I033</code></td>
+<td>临设</td>
+<td>92</td>
+<td><strong>110</strong></td>
+<td>0.1%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:0.15482272797646696%"></div><div class="bar-text">0.1%</div></div></td>
+</tr>
+<tr>
+<td>34</td>
+<td><code>I038</code></td>
+<td>陶瓷</td>
+<td>86</td>
+<td><strong>93</strong></td>
+<td>0.1%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:0.1308955791073766%"></div><div class="bar-text">0.1%</div></div></td>
+</tr>
+<tr>
+<td>35</td>
+<td><code>I004</code></td>
+<td>建筑砂浆及外加剂</td>
+<td>53</td>
+<td><strong>71</strong></td>
+<td>0.0%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:0.09993103351208321%"></div><div class="bar-text">0.0%</div></div></td>
+</tr>
+<tr>
+<td>36</td>
+<td><code>I030</code></td>
+<td>园林产品</td>
+<td>30</td>
+<td><strong>36</strong></td>
+<td>0.0%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:0.05066925642866191%"></div><div class="bar-text">0.0%</div></div></td>
+</tr>
+<tr>
+<td>37</td>
+<td><code>I006</code></td>
+<td>砌块及砖瓦、灰、砂石</td>
+<td>29</td>
+<td><strong>33</strong></td>
+<td>0.0%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:0.046446818392940084%"></div><div class="bar-text">0.0%</div></div></td>
+</tr>
+<tr>
+<td>38</td>
+<td><code>I023</code></td>
+<td>智能化系统</td>
+<td>3</td>
+<td><strong>3</strong></td>
+<td>0.0%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:0.004222438035721826%"></div><div class="bar-text">0.0%</div></div></td>
+</tr>
+<tr>
+<td>39</td>
+<td><code>I039</code></td>
+<td>废旧物资</td>
+<td>2</td>
+<td><strong>2</strong></td>
+<td>0.0%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:0.002814958690481217%"></div><div class="bar-text">0.0%</div></div></td>
+</tr>
+</table>
+</div>
+
+<div class="card">
+<h2>四、计量单位分布（规格叶子层）</h2>
+<table>
+<tr><th>排名</th><th>单位</th><th>数量</th><th>占比</th><th>分布</th></tr>
+<tr>
+<td>1</td>
+<td><strong>个</strong></td>
+<td>41,799</td>
+<td>29.4%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:88.24684372756829%"></div><div class="bar-text">29.4%</div></div></td>
+</tr>
+<tr>
+<td>2</td>
+<td><strong>片</strong></td>
+<td>25,467</td>
+<td>17.9%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:53.76641472786386%"></div><div class="bar-text">17.9%</div></div></td>
+</tr>
+<tr>
+<td>3</td>
+<td><strong>只</strong></td>
+<td>21,465</td>
+<td>15.1%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:45.31731621838449%"></div><div class="bar-text">15.1%</div></div></td>
+</tr>
+<tr>
+<td>4</td>
+<td><strong>米</strong></td>
+<td>14,997</td>
+<td>10.6%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:31.66195161086011%"></div><div class="bar-text">10.6%</div></div></td>
+</tr>
+<tr>
+<td>5</td>
+<td><strong>套</strong></td>
+<td>9,859</td>
+<td>6.9%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:20.814508297090743%"></div><div class="bar-text">6.9%</div></div></td>
+</tr>
+<tr>
+<td>6</td>
+<td><strong>吨</strong></td>
+<td>9,126</td>
+<td>6.4%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:19.266984756998692%"></div><div class="bar-text">6.4%</div></div></td>
+</tr>
+<tr>
+<td>7</td>
+<td><strong>台</strong></td>
+<td>5,038</td>
+<td>3.5%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:10.63632141198328%"></div><div class="bar-text">3.5%</div></div></td>
+</tr>
+<tr>
+<td>8</td>
+<td><strong>平方米</strong></td>
+<td>3,898</td>
+<td>2.7%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:8.229531731621838%"></div><div class="bar-text">2.7%</div></div></td>
+</tr>
+<tr>
+<td>9</td>
+<td><strong>件</strong></td>
+<td>2,493</td>
+<td>1.8%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:5.263269011527255%"></div><div class="bar-text">1.8%</div></div></td>
+</tr>
+<tr>
+<td>10</td>
+<td><strong>千克</strong></td>
+<td>2,126</td>
+<td>1.5%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:4.488451631972301%"></div><div class="bar-text">1.5%</div></div></td>
+</tr>
+<tr>
+<td>11</td>
+<td><strong>立方米</strong></td>
+<td>1,448</td>
+<td>1.0%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:3.0570451378626013%"></div><div class="bar-text">1.0%</div></div></td>
+</tr>
+<tr>
+<td>12</td>
+<td><strong>把</strong></td>
+<td>1,024</td>
+<td>0.7%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:2.161888274289575%"></div><div class="bar-text">0.7%</div></div></td>
+</tr>
+<tr>
+<td>13</td>
+<td><strong>根</strong></td>
+<td>695</td>
+<td>0.5%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:1.4672972174133343%"></div><div class="bar-text">0.5%</div></div></td>
+</tr>
+<tr>
+<td>14</td>
+<td><strong>支</strong></td>
+<td>627</td>
+<td>0.4%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:1.3237343241987922%"></div><div class="bar-text">0.4%</div></div></td>
+</tr>
+<tr>
+<td>15</td>
+<td><strong>块</strong></td>
+<td>363</td>
+<td>0.3%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:0.7663725034835114%"></div><div class="bar-text">0.3%</div></div></td>
+</tr>
+<tr>
+<td>16</td>
+<td><strong>樘</strong></td>
+<td>355</td>
+<td>0.2%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:0.7494827513406241%"></div><div class="bar-text">0.2%</div></div></td>
+</tr>
+<tr>
+<td>17</td>
+<td><strong>张</strong></td>
+<td>268</td>
+<td>0.2%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:0.5658066967867246%"></div><div class="bar-text">0.2%</div></div></td>
+</tr>
+<tr>
+<td>18</td>
+<td><strong>副</strong></td>
+<td>132</td>
+<td>0.1%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:0.27868091035764053%"></div><div class="bar-text">0.1%</div></div></td>
+</tr>
+<tr>
+<td>19</td>
+<td><strong>桶</strong></td>
+<td>121</td>
+<td>0.1%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:0.25545750116117044%"></div><div class="bar-text">0.1%</div></div></td>
+</tr>
+<tr>
+<td>20</td>
+<td><strong>百个</strong></td>
+<td>116</td>
+<td>0.1%</td>
+<td><div class="bar-container"><div class="bar-fill" style="width:0.2449014060718659%"></div><div class="bar-text">0.1%</div></div></td>
+</tr>
+</table>
+</div>
+
+<div class="card">
+<h2>五、材质分布（规格叶子层，前20）</h2>
+<table>
+<tr><th>排名</th><th>材质</th><th>数量</th><th>占比</th></tr>
+<tr><td>1</td><td>20#</td><td>88</td><td>15.9%</td></tr>
+<tr><td>2</td><td>Q235B</td><td>70</td><td>12.7%</td></tr>
+<tr><td>3</td><td>Q235钢材热镀处理</td><td>44</td><td>8.0%</td></tr>
+<tr><td>4</td><td>PPR</td><td>41</td><td>7.4%</td></tr>
+<tr><td>5</td><td>铜</td><td>32</td><td>5.8%</td></tr>
+<tr><td>6</td><td>Q235-B</td><td>28</td><td>5.1%</td></tr>
+<tr><td>7</td><td>PVC-U</td><td>28</td><td>5.1%</td></tr>
+<tr><td>8</td><td>20II</td><td>26</td><td>4.7%</td></tr>
+<tr><td>9</td><td>PVC</td><td>13</td><td>2.4%</td></tr>
+<tr><td>10</td><td>Q245R</td><td>13</td><td>2.4%</td></tr>
+<tr><td>11</td><td>不锈钢</td><td>11</td><td>2.0%</td></tr>
+<tr><td>12</td><td>304材质</td><td>10</td><td>1.8%</td></tr>
+<tr><td>13</td><td>室内304 室外316</td><td>10</td><td>1.8%</td></tr>
+<tr><td>14</td><td>碳钢</td><td>10</td><td>1.8%</td></tr>
+<tr><td>15</td><td>sus304</td><td>10</td><td>1.8%</td></tr>
+<tr><td>16</td><td>S30408</td><td>9</td><td>1.6%</td></tr>
+<tr><td>17</td><td>铝塑PPR</td><td>7</td><td>1.3%</td></tr>
+<tr><td>18</td><td>T2铜</td><td>6</td><td>1.1%</td></tr>
+<tr><td>19</td><td>组合件</td><td>6</td><td>1.1%</td></tr>
+<tr><td>20</td><td>Q235A</td><td>6</td><td>1.1%</td></tr>
+</table>
+</div>
+
+<div class="card">
+<h2>六、各大类材料示例（每个大类前3个材料名称）</h2>
+<table>
+<tr><th>大类</th><th>材料名称示例</th></tr>
+<tr><td><strong>管道安装设备及其它材料</strong></td><td>污水泵、清水泵、水泵</td></tr>
+<tr><td><strong>阀门</strong></td><td>手动楔式闸阀、球墨铸铁闸阀、合金钢闸阀</td></tr>
+<tr><td><strong>金属管配件</strong></td><td>法兰套筒伸缩器、镀锌丝扣法兰、法兰疏水器</td></tr>
+<tr><td><strong>钢材及有色金属</strong></td><td>圆钢6、圆钢(Q235)、镀锌圆钢(Q235)</td></tr>
+<tr><td><strong>五金制品</strong></td><td>执手门锁、拉环门锁、拉手门锁</td></tr>
+<tr><td><strong>电线电缆</strong></td><td>多股软铜芯线、电缆线、单芯线</td></tr>
+<tr><td><strong>电气安装材料及设备</strong></td><td>熔断器瓷插螺旋式、熔断器管式、熔断器防爆式</td></tr>
+<tr><td><strong>暖气、通风安装材料</strong></td><td>JNK1组合式空气处理机组、风机盘管、风机盘管机组</td></tr>
+<tr><td><strong>隔音保温材料</strong></td><td>复合平贴直角系列、明龙骨直角系列、跌级系列</td></tr>
+<tr><td><strong>塑料、橡胶制品</strong></td><td>塑料布、窗纱、HDPE土工膜</td></tr>
+<tr><td><strong>石材石料及制品</strong></td><td>金碧辉煌大理石、浅灰色大理石、黑金花大理石</td></tr>
+<tr><td><strong>焊接材料及设备</strong></td><td>碳钢焊条、低合金钢焊条、不锈钢焊条</td></tr>
+<tr><td><strong>木材及制品</strong></td><td>白松原木、红松原木、落叶松原木</td></tr>
+<tr><td><strong>防水、防腐、防火材料</strong></td><td>道路石油沥青、建筑石油沥青、专用石油沥青</td></tr>
+<tr><td><strong>仪表安装材料及仪器</strong></td><td>直流电压表、交流电压表、直流电流表</td></tr>
+</table>
+</div>
+
+<div class="card" style="background: #d4edda; border-left: 4px solid #28a745;">
+<h2 style="color: #155724;">七、数据质量总结</h2>
+<ul>
+<li><strong>编码方案</strong>：3-2-2-3-4（总长度15位，含前缀I），编码唯一性100%</li>
+<li><strong>层级结构</strong>：5级（根→大类→中类→材料名称→规格），层级1-3符合率100%</li>
+<li><strong>数据覆盖</strong>：39个大类，13,790个材料名称，142,098个规格叶子</li>
+<li><strong>字段完整度</strong>：规格叶子层有规格97.5%，有单位100.0%，有材质0.4%</li>
+<li><strong>独立预览服务</strong>：端口8778，支持树形浏览+搜索+11字段详情</li>
+<li><strong>待优化</strong>：①部分大类材质字段缺失 ②单位同义统一（平米/平方米）③异常编码长度（10/12/19位，源于原始数据层级不统一）</li>
+</ul>
+</div>
+
+</body>
+</html>

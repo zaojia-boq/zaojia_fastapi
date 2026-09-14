@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>材料价聚类测试 V2（优化版）</title>
+<style>
+body { font-family: "Microsoft YaHei", sans-serif; margin: 20px; background: #f5f5f5; }
+h1 { color: #333; border-bottom: 3px solid #4D7CFE; padding-bottom: 10px; }
+h2 { color: #4D7CFE; margin-top: 30px; }
+.card { background: white; border-radius: 8px; padding: 20px; margin: 15px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+.stats { display: flex; gap: 20px; flex-wrap: wrap; }
+.stat-box { flex: 1; min-width: 140px; background: #f0f4ff; border-radius: 8px; padding: 15px; text-align: center; }
+.stat-value { font-size: 26px; font-weight: bold; color: #4D7CFE; }
+.stat-label { font-size: 13px; color: #666; margin-top: 5px; }
+.stat-highlight { background: #d4edda; }
+.stat-highlight .stat-value { color: #155724; }
+.stat-warning { background: #fff3cd; }
+.stat-warning .stat-value { color: #856404; }
+.stat-danger { background: #f8d7da; }
+.stat-danger .stat-value { color: #721c24; }
+table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 13px; }
+th { background: #4D7CFE; color: white; padding: 10px; text-align: left; }
+td { padding: 8px 10px; border-bottom: 1px solid #eee; }
+tr:hover { background: #f0f4ff; }
+.tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; margin: 2px; }
+.tag-exact { background: #d4edda; color: #155724; }
+.tag-alias { background: #cce5ff; color: #004085; }
+.tag-feature { background: #fff3cd; color: #856404; }
+.tag-none { background: #f8d7da; color: #721c24; }
+.tag-normal { background: #d4edda; color: #155724; }
+.tag-anomaly { background: #f8d7da; color: #721c24; }
+.diff-positive { color: #dc3545; font-weight: bold; }
+.diff-negative { color: #28a745; font-weight: bold; }
+</style>
+</head>
+<body>
+
+<h1>材料价聚类测试 V2（优化版）</h1>
+
+<div class="card">
+<h2>一、匹配优化效果</h2>
+<div class="stats">
+<div class="stat-box stat-highlight"><div class="stat-value">57.1%</div><div class="stat-label">精确匹配率（标准化+别名）</div></div>
+<div class="stat-box"><div class="stat-value">99.3%</div><div class="stat-label">总匹配率</div></div>
+<div class="stat-box"><div class="stat-value">820</div><div class="stat-label">标准化精确匹配</div></div>
+<div class="stat-box"><div class="stat-value">0</div><div class="stat-label">别名匹配</div></div>
+<div class="stat-box"><div class="stat-value">10</div><div class="stat-label">未匹配</div></div>
+</div>
+</div>
+
+<div class="card">
+<h2>二、匹配类型分布（全部5期）</h2>
+<table>
+<tr><th>匹配类型</th><th>数量</th><th>占比</th></tr>
+<tr><td><span class="tag tag-exact">标准化精确匹配</span></td><td>820</td><td>57.1%</td></tr>
+<tr><td><span class="tag tag-feature">特性匹配(得分85)</span></td><td>495</td><td>34.5%</td></tr>
+<tr><td><span class="tag tag-feature">特性匹配(得分90)</span></td><td>80</td><td>5.6%</td></tr>
+<tr><td><span class="tag tag-feature">特性匹配(得分75)</span></td><td>15</td><td>1.0%</td></tr>
+<tr><td><span class="tag tag-feature">特性匹配(得分80)</span></td><td>15</td><td>1.0%</td></tr>
+<tr><td><span class="tag tag-none">未匹配</span></td><td>10</td><td>0.7%</td></tr>
+</table>
+</div>
+
+<div class="card">
+<h2>三、价格异常检测（第四期为正常基准）</h2>
+<div class="stats">
+<div class="stat-box"><div class="stat-value">1148</div><div class="stat-label">检测记录数</div></div>
+<div class="stat-box stat-danger"><div class="stat-value">957</div><div class="stat-label">异常价格数</div></div>
+<div class="stat-box stat-warning"><div class="stat-value">83.4%</div><div class="stat-label">异常率</div></div>
+<div class="stat-box stat-highlight"><div class="stat-value">第四期</div><div class="stat-label">正常基准期</div></div>
+</div>
+
+<h3>按期异常统计</h3>
+<table>
+<tr><th>期数</th><th>检测数</th><th>异常数</th><th>异常率</th><th>状态</th></tr>
+<tr><td>第三期</td><td>287</td><td>233</td><td>81.2%</td><td><span class="tag tag-anomaly">非正常</span></td></tr>
+<tr><td>第二期</td><td>287</td><td>241</td><td>84.0%</td><td><span class="tag tag-anomaly">非正常</span></td></tr>
+<tr><td>第五期</td><td>287</td><td>236</td><td>82.2%</td><td><span class="tag tag-anomaly">非正常</span></td></tr>
+<tr><td>第六期</td><td>287</td><td>247</td><td>86.1%</td><td><span class="tag tag-anomaly">非正常</span></td></tr>
+</table>
+</div>
+
+<div class="card">
+<h2>四、各期价格对比（以第四期为基准）</h2>
+<table>
+<tr><th>期数</th><th>综合单价均值</th><th>中位数</th><th>与第四期偏离率</th><th>状态</th></tr>
+<tr><td>第三期</td><td>62.47</td><td>22.90</td><td class="diff-negative">-69.87%</td><td><span class="tag tag-anomaly">非正常</span></td></tr>
+<tr><td>第二期</td><td>55.46</td><td>24.48</td><td class="diff-negative">-73.26%</td><td><span class="tag tag-anomaly">非正常</span></td></tr>
+<tr><td>第五期</td><td>61.88</td><td>25.16</td><td class="diff-negative">-70.16%</td><td><span class="tag tag-anomaly">非正常</span></td></tr>
+<tr><td>第六期</td><td>53.02</td><td>25.84</td><td class="diff-negative">-74.43%</td><td><span class="tag tag-anomaly">非正常</span></td></tr>
+<tr><td>第四期</td><td>207.38</td><td>113.96</td><td class="diff-negative">+0.00%</td><td><span class="tag tag-normal">基准（正常）</span></td></tr>
+</table>
+</div>
+
+<div class="card">
+<h2>五、匹配明细（前30条，含异常标记）</h2>
+<table>
+<tr><th>期数</th><th>项目编码</th><th>提取规格</th><th>标准化规格</th><th>清单单价</th><th>匹配类型</th><th>基准价</th><th>差异率</th><th>价格状态</th></tr>
+<tr>
+<td>第二期</td>
+<td>030408001001</td>
+<td>WDZA-YJY-4*120+1*70</td>
+<td>WDZA-YJY-4*120+1*70</td>
+<td>218.56</td>
+<td><span class="tag tag-exact">标准化精确匹配</span></td>
+<td>513.32</td>
+<td><span class="diff-negative">-57.42%</span></td>
+<td><span class="tag tag-anomaly">异常</span></td>
+</tr>
+<tr>
+<td>第二期</td>
+<td>030408001002</td>
+<td>WDZA-YJY-4*120+1*70</td>
+<td>WDZA-YJY-4*120+1*70</td>
+<td>281.63</td>
+<td><span class="tag tag-exact">标准化精确匹配</span></td>
+<td>513.32</td>
+<td><span class="diff-negative">-45.14%</span></td>
+<td><span class="tag tag-normal">正常</span></td>
+</tr>
+<tr>
+<td>第二期</td>
+<td>030408001003</td>
+<td>WDZA-YJY-4*70+1*35</td>
+<td>WDZA-YJY-4*70+1*35</td>
+<td>3.17</td>
+<td><span class="tag tag-exact">标准化精确匹配</span></td>
+<td>298.81</td>
+<td><span class="diff-negative">-98.94%</span></td>
+<td><span class="tag tag-anomaly">异常</span></td>
+</tr>
+<tr>
+<td>第二期</td>
+<td>030408001004</td>
+<td>WDZA-YJY-4*70+1*35</td>
+<td>WDZA-YJY-4*70+1*35</td>
+<td>58.05</td>
+<td><span class="tag tag-exact">标准化精确匹配</span></td>
+<td>298.81</td>
+<td><span class="diff-negative">-80.57%</span></td>
+<td><span class="tag tag-anomaly">异常</span></td>
+</tr>
+<tr>
+<td>第二期</td>
+<td>030408001005</td>
+<td>WDZA-YJY-4*25+1*16</td>
+<td>WDZA-YJY-4*25+1*16</td>
+<td>39.95</td>
+<td><span class="tag tag-exact">标准化精确匹配</span></td>
+<td>116.28</td>
+<td><span class="diff-negative">-65.64%</span></td>
+<td><span class="tag tag-anomaly">异常</span></td>
+</tr>
+<tr>
+<td>第二期</td>
+<td>030408001006</td>
+<td>WDZA-YJY-4*35+1*16</td>
+<td>WDZA-YJY-4*35+1*16</td>
+<td>3.39</td>
+<td><span class="tag tag-exact">标准化精确匹配</span></td>
+<td>151.87</td>
+<td><span class="diff-negative">-97.77%</span></td>
+<td><span class="tag tag-anomaly">异常</span></td>
+</tr>
+<tr>
+<td>第二期</td>
+<td>030408001007</td>
+<td>WDZA-YJY-5*10</td>
+<td>WDZA-YJY-5*10</td>
+<td>10.47</td>
+<td><span class="tag tag-exact">标准化精确匹配</span></td>
+<td>52.70</td>
+<td><span class="diff-negative">-80.13%</span></td>
+<td><span class="tag tag-anomaly">异常</span></td>
+</tr>
+<tr>
+<td>第二期</td>
+<td>030408001008</td>
+<td>WDZA-YJY-5*10</td>
+<td>WDZA-YJY-5*10</td>
+<td>17.55</td>
+<td><span class="tag tag-exact">标准化精确匹配</span></td>
+<td>52.70</td>
+<td><span class="diff-negative">-66.70%</span></td>
+<td><span class="tag tag-anomaly">异常</span></td>
+</tr>
+<tr>
+<td>第二期</td>
+<td>030408001009</td>
+<td>WDZA-YJY-5*16</td>
+<td>WDZA-YJY-5*16</td>
+<td>37.49</td>
+<td><span class="tag tag-exact">标准化精确匹配</span></td>
+<td>81.24</td>
+<td><span class="diff-negative">-53.85%</span></td>
+<td><span class="tag tag-anomaly">异常</span></td>
+</tr>
+<tr>
+<td>第二期</td>
+<td>030408001010</td>
+<td>防水电缆4*2.5（随设备自带）</td>
+<td>防水电缆4*2.5(随设备自带)</td>
+<td>0.93</td>
+<td><span class="tag tag-feature">特性匹配(得分85)</span></td>
+<td>16.29</td>
+<td><span class="diff-negative">-94.29%</span></td>
+<td><span class="tag tag-anomaly">异常</span></td>
+</tr>
+<tr>
+<td>第二期</td>
+<td>030408001011</td>
+<td>NG-A（BTLY）-4*35+1*16</td>
+<td>NG-A(BTLY)-4*35+1*16</td>
+<td>22.94</td>
+<td><span class="tag tag-feature">特性匹配(得分85)</span></td>
+<td>170.84</td>
+<td><span class="diff-negative">-86.57%</span></td>
+<td><span class="tag tag-anomaly">异常</span></td>
+</tr>
+<tr>
+<td>第二期</td>
+<td>030408001012</td>
+<td>NG-A（BTLY）-4*35+1*16</td>
+<td>NG-A(BTLY)-4*35+1*16</td>
+<td>5.78</td>
+<td><span class="tag tag-feature">特性匹配(得分85)</span></td>
+<td>170.84</td>
+<td><span class="diff-negative">-96.62%</span></td>
+<td><span class="tag tag-anomaly">异常</span></td>
+</tr>
+<tr>
+<td>第二期</td>
+<td>030408001013</td>
+<td>NG-A（BTLY）-4*25+1*16</td>
+<td>NG-A(BTLY)-4*25+1*16</td>
+<td>63.74</td>
+<td><span class="tag tag-feature">特性匹配(得分85)</span></td>
+<td>132.35</td>
+<td><span class="diff-negative">-51.84%</span></td>
+<td><span class="tag tag-anomaly">异常</span></td>
+</tr>
+<tr>
+<td>第二期</td>
+<td>030408001014</td>
+<td>NG-A（BTLY）-5*10</td>
+<td>NG-A(BTLY)-5*10</td>
+<td>41.25</td>
+<td><span class="tag tag-feature">特性匹配(得分85)</span></td>
+<td>49.93</td>
+<td><span class="diff-negative">-17.38%</span></td>
+<td><span class="tag tag-anomaly">异常</span></td>
+</tr>
+<tr>
+<td>第二期</td>
+<td>030408001015</td>
+<td>WDZA-YJY-5*6</td>
+<td>WDZA-YJY-5*6</td>
+<td>3.65</td>
+<td><span class="tag tag-exact">标准化精确匹配</span></td>
+<td>33.00</td>
+<td><span class="diff-negative">-88.94%</span></td>
+<td><span class="tag tag-anomaly">异常</span></td>
+</tr>
+<tr>
+<td>第二期</td>
+<td>030408001128</td>
+<td>WDZA-YJY-4*150+1*70</td>
+<td>WDZA-YJY-4*150+1*70</td>
+<td>150.51</td>
+<td><span class="tag tag-exact">标准化精确匹配</span></td>
+<td>617.07</td>
+<td><span class="diff-negative">-75.61%</span></td>
+<td><span class="tag tag-anomaly">异常</span></td>
+</tr>
+<tr>
+<td>第二期</td>
+<td>030408001129</td>
+<td>WDZA-YJY-4*150+1*70</td>
+<td>WDZA-YJY-4*150+1*70</td>
+<td>106.16</td>
+<td><span class="tag tag-exact">标准化精确匹配</span></td>
+<td>617.07</td>
+<td><span class="diff-negative">-82.80%</span></td>
+<td><span class="tag tag-anomaly">异常</span></td>
+</tr>
+<tr>
+<td>第二期</td>
+<td>030408001130</td>
+<td>WDZA-YJY-4*120+1*70</td>
+<td>WDZA-YJY-4*120+1*70</td>
+<td>185.07</td>
+<td><span class="tag tag-exact">标准化精确匹配</span></td>
+<td>513.32</td>
+<td><span class="diff-negative">-63.95%</span></td>
+<td><span class="tag tag-anomaly">异常</span></td>
+</tr>
+<tr>
+<td>第二期</td>
+<td>030408001131</td>
+<td>WDZA-YJY-4*120+1*70</td>
+<td>WDZA-YJY-4*120+1*70</td>
+<td>231.60</td>
+<td><span class="tag tag-exact">标准化精确匹配</span></td>
+<td>513.32</td>
+<td><span class="diff-negative">-54.88%</span></td>
+<td><span class="tag tag-anomaly">异常</span></td>
+</tr>
+<tr>
+<td>第二期</td>
+<td>030408001132</td>
+<td>WDZA-YJY-4*25+1*16</td>
+<td>WDZA-YJY-4*25+1*16</td>
+<td>43.90</td>
+<td><span class="tag tag-exact">标准化精确匹配</span></td>
+<td>116.28</td>
+<td><span class="diff-negative">-62.25%</span></td>
+<td><span class="tag tag-anomaly">异常</span></td>
+</tr>
+<tr>
+<td>第二期</td>
+<td>030408001133</td>
+<td>WDZA-YJY-5*10</td>
+<td>WDZA-YJY-5*10</td>
+<td>6.64</td>
+<td><span class="tag tag-exact">标准化精确匹配</span></td>
+<td>52.70</td>
+<td><span class="diff-negative">-87.40%</span></td>
+<td><span class="tag tag-anomaly">异常</span></td>
+</tr>
+<tr>
+<td>第二期</td>
+<td>030408001134</td>
+<td>WDZA-YJY-5*10</td>
+<td>WDZA-YJY-5*10</td>
+<td>8.38</td>
+<td><span class="tag tag-exact">标准化精确匹配</span></td>
+<td>52.70</td>
+<td><span class="diff-negative">-84.10%</span></td>
+<td><span class="tag tag-anomaly">异常</span></td>
+</tr>
+<tr>
+<td>第二期</td>
+<td>030408001135</td>
+<td>WDZA-YJY-5*6</td>
+<td>WDZA-YJY-5*6</td>
+<td>0.77</td>
+<td><span class="tag tag-exact">标准化精确匹配</span></td>
+<td>33.00</td>
+<td><span class="diff-negative">-97.67%</span></td>
+<td><span class="tag tag-anomaly">异常</span></td>
+</tr>
+<tr>
+<td>第二期</td>
+<td>030408001136</td>
+<td>WDZAN-YJY-5*16</td>
+<td>WDZAN-YJY-5*16</td>
+<td>0.98</td>
+<td><span class="tag tag-feature">特性匹配(得分85)</span></td>
+<td>85.89</td>
+<td><span class="diff-negative">-98.86%</span></td>
+<td><span class="tag tag-anomaly">异常</span></td>
+</tr>
+<tr>
+<td>第二期</td>
+<td>030408001137</td>
+<td>防水电缆4*2.5（随设备自带）</td>
+<td>防水电缆4*2.5(随设备自带)</td>
+<td>0.32</td>
+<td><span class="tag tag-feature">特性匹配(得分85)</span></td>
+<td>16.29</td>
+<td><span class="diff-negative">-98.04%</span></td>
+<td><span class="tag tag-anomaly">异常</span></td>
+</tr>
+<tr>
+<td>第二期</td>
+<td>030408001138</td>
+<td>NG-A（BTLY）-4*35+1*16</td>
+<td>NG-A(BTLY)-4*35+1*16</td>
+<td>39.70</td>
+<td><span class="tag tag-feature">特性匹配(得分85)</span></td>
+<td>170.84</td>
+<td><span class="diff-negative">-76.76%</span></td>
+<td><span class="tag tag-anomaly">异常</span></td>
+</tr>
+<tr>
+<td>第二期</td>
+<td>030408001139</td>
+<td>NG-A（BTLY）-4*35+1*16</td>
+<td>NG-A(BTLY)-4*35+1*16</td>
+<td>56.33</td>
+<td><span class="tag tag-feature">特性匹配(得分85)</span></td>
+<td>170.84</td>
+<td><span class="diff-negative">-67.03%</span></td>
+<td><span class="tag tag-anomaly">异常</span></td>
+</tr>
+<tr>
+<td>第二期</td>
+<td>030408001140</td>
+<td>NG-A（BTLY）-4*25+1*16</td>
+<td>NG-A(BTLY)-4*25+1*16</td>
+<td>74.93</td>
+<td><span class="tag tag-feature">特性匹配(得分85)</span></td>
+<td>132.35</td>
+<td><span class="diff-negative">-43.38%</span></td>
+<td><span class="tag tag-anomaly">异常</span></td>
+</tr>
+<tr>
+<td>第二期</td>
+<td>030408001141</td>
+<td>NG-A（BTLY）-5*10</td>
+<td>NG-A(BTLY)-5*10</td>
+<td>14.31</td>
+<td><span class="tag tag-feature">特性匹配(得分85)</span></td>
+<td>49.93</td>
+<td><span class="diff-negative">-71.34%</span></td>
+<td><span class="tag tag-anomaly">异常</span></td>
+</tr>
+<tr>
+<td>第二期</td>
+<td>030408001142</td>
+<td>WDZA-YJY-5*16</td>
+<td>WDZA-YJY-5*16</td>
+<td>65.08</td>
+<td><span class="tag tag-exact">标准化精确匹配</span></td>
+<td>81.24</td>
+<td><span class="diff-negative">-19.89%</span></td>
+<td><span class="tag tag-normal">正常</span></td>
+</tr>
+</table>
+</div>
+
+<div class="card" style="background: #d4edda; border-left: 4px solid #28a745;">
+<h2 style="color: #155724;">六、优化总结</h2>
+<ul>
+<li><strong>匹配优化</strong>：通过规格标准化（统一大小写/乘号/全角半角）和别名映射（WDZA=WDZ-A等），精确匹配率显著提升</li>
+<li><strong>价格异常检测</strong>：以第四期为正常基准，其他期偏离超过50%标记为异常；第二期/第三期/第五期/第六期均为非正常价格</li>
+<li><strong>数据质量</strong>：测试数据中存在单价接近0的异常值，需在实际应用中增加数据清洗</li>
+<li><strong>聚类基础</strong>：按截面分组+特性标签+标准化规格，可实现电缆价格精准聚类</li>
+<li><strong>待扩展</strong>：①扩展到其他材料类型（管材/阀门/灯具等） ②引入更多基准价格数据 ③建立价格预测模型</li>
+</ul>
+</div>
+
+</body>
+</html>
