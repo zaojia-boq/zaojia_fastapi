@@ -133,6 +133,71 @@
     const cache = {};
     const PAGE_SIZE = 100;
 
+    // 展开状态记忆（localStorage）
+    const EXPANDED_KEY = 'dict_tree_expanded_v1';
+    function getExpandedSet() {
+      try { return new Set(JSON.parse(localStorage.getItem(EXPANDED_KEY) || '[]')); }
+      catch (e) { return new Set(); }
+    }
+    function saveExpanded(id, expanded) {
+      const set = getExpandedSet();
+      const sid = String(id);
+      if (expanded) set.add(sid); else set.delete(sid);
+      try { localStorage.setItem(EXPANDED_KEY, JSON.stringify([...set])); } catch (e) {}
+    }
+    // 自动展开一个节点（若未加载则先加载，加载后递归展开其子节点中记忆的）
+    async function autoExpandNode(nodeId) {
+      const node = tree.querySelector('.tree-node[data-id="' + CSS.escape(nodeId) + '"]');
+      if (!node) return;
+      const caret = node.querySelector('.tree-caret');
+      const children = tree.querySelector('.tree-children[data-children="' + CSS.escape(nodeId) + '"]');
+      if (!children) return;
+      if (node.dataset.loaded !== 'true') {
+        const ok = await loadChildren(nodeId, children, caret, 1);
+        if (!ok) return;
+      }
+      children.style.display = 'block';
+      if (caret) { caret.textContent = '−'; caret.classList.add('open'); }
+      // 递归展开子节点中记忆的
+      const expandedSet = getExpandedSet();
+      const childNodes = children.querySelectorAll(':scope > .tree-node:not(.load-more-node)');
+      for (const cn of childNodes) {
+        if (expandedSet.has(cn.dataset.id)) {
+          await autoExpandNode(cn.dataset.id);
+        }
+      }
+    }
+
+    // 逐级展开一条祖先链（从 l1 到直接父节点），用于搜索后定位节点
+    async function expandPath(ancestorIds) {
+      for (const aid of ancestorIds) {
+        const node = tree.querySelector('.tree-node[data-id="' + CSS.escape(aid) + '"]');
+        if (!node) continue;
+        const caret = node.querySelector('.tree-caret');
+        const children = tree.querySelector('.tree-children[data-children="' + CSS.escape(aid) + '"]');
+        if (!children) continue;
+        if (node.dataset.loaded !== 'true') {
+          await loadChildren(aid, children, caret, 1);
+        }
+        children.style.display = 'block';
+        if (caret) { caret.textContent = '−'; caret.classList.add('open'); }
+      }
+    }
+
+    // 清除搜索状态：恢复所有节点显示和原始文本
+    function resetTreeDisplay() {
+      const nodes = tree.querySelectorAll('.tree-node:not(.load-more-node)');
+      nodes.forEach(node => {
+        node.style.display = '';
+        const a = node.querySelector('a');
+        if (!a) return;
+        const rawName = a.dataset.name || '';
+        const codeEl = a.querySelector('span');
+        const codeHtml = codeEl ? codeEl.outerHTML : '';
+        a.innerHTML = codeHtml + escapeHtml(rawName);
+      });
+    }
+
     // 动态创建子节点HTML
     function createChildNode(child, parentDepth) {
       const depth = parentDepth + 1;
@@ -146,7 +211,7 @@
         '<div class="tree-node" data-id="' + child.id + '" data-level="' + child.level + '" data-loaded="false"' +
         ' style="padding-left:' + (8 + depth * 16) + 'px">' +
         '<span class="tree-caret ' + caretClass + '" data-caret="' + child.id + '">' + hasCaret + '</span>' +
-        '<a href="/admin/dict?sel=' + child.id + '" style="color:inherit;text-decoration:none;flex:1">' +
+        '<a href="/admin/dict?sel=' + child.id + '" data-name="' + escapeHtml(child.name) + '" style="color:inherit;text-decoration:none;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
         codeHtml + escapeHtml(child.name) + '</a></div>' + childrenContainer;
     }
 
@@ -252,28 +317,139 @@
       children.style.display = isHidden ? 'block' : 'none';
       caret.textContent = isHidden ? '−' : '+';
       caret.classList.toggle('open', isHidden);
+      saveExpanded(id, isHidden);
     });
 
-    // 搜索过滤（在树内快速定位）
+    // 全局搜索（后端 API）+ 自动展开祖先链 + 关键词高亮
     const searchInput = $('#dictTreeSearch');
     if (searchInput) {
       let searchTimer = null;
+      let searchAbort = null;
+
+      // 前端降级搜索（仅已加载节点）
+      function fallbackFrontendSearch(keyword) {
+        const kw = keyword.toLowerCase();
+        const nodes = tree.querySelectorAll('.tree-node:not(.load-more-node)');
+        nodes.forEach(node => {
+          const a = node.querySelector('a');
+          if (!a) return;
+          const rawName = a.dataset.name || '';
+          const codeEl = a.querySelector('span');
+          const codeHtml = codeEl ? codeEl.outerHTML : '';
+          if (!kw || rawName.toLowerCase().includes(kw)) {
+            node.style.display = '';
+            if (kw) {
+              const idx = rawName.toLowerCase().indexOf(kw);
+              a.innerHTML = codeHtml + escapeHtml(rawName.substring(0, idx)) +
+                '<span class="tree-hl">' + escapeHtml(rawName.substring(idx, idx + kw.length)) + '</span>' +
+                escapeHtml(rawName.substring(idx + kw.length));
+            } else {
+              a.innerHTML = codeHtml + escapeHtml(rawName);
+            }
+          } else {
+            node.style.display = 'none';
+            a.innerHTML = codeHtml + escapeHtml(rawName);
+          }
+        });
+      }
+
       searchInput.addEventListener('input', () => {
         clearTimeout(searchTimer);
-        searchTimer = setTimeout(() => {
-          const keyword = searchInput.value.trim().toLowerCase();
-          const nodes = tree.querySelectorAll('.tree-node:not(.load-more-node)');
-          nodes.forEach(node => {
-            const name = node.querySelector('a')?.textContent?.toLowerCase() || '';
-            if (!keyword || name.includes(keyword)) {
-              node.style.display = '';
-            } else {
-              node.style.display = 'none';
+        searchTimer = setTimeout(async () => {
+          const keyword = searchInput.value.trim();
+          if (!keyword) {
+            resetTreeDisplay();
+            return;
+          }
+          // 取消上一次搜索
+          if (searchAbort) searchAbort.abort();
+          searchAbort = new AbortController();
+
+          try {
+            const resp = await apiFetch('/api/dict/search?keyword=' +
+              encodeURIComponent(keyword) + '&limit=50', { signal: searchAbort.signal });
+            if (!resp.ok) { fallbackFrontendSearch(keyword); return; }
+            const data = await resp.json();
+            const matches = data.matches || [];
+
+            if (matches.length === 0) {
+              resetTreeDisplay();
+              // 隐藏所有节点（提示无结果）
+              tree.querySelectorAll('.tree-node:not(.load-more-node)').forEach(n => n.style.display = 'none');
+              return;
             }
-          });
-        }, 200);
+
+            // 收集匹配节点 ID 和祖先 ID
+            const matchIds = new Set();
+            const visibleIds = new Set();
+            for (const m of matches) {
+              matchIds.add(String(m.id));
+              visibleIds.add(String(m.id));
+              for (const aid of (m.ancestor_ids || [])) visibleIds.add(String(aid));
+            }
+
+            // 逐级展开所有匹配节点的祖先链（去重）
+            const allChains = [];
+            const seenChain = new Set();
+            for (const m of matches) {
+              const key = (m.ancestor_ids || []).join(',');
+              if (!seenChain.has(key)) {
+                seenChain.add(key);
+                allChains.push(m.ancestor_ids || []);
+              }
+            }
+            for (const chain of allChains) {
+              await expandPath(chain);
+            }
+
+            // 过滤显示 + 高亮
+            const allNodes = tree.querySelectorAll('.tree-node:not(.load-more-node)');
+            allNodes.forEach(node => {
+              const nid = node.dataset.id;
+              const a = node.querySelector('a');
+              if (!a) return;
+              const rawName = a.dataset.name || '';
+              const codeEl = a.querySelector('span');
+              const codeHtml = codeEl ? codeEl.outerHTML : '';
+
+              if (matchIds.has(nid)) {
+                node.style.display = '';
+                const idx = rawName.toLowerCase().indexOf(keyword.toLowerCase());
+                if (idx >= 0) {
+                  a.innerHTML = codeHtml + escapeHtml(rawName.substring(0, idx)) +
+                    '<span class="tree-hl">' + escapeHtml(rawName.substring(idx, idx + keyword.length)) + '</span>' +
+                    escapeHtml(rawName.substring(idx + keyword.length));
+                } else {
+                  a.innerHTML = codeHtml + escapeHtml(rawName);
+                }
+              } else if (visibleIds.has(nid)) {
+                node.style.display = '';
+                a.innerHTML = codeHtml + escapeHtml(rawName);
+              } else {
+                node.style.display = 'none';
+                a.innerHTML = codeHtml + escapeHtml(rawName);
+              }
+            });
+
+            // 滚动到第一个匹配节点
+            const firstHL = tree.querySelector('.tree-hl');
+            if (firstHL) {
+              firstHL.closest('.tree-node').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          } catch (e) {
+            if (e.name !== 'AbortError') fallbackFrontendSearch(keyword);
+          }
+        }, 300);
       });
     }
+
+    // 页面加载时恢复展开状态（初始 l1 节点中记忆的自动展开，递归到深层）
+    const expandedSet = getExpandedSet();
+    tree.querySelectorAll(':scope > .tree-node').forEach(l1Node => {
+      if (expandedSet.has(l1Node.dataset.id)) {
+        autoExpandNode(l1Node.dataset.id);
+      }
+    });
   }
 
   /* ===================== 导入向导步骤条 ===================== */

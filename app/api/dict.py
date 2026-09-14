@@ -205,6 +205,61 @@ async def list_dict_children(
     }
 
 
+@router.get("/search")
+async def search_dict(
+    keyword: str,
+    limit: int = 50,
+    user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """全局搜索物料字典节点（名称模糊匹配），返回匹配节点及其祖先链 ID。
+    前端用于：搜索后自动展开祖先链并高亮匹配节点。
+    - keyword: 搜索关键词（必填，去空格后非空）
+    - limit: 返回匹配节点上限（默认50，最大200）
+    """
+    keyword = (keyword or "").strip()
+    if not keyword:
+        return {"matches": [], "total": 0, "limit": limit}
+
+    limit = min(max(limit, 1), 200)
+
+    total = db.query(MaterialDict).filter(
+        MaterialDict.name.ilike(f"%{keyword}%")
+    ).count()
+
+    rows = db.query(MaterialDict).filter(
+        MaterialDict.name.ilike(f"%{keyword}%")
+    ).order_by(MaterialDict.level, MaterialDict.name).limit(limit).all()
+
+    matches = []
+    for r in rows:
+        # 向上遍历祖先链（防环）
+        ancestor_ids = []
+        cur = r
+        seen = set()
+        while cur.parent_id and cur.parent_id not in seen:
+            seen.add(cur.parent_id)
+            parent = db.query(MaterialDict).filter(MaterialDict.id == cur.parent_id).first()
+            if not parent:
+                break
+            ancestor_ids.append(parent.id)
+            cur = parent
+        ancestor_ids.reverse()  # 从 l1 到直接父节点
+
+        has_child = db.query(MaterialDict.id).filter(MaterialDict.parent_id == r.id).first() is not None
+        matches.append({
+            "id": r.id,
+            "name": r.name,
+            "code": r.code or "",
+            "level": r.level,
+            "parent_id": r.parent_id,
+            "hasChild": has_child,
+            "ancestor_ids": ancestor_ids,
+        })
+
+    return {"matches": matches, "total": total, "limit": limit}
+
+
 @router.get("/tree/roots")
 async def list_dict_roots(
     user=Depends(get_current_user),
