@@ -655,6 +655,7 @@ def _dict_node(n, depth: int, parent_path: str = "") -> dict[str, Any]:
         "id": n.id,
         "parent_id": n.parent_id,
         "name": n.name,
+        "code": getattr(n, "code", None) or "",
         "level": n.level,
         "depth": depth,
         "hasChild": bool(children),
@@ -686,6 +687,7 @@ def get_material_dict_tree(db: Session | None = None, selected: int | None = Non
             rows = s.query(
                 MaterialDict.id,
                 MaterialDict.name,
+                MaterialDict.code,
                 MaterialDict.level,
                 MaterialDict.parent_id,
                 case((child_exists, True), else_=False).label("has_child"),
@@ -703,6 +705,7 @@ def get_material_dict_tree(db: Session | None = None, selected: int | None = Non
                     "id": r.id,
                     "parent_id": r.parent_id,
                     "name": r.name,
+                    "code": r.code or "",
                     "level": r.level,
                     "depth": depth,
                     "hasChild": r.has_child,

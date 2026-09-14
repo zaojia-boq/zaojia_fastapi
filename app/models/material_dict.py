@@ -29,6 +29,10 @@ class MaterialDict(Base, BizIdMixin, TimestampMixin):
         comment='父级（树形五级。有子级/被引用时禁止删除，须先删叶子）',
     )
     name: Mapped[str] = mapped_column(String, nullable=False, index=True, comment='名称（l4 为材料名称，l5 为规格）')
+    code: Mapped[str | None] = mapped_column(
+        String(32), nullable=True, index=True, unique=True,
+        comment='五级编码（3-2-2-3-4，含前缀I共15位，如 I00101010010001）',
+    )
     cat_l1: Mapped[str | None] = mapped_column(String, comment='一级分类（冗余平铺，由父链自动写入）')
     cat_l2: Mapped[str | None] = mapped_column(String, comment='二级分类（冗余平铺，由父链自动写入）')
     cat_l3: Mapped[str | None] = mapped_column(String, comment='三级分类（冗余平铺，由父链自动写入）')

@@ -123,6 +123,7 @@ async def list_dict_children(
         children.append({
             "id": r.id,
             "name": r.name,
+            "code": r.code or "",
             "level": r.level,
             "parent_id": r.parent_id,
             "hasChild": has_child,

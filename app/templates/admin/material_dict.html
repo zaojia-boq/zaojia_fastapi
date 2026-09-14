@@ -33,7 +33,9 @@
           <span class="tree-caret {% if n.hasChild %}open{% endif %}" data-caret="{{ n.id }}">
             {% if n.hasChild %}&#9654;{% endif %}
           </span>
-          <a href="/admin/dict?sel={{ n.id }}" style="color:inherit;text-decoration:none;flex:1">{{ n.name }}</a>
+          <a href="/admin/dict?sel={{ n.id }}" style="color:inherit;text-decoration:none;flex:1">
+            {% if n.code %}<span style="color:#64748b;font-family:monospace;font-size:11px;margin-right:6px">{{ n.code }}</span>{% endif %}{{ n.name }}
+          </a>
         </div>
         {% if n.hasChild %}
         <div class="tree-children" data-children="{{ n.id }}" style="display:none"></div>
@@ -64,6 +66,7 @@
         </div>
         <div class="grid g2">
           <div class="field"><label>标准名称</label><input class="inp" value="{{ detail.name }}" readonly></div>
+          <div class="field"><label>五级编码</label><input class="inp" value="{{ detail.code or '—' }}" readonly style="font-family:monospace;color:#4D7CFE"></div>
           <div class="field"><label>层级</label><input class="inp" value="{{ detail.level|upper }}" readonly></div>
           <div class="field"><label>完整类目路径</label><input class="inp" value="{{ detail.cat_path }}" readonly></div>
           <div class="field"><label>子级数量</label><input class="inp" value="{{ detail.badge }}" readonly></div>

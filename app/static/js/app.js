@@ -141,12 +141,13 @@
       const childrenContainer = child.hasChild
         ? '<div class="tree-children" data-children="' + child.id + '" style="display:none"></div>'
         : '';
+      const codeHtml = child.code ? '<span style="color:#64748b;font-family:monospace;font-size:11px;margin-right:6px">' + escapeHtml(child.code) + '</span>' : '';
       return '' +
         '<div class="tree-node" data-id="' + child.id + '" data-level="' + child.level + '" data-loaded="false"' +
         ' style="padding-left:' + (8 + depth * 16) + 'px">' +
         '<span class="tree-caret ' + caretClass + '" data-caret="' + child.id + '">' + hasCaret + '</span>' +
         '<a href="/admin/dict?sel=' + child.id + '" style="color:inherit;text-decoration:none;flex:1">' +
-        escapeHtml(child.name) + '</a></div>' + childrenContainer;
+        codeHtml + escapeHtml(child.name) + '</a></div>' + childrenContainer;
     }
 
     // 创建"加载更多"按钮
