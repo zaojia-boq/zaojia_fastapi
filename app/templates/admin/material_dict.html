@@ -64,17 +64,17 @@
             </div>
             <div class="dict-head-code">
               {% if detail.code %}<span class="mono-code">{{ detail.code }}</span>{% endif %}
-              {% if detail.level != 'l5' and detail.badge %}<span class="dict-head-count">下级 {{ detail.badge }} 项</span>{% endif %}
+              {% if not detail.is_leaf and detail.badge %}<span class="dict-head-count">下级 {{ detail.badge }} 项</span>{% endif %}
             </div>
           </div>
           <div class="right">
-            {% if detail.level == 'l5' %}<span class="chip ok">已启用</span>{% endif %}
+            {% if detail.is_leaf %}<span class="chip ok">已启用</span>{% endif %}
             <button class="btn btn-sec btn-sm" id="editDictBtn" data-id="{{ detail.id }}">编辑</button>
           </div>
         </div>
 
-        {% if detail.level == 'l5' %}
-        <!-- ========== 第五级（规格叶子）：材料属性网格 ========== -->
+        {% if detail.is_leaf %}
+        <!-- ========== 叶子节点（l5 或浅层叶子 l2/l3/l4）：材料属性网格 ========== -->
         {% if detail.cat_path %}
         <div class="dict-breadcrumb">
           <span class="dict-bc-label">类目路径</span>{{ detail.cat_path }}
@@ -165,8 +165,8 @@
         {% endif %}
       </div>
 
-      {% if detail.level == 'l5' %}
-      <!-- 第五级显示规格白名单和业务同义词 -->
+      {% if detail.is_leaf %}
+      <!-- 叶子节点显示规格白名单和业务同义词 -->
       <div class="grid g2">
         <div class="card">
           <div class="card-head"><div class="card-title">规格白名单</div>

@@ -850,6 +850,9 @@ def get_material_dict_tree(db: Session | None = None, selected: int | None = Non
                             })
                     else:
                         detail["children"] = []
+                    # 叶子节点判定：无子节点即叶子（l5 或浅层叶子 l2/l3/l4）
+                    # 浅层叶子（如临设下 l2 刷子→l3 刷子即终止）与 l5 一样展示材料属性
+                    detail["is_leaf"] = len(detail.get("children", [])) == 0
 
             return _empty_result(tree=tree, total=int(total), shown=len(tree),
                                  selected=sel, detail=detail)
