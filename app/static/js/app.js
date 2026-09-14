@@ -136,8 +136,8 @@
     // 动态创建子节点HTML
     function createChildNode(child, parentDepth) {
       const depth = parentDepth + 1;
-      const hasCaret = child.hasChild ? '&#9654;' : '';
-      const caretClass = child.hasChild ? 'open' : '';
+      const hasCaret = child.hasChild ? '+' : '';
+      const caretClass = child.hasChild ? '' : '';
       const childrenContainer = child.hasChild
         ? '<div class="tree-children" data-children="' + child.id + '" style="display:none"></div>'
         : '';
@@ -166,7 +166,7 @@
         if (caret) caret.textContent = '⟳'; // 加载中指示
         const resp = await apiFetch('/api/dict/children?parent_id=' + nodeId + '&page=' + page + '&page_size=' + PAGE_SIZE);
         if (!resp.ok) {
-          if (caret) caret.innerHTML = '&#9654;';
+          if (caret) caret.textContent = '+';
           toast('加载子节点失败', 'err');
           return false;
         }
@@ -208,10 +208,10 @@
 
         // 标记为已加载（至少第一页已加载）
         if (node && page === 1) node.dataset.loaded = 'true';
-        if (caret) caret.innerHTML = '&#9654;';
+        if (caret) caret.textContent = '+';
         return true;
       } catch (e) {
-        if (caret) caret.innerHTML = '&#9654;';
+        if (caret) caret.textContent = '+';
         toast('加载子节点异常: ' + e.message, 'err');
         return false;
       }
@@ -250,6 +250,7 @@
       // 展开/收起
       const isHidden = children.style.display === 'none' || children.style.display === '';
       children.style.display = isHidden ? 'block' : 'none';
+      caret.textContent = isHidden ? '−' : '+';
       caret.classList.toggle('open', isHidden);
     });
 

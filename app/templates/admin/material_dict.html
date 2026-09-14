@@ -30,8 +30,8 @@
         <div class="tree-node {% if n.id == selected %}sel{% endif %}"
              data-id="{{ n.id }}" data-level="{{ n.level }}" data-loaded="false"
              style="padding-left:{{ 8 + n.depth * 16 }}px">
-          <span class="tree-caret {% if n.hasChild %}open{% endif %}" data-caret="{{ n.id }}">
-            {% if n.hasChild %}&#9654;{% endif %}
+          <span class="tree-caret" data-caret="{{ n.id }}">
+            {% if n.hasChild %}+{% endif %}
           </span>
           <a href="/admin/dict?sel={{ n.id }}" style="color:inherit;text-decoration:none;flex:1">
             {% if n.code %}<span style="color:#64748b;font-family:monospace;font-size:11px;margin-right:6px">{{ n.code }}</span>{% endif %}{{ n.name }}

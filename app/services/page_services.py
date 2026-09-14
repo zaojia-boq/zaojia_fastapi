@@ -680,10 +680,12 @@ def get_material_dict_tree(db: Session | None = None, selected: int | None = Non
     try:
         from app.models.material_dict import MaterialDict
         from sqlalchemy import exists, case
+        from sqlalchemy.orm import aliased
 
         with _session_scope(db) as s:
             # 只查询 l1 一级（约 39 条，快速渲染）
-            child_exists = exists().where(MaterialDict.parent_id == MaterialDict.id)
+            md_child = aliased(MaterialDict)
+            child_exists = exists().where(md_child.parent_id == MaterialDict.id)
             rows = s.query(
                 MaterialDict.id,
                 MaterialDict.name,
