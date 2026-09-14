@@ -59,11 +59,13 @@
         <div class="card-head">
           <div>
             <div class="card-title">{{ detail.name }}</div>
-            <div class="card-sub">{{ detail.cat_path }} · 层级 {{ detail.level|upper }}</div>
+            <div class="card-sub">{{ detail.cat_path }} · 层级 {{ detail.level|upper }}{% if detail.code %} · 编码 {{ detail.code }}{% endif %}</div>
           </div>
           <div class="right"><span class="chip ok">已启用</span>
             <button class="btn btn-sec btn-sm" id="editDictBtn" data-id="{{ detail.id }}">编辑</button></div>
         </div>
+        {% if detail.level == 'l5' %}
+        <!-- 第五级（规格叶子）：显示基本信息 + 材料属性 -->
         <div class="grid g2">
           <div class="field"><label>标准名称</label><input class="inp" value="{{ detail.name }}" readonly></div>
           <div class="field"><label>五级编码</label><input class="inp" value="{{ detail.code or '—' }}" readonly style="font-family:monospace;color:#4D7CFE"></div>
@@ -71,8 +73,6 @@
           <div class="field"><label>完整类目路径</label><input class="inp" value="{{ detail.cat_path }}" readonly></div>
           <div class="field"><label>子级数量</label><input class="inp" value="{{ detail.badge }}" readonly></div>
         </div>
-        {% if detail.level == 'l5' %}
-        <!-- 第五级（规格叶子）：显示材料属性 -->
         {% if detail.attr_material_name or detail.attr_spec or detail.attr_material or detail.attr_model or detail.attr_unit %}
         <div class="grid g2 mt">
           {% if detail.attr_material_name %}
@@ -93,7 +93,7 @@
         </div>
         {% endif %}
         {% else %}
-        <!-- 前四级（分类节点）：显示下级分类表格 -->
+        <!-- 前四级（分类节点）：只显示下级分类表格，不显示基本信息 -->
         {% if detail.children %}
         <div class="mt">
           <div class="card-sub mb-sm">下级分类（{{ detail.children|length }}{% if detail.badge > 200 %}，共 {{ detail.badge }} 条{% endif %}）</div>
@@ -137,6 +137,8 @@
         {% endif %}
       </div>
 
+      {% if detail.level == 'l5' %}
+      <!-- 第五级显示规格白名单和业务同义词 -->
       <div class="grid g2">
         <div class="card">
           <div class="card-head"><div class="card-title">规格白名单</div>
@@ -167,6 +169,7 @@
           </div></div>
         </div>
       </div>
+      {% endif %}
       {% else %}
       <div class="card">
         <div class="empty">
