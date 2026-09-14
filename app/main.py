@@ -107,4 +107,4 @@ app.include_router(pages_router)
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app.main:app", host="127.0.0.1", port=8777, reload=True)
+    uvicorn.run("app.main:app", host="127.0.0.1", port=settings.port, reload=True)

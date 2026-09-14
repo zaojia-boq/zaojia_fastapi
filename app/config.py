@@ -24,6 +24,8 @@ class Settings(BaseSettings):
 
     # 应用
     app_name: str = "造价数据门户"
+    # 服务端口（env 控制，默认 8777；P2 修复：不再硬编码）
+    port: int = 8777
     # debug 由 env 控制，默认 False（禁止提交 True）
     debug: bool = False
     # 运行环境：development / production

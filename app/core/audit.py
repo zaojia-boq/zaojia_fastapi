@@ -8,6 +8,7 @@ ADR-F005：请求级审计的 operator 必须是真实用户，不得恒为 anon
 修复点：security.get_current_user / pages.get_page_user 鉴权通过时
 写入 request.state.username（与 scope["state"] 共享），中间件从该处读取。
 """
+import asyncio
 import logging
 import uuid
 from datetime import datetime, timezone
@@ -119,31 +120,42 @@ class AuditMiddleware(BaseHTTPMiddleware):
         # call_next 之后读取 operator（get_current_user 在路由处理时写入 request.state.username）
         operator = getattr(request.state, "username", None) or "anonymous"
 
-        # 异步落审计（不阻塞响应）
+        # 异步落审计（asyncio.to_thread 放到线程池，不阻塞事件循环，P1-8 修复）
         try:
-            # 从 app.state 获取 session factory（测试时注入测试库，生产用默认）
-            session_factory = getattr(request.app.state, "db_session_factory", None)
-            if session_factory is None:
-                from app.db import SessionLocal
-                session_factory = SessionLocal
-            db = session_factory()
-            try:
-                log_audit(
-                    db=db,
-                    model="http_request",
-                    res_id=None,
-                    action=request.method.lower(),
-                    operator=operator,
-                    reason=f"{request.method} {request.url.path}",
-                    trace_id=trace_id,
-                )
-                db.commit()
-            except Exception:
-                db.rollback()
-                logger.exception("审计中间件落库失败")
-            finally:
-                db.close()
+            await asyncio.to_thread(
+                _write_http_audit, request.app, request.method,
+                request.url.path, operator, trace_id,
+            )
         except Exception:
-            logger.exception("审计中间件初始化失败")
+            logger.exception("审计中间件落库失败")
 
         return response
+
+
+def _write_http_audit(app, method: str, path: str, operator: str, trace_id: str) -> None:
+    """同步落审计日志（在 asyncio.to_thread 线程池中执行，不阻塞事件循环）。"""
+    try:
+        # 从 app.state 获取 session factory（测试时注入测试库，生产用默认）
+        session_factory = getattr(app.state, "db_session_factory", None)
+        if session_factory is None:
+            from app.db import SessionLocal
+            session_factory = SessionLocal
+        db = session_factory()
+        try:
+            log_audit(
+                db=db,
+                model="http_request",
+                res_id=None,
+                action=method.lower(),
+                operator=operator,
+                reason=f"{method} {path}",
+                trace_id=trace_id,
+            )
+            db.commit()
+        except Exception:
+            db.rollback()
+            logger.exception("审计中间件落库失败")
+        finally:
+            db.close()
+    except Exception:
+        logger.exception("审计中间件初始化失败")

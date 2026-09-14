@@ -76,6 +76,51 @@ def _aggregate_for_match_key(db: Session, match_key: str) -> dict | None:
     }
 
 
+def _aggregate_batch(db: Session, match_keys: list[str]) -> dict[str, dict]:
+    """批量聚合所有 match_key：一次查询 + 内存分组，避免 N+1（P1-1 修复）。
+
+    返回 {match_key: agg_dict}，无 completed 数据的 match_key 不在结果中。
+    """
+    if not match_keys:
+        return {}
+    items = db.query(BoqItem).filter(
+        BoqItem.active == True,  # noqa: E712
+        BoqItem.data_source_type == 'completed',
+        BoqItem.unit_rate_num != None,  # noqa: E711
+        BoqItem.match_key.in_(match_keys),
+    ).all()
+
+    # 按 match_key 分组
+    groups: dict[str, list] = {}
+    for item in items:
+        groups.setdefault(item.match_key, []).append(item)
+
+    result = {}
+    for mk, group in groups.items():
+        rates = [float(r.unit_rate_num) for r in group if r.unit_rate_num is not None]
+        if not rates:
+            continue
+        # 取最新一条（按 price_period 降序，空值排最后）
+        sorted_items = sorted(group, key=lambda x: (x.price_period or date.min), reverse=True)
+        latest = sorted_items[0]
+        result[mk] = {
+            'match_key': mk,
+            'match_key_source': latest.match_key_source or 'code',
+            'std_name': latest.std_name or latest.item_name or '',
+            'std_spec': latest.std_spec or latest.item_feature or '',
+            'material_dict_id': latest.material_dict_id,
+            'unit_std': latest.unit or '',
+            'avg_rate': sum(rates) / len(rates),
+            'min_rate': min(rates),
+            'max_rate': max(rates),
+            'sample_count': len(rates),
+            'latest_price': float(latest.unit_rate_num),
+            'latest_period': latest.price_period,
+            'latest_source': latest.project_name or (latest.import_batch.name if latest.import_batch else None),
+        }
+    return result
+
+
 def preview_migration(db: Session, match_key_prefix: str = "") -> dict:
     """迁移预览（不写库）。返回将迁移的 match_key 列表及统计摘要。
 
@@ -96,10 +141,13 @@ def preview_migration(db: Session, match_key_prefix: str = "") -> dict:
 
     match_keys = [r[0] for r in q.all()]
 
+    # 批量聚合（一次查询 + 内存分组，避免 N+1）
+    agg_map = _aggregate_batch(db, match_keys)
+
     preview_items = []
     low_sample = 0
     for mk in match_keys:
-        agg = _aggregate_for_match_key(db, mk)
+        agg = agg_map.get(mk)
         if agg is None:
             continue
         if agg['sample_count'] < 3:
@@ -166,13 +214,16 @@ def execute_migration(
 
     match_keys = [r[0] for r in q.all()]
 
+    # 批量聚合（一次查询 + 内存分组，避免 N+1）
+    agg_map = _aggregate_batch(db, match_keys)
+
     created = 0
     updated = 0
     skipped = 0
     details = []
 
     for mk in match_keys:
-        agg = _aggregate_for_match_key(db, mk)
+        agg = agg_map.get(mk)
         if agg is None:
             skipped += 1
             continue

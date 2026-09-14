@@ -192,6 +192,9 @@ def confirm_match(db: Session, payload: dict) -> dict[str, Any]:
     results = []
     warnings = []
 
+    # 循环外构建一次候选池（避免循环内重复全量查 l3 节点，P1-2 修复）
+    dict_rows = _build_dict_rows(db)
+
     for item in items:
         boq_id = item.get('boq_item_id')
         dict_id = item.get('dict_id')
@@ -214,7 +217,7 @@ def confirm_match(db: Session, payload: dict) -> dict[str, Any]:
         if fill_empty_only:
             cands = score_candidates(
                 boq.item_name or '', boq.item_feature or '',
-                _build_dict_rows(db),
+                dict_rows,
             )
             auto_link = bool(cands) and cands[0]['dict_id'] == dict_id \
                 and high_confidence(cands)
@@ -302,7 +305,6 @@ def confirm_match(db: Session, payload: dict) -> dict[str, Any]:
     # 学习引擎 v3：记录确认结果（多策略学习 + 概念漂移检测 + 轨迹记录）
     if filled > 0:
         try:
-            dict_rows = _build_dict_rows(db)
             tfidf_matcher = TfidfMatcher(dict_rows) if dict_rows else None
             faiss_matcher = FaissMatcher(dict_rows) if (dict_rows and FAISS_AVAILABLE) else None
             learning_engine = get_global_engine_v3()

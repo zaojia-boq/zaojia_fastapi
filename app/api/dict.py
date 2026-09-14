@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException, Body
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 
 from app.db import get_db
 from app.core.security import get_current_user, require_role, ROLE_ADMIN, ROLE_ESTIMATOR
@@ -339,45 +340,59 @@ async def create_dict(
     if req.level == "l5" and not req.spec:
         raise HTTPException(status_code=400, detail="五级（规格）必须填写规格")
 
-    # 自动生成五级编码
-    code = _generate_dict_code(db, req.level, parent)
+    # 自动生成五级编码 + 创建节点（含并发重试：code unique 冲突时重新生成，最多 3 次）
+    # P2 修复：_generate_dict_code 的 max+1 无并发保护，靠 unique 约束 + 重试兜底
+    node = None
+    code = None
+    for attempt in range(3):
+        try:
+            code = _generate_dict_code(db, req.level, parent)
 
-    # 构建 synonyms（属性 dict 格式，与系统其他地方一致）
-    synonyms_dict = None
-    if req.level == "l5":
-        synonyms_dict = {
-            "材料名称": req.name,
-            "规格": req.spec or "",
-            "型号": req.model or "",
-            "材质": req.material or "",
-            "单位": req.unit or "",
-        }
-        if req.synonyms:
-            synonyms_dict["同义词列表"] = req.synonyms
-    elif req.synonyms:
-        synonyms_dict = {"list": req.synonyms}
+            # 构建 synonyms（属性 dict 格式，与系统其他地方一致）
+            synonyms_dict = None
+            if req.level == "l5":
+                synonyms_dict = {
+                    "材料名称": req.name,
+                    "规格": req.spec or "",
+                    "型号": req.model or "",
+                    "材质": req.material or "",
+                    "单位": req.unit or "",
+                }
+                if req.synonyms:
+                    synonyms_dict["同义词列表"] = req.synonyms
+            elif req.synonyms:
+                synonyms_dict = {"list": req.synonyms}
 
-    # 构建 spec_whitelist
-    spec_whitelist_dict = None
-    if req.level == "l5" and req.spec:
-        spec_whitelist_dict = {"规格": req.spec, "单位": req.unit or ""}
-    elif req.spec_whitelist:
-        spec_whitelist_dict = {"list": req.spec_whitelist}
+            # 构建 spec_whitelist
+            spec_whitelist_dict = None
+            if req.level == "l5" and req.spec:
+                spec_whitelist_dict = {"规格": req.spec, "单位": req.unit or ""}
+            elif req.spec_whitelist:
+                spec_whitelist_dict = {"list": req.spec_whitelist}
 
-    node = MaterialDict(
-        name=req.name,
-        level=req.level,
-        parent_id=req.parent_id,
-        code=code,
-        synonyms=synonyms_dict,
-        spec_whitelist=spec_whitelist_dict,
-        note=req.note,
-    )
-    db.add(node)
-    db.flush()  # 获取 id
-    node.cat_l1, node.cat_l2, node.cat_l3 = _compute_cat_path(node, db)
-    db.commit()
-    db.refresh(node)
+            node = MaterialDict(
+                name=req.name,
+                level=req.level,
+                parent_id=req.parent_id,
+                code=code,
+                synonyms=synonyms_dict,
+                spec_whitelist=spec_whitelist_dict,
+                note=req.note,
+            )
+            db.add(node)
+            db.flush()  # 获取 id
+            node.cat_l1, node.cat_l2, node.cat_l3 = _compute_cat_path(node, db)
+            db.commit()
+            db.refresh(node)
+            break  # 成功，退出重试
+        except IntegrityError:
+            db.rollback()
+            if attempt == 2:
+                raise HTTPException(status_code=409, detail="编码生成冲突，请重试") from None
+            continue  # 重新生成 code 重试
+
+    if node is None:
+        raise HTTPException(status_code=500, detail="创建分类失败")
 
     log_audit(db, model="material_dict", res_id=node.id, action=ACTION_CREATE,
               operator=user.get("username", "unknown"), reason=f"新增分类：{req.name} ({req.level}, 编码={code})")
