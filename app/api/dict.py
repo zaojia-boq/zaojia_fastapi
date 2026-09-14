@@ -33,6 +33,11 @@ class DictCreateRequest(BaseModel):
     synonyms: list[str] | None = Field(None, description="业务同义词列表")
     spec_whitelist: list[str] | None = Field(None, description="规格白名单列表")
     note: str | None = Field(None, max_length=1000, description="备注")
+    # l5（规格叶子）专用字段
+    spec: str | None = Field(None, max_length=200, description="规格（l5 必填）")
+    model: str | None = Field(None, max_length=200, description="型号")
+    unit: str | None = Field(None, max_length=50, description="单位")
+    material: str | None = Field(None, max_length=200, description="材质")
 
 
 class DictUpdateRequest(BaseModel):
@@ -40,12 +45,60 @@ class DictUpdateRequest(BaseModel):
     synonyms: list[str] | None = None
     spec_whitelist: list[str] | None = None
     note: str | None = Field(None, max_length=1000)
+    # l5（规格叶子）专用字段
+    spec: str | None = Field(None, max_length=200)
+    model: str | None = Field(None, max_length=200)
+    unit: str | None = Field(None, max_length=50)
+    material: str | None = Field(None, max_length=200)
+
+
+def _generate_dict_code(db: Session, level: str, parent: MaterialDict | None) -> str:
+    """自动生成五级编码。
+    编码规则：l1=I+3位，l2=父编码+2位，l3=父编码+2位，l4=父编码+3位，l5=父编码+4位。
+    查询同级最大编码+1，避免冲突。
+    """
+    # 各层级的序号位数
+    digit_map = {"l1": 3, "l2": 2, "l3": 2, "l4": 3, "l5": 4}
+    digits = digit_map[level]
+
+    if level == "l1":
+        prefix = "I"
+        # 查询所有l1的最大编码
+        max_node = db.query(MaterialDict).filter(
+            MaterialDict.level == "l1",
+            MaterialDict.code.isnot(None),
+        ).order_by(MaterialDict.code.desc()).first()
+        max_seq = 0
+        if max_node and max_node.code:
+            try:
+                max_seq = int(max_node.code[1:])  # 去掉I前缀
+            except (ValueError, IndexError):
+                pass
+        new_seq = max_seq + 1
+        return f"{prefix}{new_seq:0{digits}d}"
+    else:
+        if not parent or not parent.code:
+            # 父级无编码，用父级id生成临时编码
+            return f"I{parent.id:03d}00" if parent else "I00000"
+        prefix = parent.code
+        # 查询同级（同父级）的最大编码
+        max_node = db.query(MaterialDict).filter(
+            MaterialDict.parent_id == parent.id,
+            MaterialDict.code.isnot(None),
+        ).order_by(MaterialDict.code.desc()).first()
+        max_seq = 0
+        if max_node and max_node.code:
+            try:
+                # 提取父编码后的序号部分
+                suffix = max_node.code[len(prefix):]
+                max_seq = int(suffix)
+            except (ValueError, IndexError):
+                pass
+        new_seq = max_seq + 1
+        return f"{prefix}{new_seq:0{digits}d}"
 
 
 def _compute_cat_path(node: MaterialDict, db: Session) -> tuple[str | None, str | None, str | None]:
-    """根据父链计算 cat_l1/l2/l3（冗余平铺字段，取前三级祖先）。
-    l4/l5 节点的 cat_l1-l3 取其 l1/l2/l3 祖先名称，自身名称存在 name 字段。
-    """
     # 收集祖先链
     chain = [node]
     current = node
@@ -66,13 +119,27 @@ def _compute_cat_path(node: MaterialDict, db: Session) -> tuple[str | None, str 
 
 @router.get("")
 async def list_dict(
+    level: str | None = None,
     user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """获取所有物料分类（按层级分组），用于级联选择。"""
+    """获取所有物料分类（按层级分组），用于级联选择。
+    level 参数可指定返回某一层级的所有节点（含 code 字段）。
+    """
+    if level:
+        nodes = db.query(MaterialDict).filter(
+            MaterialDict.level == level
+        ).order_by(MaterialDict.code).all()
+        return {
+            "nodes": [
+                {"id": n.id, "name": n.name, "code": n.code or "", "level": n.level, "parent_id": n.parent_id}
+                for n in nodes
+            ],
+            "total": len(nodes),
+        }
     all_nodes = db.query(MaterialDict).order_by(MaterialDict.level, MaterialDict.id).all()
-    l1 = [{"id": n.id, "name": n.name} for n in all_nodes if n.level == "l1"]
-    l2 = [{"id": n.id, "name": n.name, "parent_id": n.parent_id} for n in all_nodes if n.level == "l2"]
+    l1 = [{"id": n.id, "name": n.name, "code": n.code or ""} for n in all_nodes if n.level == "l1"]
+    l2 = [{"id": n.id, "name": n.name, "code": n.code or "", "parent_id": n.parent_id} for n in all_nodes if n.level == "l2"]
     return {"l1": l1, "l2": l2, "total": len(all_nodes)}
 
 
@@ -181,12 +248,13 @@ async def create_dict(
     user=Depends(require_role(ROLE_ADMIN, ROLE_ESTIMATOR)),
     db: Session = Depends(get_db),
 ):
-    """新增物料分类。l2-l5 必须指定 parent_id；同级同名拒绝。"""
+    """新增物料分类。l2-l5 必须指定 parent_id；同级同名拒绝；自动生成五级编码。"""
     # 校验父级
     if req.level != "l1" and not req.parent_id:
         raise HTTPException(status_code=400, detail=f"{req.level} 层级必须指定 parent_id")
     if req.level == "l1" and req.parent_id:
         raise HTTPException(status_code=400, detail="l1 层级不能指定 parent_id")
+    parent = None
     if req.parent_id:
         parent = db.query(MaterialDict).filter(MaterialDict.id == req.parent_id).first()
         if not parent:
@@ -206,12 +274,42 @@ async def create_dict(
     if dup:
         raise HTTPException(status_code=409, detail=f"同级已存在同名分类：{req.name}")
 
+    # l5 必须填写规格
+    if req.level == "l5" and not req.spec:
+        raise HTTPException(status_code=400, detail="五级（规格）必须填写规格")
+
+    # 自动生成五级编码
+    code = _generate_dict_code(db, req.level, parent)
+
+    # 构建 synonyms（属性 dict 格式，与系统其他地方一致）
+    synonyms_dict = None
+    if req.level == "l5":
+        synonyms_dict = {
+            "材料名称": req.name,
+            "规格": req.spec or "",
+            "型号": req.model or "",
+            "材质": req.material or "",
+            "单位": req.unit or "",
+        }
+        if req.synonyms:
+            synonyms_dict["同义词列表"] = req.synonyms
+    elif req.synonyms:
+        synonyms_dict = {"list": req.synonyms}
+
+    # 构建 spec_whitelist
+    spec_whitelist_dict = None
+    if req.level == "l5" and req.spec:
+        spec_whitelist_dict = {"规格": req.spec, "单位": req.unit or ""}
+    elif req.spec_whitelist:
+        spec_whitelist_dict = {"list": req.spec_whitelist}
+
     node = MaterialDict(
         name=req.name,
         level=req.level,
         parent_id=req.parent_id,
-        synonyms={"list": req.synonyms} if req.synonyms else None,
-        spec_whitelist={"list": req.spec_whitelist} if req.spec_whitelist else None,
+        code=code,
+        synonyms=synonyms_dict,
+        spec_whitelist=spec_whitelist_dict,
         note=req.note,
     )
     db.add(node)
@@ -221,10 +319,10 @@ async def create_dict(
     db.refresh(node)
 
     log_audit(db, model="material_dict", res_id=node.id, action=ACTION_CREATE,
-              operator=user.get("username", "unknown"), reason=f"新增分类：{req.name} ({req.level})")
+              operator=user.get("username", "unknown"), reason=f"新增分类：{req.name} ({req.level}, 编码={code})")
     db.commit()
 
-    return {"success": True, "id": node.id, "name": node.name, "level": node.level}
+    return {"success": True, "id": node.id, "name": node.name, "level": node.level, "code": code}
 
 
 @router.get("/{dict_id}")
@@ -233,13 +331,24 @@ async def get_dict(dict_id: int, user=Depends(get_current_user), db: Session = D
     node = db.query(MaterialDict).filter(MaterialDict.id == dict_id).first()
     if not node:
         raise HTTPException(status_code=404, detail="分类不存在")
-    return {
+    # 解析 synonyms（支持属性 dict 和 list 两种格式）
+    syn = node.synonyms if isinstance(node.synonyms, dict) else {}
+    result = {
         "id": node.id, "name": node.name, "level": node.level,
-        "parent_id": node.parent_id, "cat_l1": node.cat_l1, "cat_l2": node.cat_l2, "cat_l3": node.cat_l3,
-        "synonyms": (node.synonyms or {}).get("list", []) if isinstance(node.synonyms, dict) else [],
+        "parent_id": node.parent_id, "code": node.code,
+        "cat_l1": node.cat_l1, "cat_l2": node.cat_l2, "cat_l3": node.cat_l3,
+        "synonyms": syn.get("list", syn.get("同义词列表", [])) if isinstance(syn, dict) else [],
         "spec_whitelist": (node.spec_whitelist or {}).get("list", []) if isinstance(node.spec_whitelist, dict) else [],
         "note": node.note,
     }
+    # l5 节点返回属性字段
+    if node.level == "l5":
+        result["spec"] = syn.get("规格", "")
+        result["model"] = syn.get("型号", "")
+        result["unit"] = syn.get("单位", "")
+        result["material"] = syn.get("材质", "")
+        result["material_name"] = syn.get("材料名称", "")
+    return result
 
 
 @router.put("/{dict_id}")
@@ -260,7 +369,11 @@ async def update_dict(
         node.cat_l1, node.cat_l2, node.cat_l3 = _compute_cat_path(node, db)
         changes.append(f"名称→{req.name}")
     if req.synonyms is not None:
-        node.synonyms = {"list": req.synonyms}
+        # 保留 l5 的属性字段，只更新同义词列表
+        if node.level == "l5" and isinstance(node.synonyms, dict):
+            node.synonyms["同义词列表"] = req.synonyms
+        else:
+            node.synonyms = {"list": req.synonyms}
         changes.append(f"同义词→{len(req.synonyms)}个")
     if req.spec_whitelist is not None:
         node.spec_whitelist = {"list": req.spec_whitelist}
@@ -268,6 +381,30 @@ async def update_dict(
     if req.note is not None:
         node.note = req.note
         changes.append("备注已更新")
+    # l5 属性字段更新
+    if node.level == "l5":
+        syn = node.synonyms if isinstance(node.synonyms, dict) else {}
+        if req.spec is not None:
+            syn["规格"] = req.spec
+            changes.append(f"规格→{req.spec}")
+        if req.model is not None:
+            syn["型号"] = req.model
+            changes.append(f"型号→{req.model}")
+        if req.unit is not None:
+            syn["单位"] = req.unit
+            changes.append(f"单位→{req.unit}")
+        if req.material is not None:
+            syn["材质"] = req.material
+            changes.append(f"材质→{req.material}")
+        if req.name is not None:
+            syn["材料名称"] = req.name
+        node.synonyms = syn
+        # 同步更新 spec_whitelist
+        if req.spec is not None or req.unit is not None:
+            node.spec_whitelist = {
+                "规格": syn.get("规格", ""),
+                "单位": syn.get("单位", ""),
+            }
 
     if not changes:
         return {"success": True, "message": "无变更"}

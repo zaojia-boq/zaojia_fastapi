@@ -1145,6 +1145,12 @@
     const synInp = $('#dictSynonyms');
     const specInp = $('#dictSpecs');
     const noteInp = $('#dictNote');
+    const l5Fields = $('#l5Fields');
+    const specWhitelistField = $('#specWhitelistField');
+    const dictSpec = $('#dictSpec');
+    const dictModel = $('#dictModel');
+    const dictMaterial = $('#dictMaterial');
+    const dictUnit = $('#dictUnit');
     const errTip = $('#dictErr');
     let editId = null;
 
@@ -1163,6 +1169,11 @@
         synInp.value = (data.synonyms || []).join(',');
         specInp.value = (data.spec_whitelist || []).join(',');
         noteInp.value = data.note || '';
+        // l5 字段
+        if (dictSpec) dictSpec.value = data.spec || '';
+        if (dictModel) dictModel.value = data.model || '';
+        if (dictMaterial) dictMaterial.value = data.material || '';
+        if (dictUnit) dictUnit.value = data.unit || '';
         levelSel.disabled = true; // 编辑时不允许改层级
         parentField.style.display = 'none';
       } else {
@@ -1171,10 +1182,22 @@
         synInp.value = '';
         specInp.value = '';
         noteInp.value = '';
+        if (dictSpec) dictSpec.value = '';
+        if (dictModel) dictModel.value = '';
+        if (dictMaterial) dictMaterial.value = '';
+        if (dictUnit) dictUnit.value = '';
         levelSel.disabled = false;
         updateParentOptions();
       }
+      // 根据层级显示/隐藏 l5 字段
+      updateL5Fields();
       modal.classList.remove('hide');
+    }
+
+    function updateL5Fields() {
+      const isL5 = levelSel.value === 'l5';
+      if (l5Fields) l5Fields.style.display = isL5 ? '' : 'none';
+      if (specWhitelistField) specWhitelistField.style.display = isL5 ? 'none' : '';
     }
 
     function closeModal() { modal.classList.add('hide'); editId = null; }
@@ -1191,28 +1214,40 @@
       const parentLevel = 'l' + (levelNum - 1);
       try {
         const resp = await apiFetch('/api/dict?level=' + parentLevel);
-        // 如果没有列表 API，用页面上的树节点
         parentSel.innerHTML = '<option value="">加载中...</option>';
-        const nodes = $$('.tree-node a');
-        const opts = [];
-        nodes.forEach(a => {
-          const node = a.closest('.tree-node');
-          // 根据缩进判断层级（l1=8px, l2=24px, l3=40px, l4=56px, l5=72px）
-          const pl = parseInt(node.style.paddingLeft) || 8;
-          const depth = Math.floor((pl - 8) / 16);
-          const nodeLevel = 'l' + (depth + 1);
-          if (nodeLevel === parentLevel) {
-            const id = node.dataset.id;
-            opts.push('<option value="' + id + '">' + escapeHtml(a.textContent.trim()) + '</option>');
-          }
-        });
-        parentSel.innerHTML = opts.length ? opts.join('') : '<option value="">（无可用父级）</option>';
+        if (resp.ok) {
+          const data = await resp.json();
+          const nodes = data.nodes || [];
+          const opts = nodes.map(n => {
+            const code = n.code ? `<span style="color:#4D7CFE;font-family:monospace;font-size:11px;margin-right:6px">${n.code}</span>` : '';
+            return `<option value="${n.id}">${n.code ? '[' + n.code + '] ' : ''}${escapeHtml(n.name)}</option>`;
+          });
+          parentSel.innerHTML = opts.length ? opts.join('') : '<option value="">（无可用父级）</option>';
+        } else {
+          // 回退：从页面树节点提取
+          const nodes = $$('.tree-node a');
+          const opts = [];
+          nodes.forEach(a => {
+            const node = a.closest('.tree-node');
+            const pl = parseInt(node.style.paddingLeft) || 8;
+            const depth = Math.floor((pl - 8) / 16);
+            const nodeLevel = 'l' + (depth + 1);
+            if (nodeLevel === parentLevel) {
+              const id = node.dataset.id;
+              opts.push('<option value="' + id + '">' + escapeHtml(a.textContent.trim()) + '</option>');
+            }
+          });
+          parentSel.innerHTML = opts.length ? opts.join('') : '<option value="">（无可用父级）</option>';
+        }
       } catch (e) {
         parentSel.innerHTML = '<option value="">（加载失败）</option>';
       }
     }
 
-    levelSel.addEventListener('change', updateParentOptions);
+    levelSel.addEventListener('change', () => {
+      updateParentOptions();
+      updateL5Fields();
+    });
 
     // 新增按钮
     const addBtn = $('#addDictBtn');
@@ -1253,6 +1288,11 @@
         parent_id = parseInt(parentSel.value) || null;
         if (!parent_id) { showErr('请选择父级分类'); return; }
       }
+      // l5 必须填写规格
+      if (level === 'l5') {
+        const spec = dictSpec ? dictSpec.value.trim() : '';
+        if (!spec) { showErr('五级（规格）必须填写规格'); return; }
+      }
       const synonyms = synInp.value.trim() ? synInp.value.split(',').map(s => s.trim()).filter(Boolean) : null;
       const specs = specInp.value.trim() ? specInp.value.split(',').map(s => s.trim()).filter(Boolean) : null;
       const note = noteInp.value.trim() || null;
@@ -1265,18 +1305,36 @@
       try {
         let resp;
         if (editId) {
+          const body = { name, synonyms, spec_whitelist: specs, note };
+          // 编辑 l5 时也提交属性字段
+          if (level === 'l5') {
+            body.spec = dictSpec ? dictSpec.value.trim() : null;
+            body.model = dictModel ? dictModel.value.trim() : null;
+            body.material = dictMaterial ? dictMaterial.value.trim() : null;
+            body.unit = dictUnit ? dictUnit.value.trim() : null;
+          }
           resp = await apiFetch('/api/dict/' + editId, {
             method: 'PUT',
-            body: JSON.stringify({ name, synonyms, spec_whitelist: specs, note }),
+            body: JSON.stringify(body),
           });
         } else {
+          const body = { name, level, parent_id, synonyms, spec_whitelist: specs, note };
+          // l5 提交属性字段
+          if (level === 'l5') {
+            body.spec = dictSpec ? dictSpec.value.trim() : null;
+            body.model = dictModel ? dictModel.value.trim() : null;
+            body.material = dictMaterial ? dictMaterial.value.trim() : null;
+            body.unit = dictUnit ? dictUnit.value.trim() : null;
+          }
           resp = await apiFetch('/api/dict', {
             method: 'POST',
-            body: JSON.stringify({ name, level, parent_id, synonyms, spec_whitelist: specs, note }),
+            body: JSON.stringify(body),
           });
         }
         if (resp.ok) {
-          toast(editId ? '分类已更新' : '分类已创建', 'ok');
+          const data = await resp.json().catch(() => ({}));
+          const codeMsg = data.code ? `（编码：${data.code}）` : '';
+          toast(editId ? '分类已更新' : ('分类已创建' + codeMsg), 'ok');
           closeModal();
           setTimeout(() => location.reload(), 800);
         } else {

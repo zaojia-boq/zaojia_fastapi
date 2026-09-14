@@ -93,16 +93,39 @@
         </div>
         {% endif %}
         {% else %}
-        <!-- 前四级（分类节点）：显示下级分类列表 -->
+        <!-- 前四级（分类节点）：显示下级分类表格 -->
         {% if detail.children %}
         <div class="mt">
-          <div class="card-sub mb-sm">下级分类（{{ detail.children|length }}{% if detail.badge > 100 %}，共 {{ detail.badge }} 条{% endif %}）</div>
-          <div class="row wrap">
-            {% for c in detail.children %}
-            <a href="/admin/dict?sel={{ c.id }}" class="chip" style="text-decoration:none;cursor:pointer">
-              {% if c.code %}<span style="color:#64748b;font-family:monospace;font-size:11px;margin-right:4px">{{ c.code }}</span>{% endif %}{{ c.name }}
-            </a>
-            {% endfor %}
+          <div class="card-sub mb-sm">下级分类（{{ detail.children|length }}{% if detail.badge > 200 %}，共 {{ detail.badge }} 条{% endif %}）</div>
+          <div style="overflow-x:auto">
+          <table class="tbl" style="width:100%;font-size:13px">
+            <thead>
+              <tr>
+                <th style="width:130px">编码</th>
+                <th>名称</th>
+                <th style="width:120px">规格</th>
+                <th style="width:100px">型号</th>
+                <th style="width:60px">单位</th>
+                <th style="width:80px">材质</th>
+                <th style="width:50px">层级</th>
+                <th style="width:70px">子节点</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for c in detail.children %}
+              <tr style="cursor:pointer" onclick="window.location.href='/admin/dict?sel={{ c.id }}'">
+                <td style="font-family:monospace;color:#4D7CFE;font-size:11px">{{ c.code or '—' }}</td>
+                <td style="font-weight:500">{{ c.name }}</td>
+                <td style="color:#10B981">{{ c.spec or '—' }}</td>
+                <td>{{ c.model or '—' }}</td>
+                <td>{{ c.unit or '—' }}</td>
+                <td>{{ c.material or '—' }}</td>
+                <td style="color:#64748b">{{ c.level|upper }}</td>
+                <td style="color:#64748b">{{ c.child_count if c.child_count > 0 else '叶子' }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
           </div>
         </div>
         {% else %}
@@ -185,11 +208,30 @@
           <label>分类名称 <span class="err">*</span></label>
           <input class="inp" id="dictName" placeholder="如：电力电缆 / 镀锌钢管" autocomplete="off">
         </div>
+        <!-- l5（规格叶子）专用字段 -->
+        <div class="grid g2" id="l5Fields" style="display:none">
+          <div class="field">
+            <label>规格 <span class="err">*</span></label>
+            <input class="inp" id="dictSpec" placeholder="如：3×240+2×120 / L140×90×8" autocomplete="off">
+          </div>
+          <div class="field">
+            <label>型号</label>
+            <input class="inp" id="dictModel" placeholder="如：YJV / 黑件" autocomplete="off">
+          </div>
+          <div class="field">
+            <label>材质</label>
+            <input class="inp" id="dictMaterial" placeholder="如：Q235B / 铜" autocomplete="off">
+          </div>
+          <div class="field">
+            <label>单位</label>
+            <input class="inp" id="dictUnit" placeholder="如：m / kg / 个" autocomplete="off">
+          </div>
+        </div>
         <div class="field">
           <label>业务同义词（逗号分隔）</label>
           <input class="inp" id="dictSynonyms" placeholder="如：电缆,电力电缆,YJV" autocomplete="off">
         </div>
-        <div class="field">
+        <div class="field" id="specWhitelistField">
           <label>规格白名单（逗号分隔）</label>
           <input class="inp" id="dictSpecs" placeholder="如：3×240+2×120,4×95" autocomplete="off">
         </div>
