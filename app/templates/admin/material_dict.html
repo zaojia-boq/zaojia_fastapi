@@ -71,6 +71,25 @@
           <div class="field"><label>完整类目路径</label><input class="inp" value="{{ detail.cat_path }}" readonly></div>
           <div class="field"><label>子级数量</label><input class="inp" value="{{ detail.badge }}" readonly></div>
         </div>
+        {% if detail.attr_material_name or detail.attr_spec or detail.attr_material or detail.attr_model or detail.attr_unit %}
+        <div class="grid g2 mt">
+          {% if detail.attr_material_name %}
+          <div class="field"><label>材料名称</label><input class="inp" value="{{ detail.attr_material_name }}" readonly></div>
+          {% endif %}
+          {% if detail.attr_spec %}
+          <div class="field"><label>规格</label><input class="inp" value="{{ detail.attr_spec }}" readonly></div>
+          {% endif %}
+          {% if detail.attr_material %}
+          <div class="field"><label>材质</label><input class="inp" value="{{ detail.attr_material }}" readonly></div>
+          {% endif %}
+          {% if detail.attr_model %}
+          <div class="field"><label>型号</label><input class="inp" value="{{ detail.attr_model }}" readonly></div>
+          {% endif %}
+          {% if detail.attr_unit %}
+          <div class="field"><label>单位</label><input class="inp" value="{{ detail.attr_unit }}" readonly></div>
+          {% endif %}
+        </div>
+        {% endif %}
         {% if detail.note %}
         <div class="note mt"><span>&#9432;</span><div>{{ detail.note }}</div></div>
         {% endif %}

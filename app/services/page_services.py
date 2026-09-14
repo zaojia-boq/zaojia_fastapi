@@ -651,6 +651,39 @@ def _dict_node(n, depth: int, parent_path: str = "") -> dict[str, Any]:
     """MaterialDict → 树节点（含 match_score 需要的 category_path）。"""
     path = f"{parent_path}/{n.name}" if parent_path else (n.name or "")
     children = sorted(n.child_ids or [], key=lambda c: c.name or "")
+
+    # 正确处理 synonyms：可能是 dict（含规格/材质/型号/单位等属性）或 list（同义词列表）
+    synonyms_raw = n.synonyms or {}
+    if isinstance(synonyms_raw, dict):
+        # 提取属性字段
+        attr_spec = synonyms_raw.get("规格", "") or ""
+        attr_material = synonyms_raw.get("材质", "") or ""
+        attr_model = synonyms_raw.get("型号", "") or ""
+        attr_unit = synonyms_raw.get("单位", "") or ""
+        attr_material_name = synonyms_raw.get("材料名称", "") or ""
+        # 同义词列表（排除属性字段后的其他值，或 "list" key）
+        syn_list = synonyms_raw.get("list", [])
+        if not syn_list:
+            syn_list = [v for k, v in synonyms_raw.items()
+                        if k not in ("规格", "材质", "型号", "单位", "材料名称", "原始编码", "来源") and v]
+    else:
+        attr_spec = attr_material = attr_model = attr_unit = attr_material_name = ""
+        syn_list = synonyms_raw if isinstance(synonyms_raw, list) else []
+
+    # 正确处理 spec_whitelist：可能是 dict（含规格/单位）或 list
+    spec_raw = n.spec_whitelist or {}
+    if isinstance(spec_raw, dict):
+        spec_list = spec_raw.get("list", [])
+        if not spec_list:
+            spec_list = [f"{k}: {v}" for k, v in spec_raw.items() if v]
+        # 从 spec_whitelist 补充属性（如果 synonyms 中没有）
+        if not attr_spec and spec_raw.get("规格"):
+            attr_spec = spec_raw["规格"]
+        if not attr_unit and spec_raw.get("单位"):
+            attr_unit = spec_raw["单位"]
+    else:
+        spec_list = spec_raw if isinstance(spec_raw, list) else []
+
     return {
         "id": n.id,
         "parent_id": n.parent_id,
@@ -661,9 +694,15 @@ def _dict_node(n, depth: int, parent_path: str = "") -> dict[str, Any]:
         "hasChild": bool(children),
         "badge": len(children),
         "category_path": path,
-        "synonyms": (n.synonyms or {}).get("list", []) if isinstance(n.synonyms, dict) else (n.synonyms or []),
-        "spec_whitelist": (n.spec_whitelist or {}).get("list", []) if isinstance(n.spec_whitelist, dict) else (n.spec_whitelist or []),
+        "synonyms": syn_list,
+        "spec_whitelist": spec_list,
         "note": n.note or "",
+        # 材料属性（从 synonyms/spec_whitelist 提取）
+        "attr_spec": attr_spec,
+        "attr_material": attr_material,
+        "attr_model": attr_model,
+        "attr_unit": attr_unit,
+        "attr_material_name": attr_material_name,
     }
 
 
