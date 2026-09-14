@@ -669,7 +669,7 @@ def _dict_node(n, depth: int, parent_path: str = "") -> dict[str, Any]:
 
 def get_material_dict_tree(db: Session | None = None, selected: int | None = None) -> dict[str, Any]:
     """物料字典五级树（懒加载版）。
-    性能优化：初始只加载 l1 + l2 两级（约 236 条），不递归展开 l3-l5。
+    性能优化：初始只加载 l1 一级（约 39 条），不预加载 l2-l5。
     前端点击展开时通过 /api/dict/children?parent_id=xxx 按需加载子节点。
     """
     if USE_MOCK_DATA:
@@ -682,7 +682,7 @@ def get_material_dict_tree(db: Session | None = None, selected: int | None = Non
         from sqlalchemy import exists, case
 
         with _session_scope(db) as s:
-            # 只查询 l1 和 l2（约 236 条，快速渲染）
+            # 只查询 l1 一级（约 39 条，快速渲染）
             child_exists = exists().where(MaterialDict.parent_id == MaterialDict.id)
             rows = s.query(
                 MaterialDict.id,
@@ -692,41 +692,21 @@ def get_material_dict_tree(db: Session | None = None, selected: int | None = Non
                 MaterialDict.parent_id,
                 case((child_exists, True), else_=False).label("has_child"),
             ).filter(
-                MaterialDict.level.in_(["l1", "l2"])
-            ).order_by(MaterialDict.level, MaterialDict.name).all()
+                MaterialDict.level == "l1"
+            ).order_by(MaterialDict.name).all()
 
             total = s.query(func.count(MaterialDict.id)).scalar() or 0
 
-            # 按层级嵌套排序：l1按name排序，每个l1后面紧跟它的l2子节点（按name排序）
-            l1_rows = sorted([r for r in rows if r.level == "l1"], key=lambda r: r.name or "")
-            l2_by_parent = {}
-            for r in rows:
-                if r.level == "l2" and r.parent_id:
-                    l2_by_parent.setdefault(r.parent_id, []).append(r)
-            for pid in l2_by_parent:
-                l2_by_parent[pid].sort(key=lambda r: r.name or "")
-
-            ordered_rows = []
-            for l1 in l1_rows:
-                ordered_rows.append(l1)
-                ordered_rows.extend(l2_by_parent.get(l1.id, []))
-            # 处理parent_id不在l1中的l2（理论上不应存在）
-            l1_ids = {r.id for r in l1_rows}
-            for r in rows:
-                if r.level == "l2" and (not r.parent_id or r.parent_id not in l1_ids):
-                    ordered_rows.append(r)
-
             # 构建扁平树列表（前端按 depth 渲染缩进）
             tree: list[dict] = []
-            for r in ordered_rows:
-                depth = 0 if r.level == "l1" else 1
+            for r in rows:
                 tree.append({
                     "id": r.id,
                     "parent_id": r.parent_id,
                     "name": r.name,
                     "code": r.code or "",
                     "level": r.level,
-                    "depth": depth,
+                    "depth": 0,
                     "hasChild": r.has_child,
                     "badge": None,  # 懒加载模式下不预计算子节点数量
                     "category_path": "",
