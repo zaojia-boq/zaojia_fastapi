@@ -13,6 +13,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Body
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
 from app.db import get_db
 from app.core.security import get_current_user, require_role, ROLE_ADMIN, ROLE_ESTIMATOR
@@ -27,8 +28,8 @@ router = APIRouter(prefix="/api/dict", tags=["物料字典"])
 
 class DictCreateRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=200, description="分类名称")
-    level: str = Field(..., pattern="^(l1|l2|l3)$", description="层级")
-    parent_id: int | None = Field(None, description="父级 ID（l2/l3 必填）")
+    level: str = Field(..., pattern="^(l1|l2|l3|l4|l5)$", description="层级")
+    parent_id: int | None = Field(None, description="父级 ID（l2-l5 必填）")
     synonyms: list[str] | None = Field(None, description="业务同义词列表")
     spec_whitelist: list[str] | None = Field(None, description="规格白名单列表")
     note: str | None = Field(None, max_length=1000, description="备注")
@@ -42,17 +43,25 @@ class DictUpdateRequest(BaseModel):
 
 
 def _compute_cat_path(node: MaterialDict, db: Session) -> tuple[str | None, str | None, str | None]:
-    """根据父链计算 cat_l1/l2/l3（冗余平铺字段）。"""
-    if node.level == "l1":
-        return node.name, None, None
-    parent = db.query(MaterialDict).filter(MaterialDict.id == node.parent_id).first()
-    if not parent:
-        return None, None, None
-    if node.level == "l2":
-        return parent.cat_l1 or parent.name, node.name, None
-    if node.level == "l3":
-        return parent.cat_l1, parent.cat_l2 or parent.name, node.name
-    return None, None, None
+    """根据父链计算 cat_l1/l2/l3（冗余平铺字段，取前三级祖先）。
+    l4/l5 节点的 cat_l1-l3 取其 l1/l2/l3 祖先名称，自身名称存在 name 字段。
+    """
+    # 收集祖先链
+    chain = [node]
+    current = node
+    while current.parent_id:
+        parent = db.query(MaterialDict).filter(MaterialDict.id == current.parent_id).first()
+        if not parent:
+            break
+        chain.append(parent)
+        current = parent
+    chain.reverse()  # 从根到当前节点
+
+    # 取前三级（l1/l2/l3）
+    cat_l1 = chain[0].name if len(chain) >= 1 else None
+    cat_l2 = chain[1].name if len(chain) >= 2 else None
+    cat_l3 = chain[2].name if len(chain) >= 3 else None
+    return cat_l1, cat_l2, cat_l3
 
 
 @router.get("")
@@ -67,15 +76,113 @@ async def list_dict(
     return {"l1": l1, "l2": l2, "total": len(all_nodes)}
 
 
+@router.get("/children")
+async def list_dict_children(
+    parent_id: int | None = None,
+    page: int = 1,
+    page_size: int = 100,
+    keyword: str | None = None,
+    user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """按需加载子节点（懒加载树形结构用，支持分页和搜索过滤）。
+    parent_id 为空时返回一级分类（l1）；否则返回指定节点的直接子节点。
+    每个子节点包含 hasChild 标记，用于前端显示展开箭头。
+    - page: 页码（从1开始）
+    - page_size: 每页数量（默认100，最大500）
+    - keyword: 名称关键词过滤（模糊匹配）
+    """
+    from sqlalchemy import exists, case
+
+    page_size = min(max(page_size, 1), 500)
+    page = max(page, 1)
+
+    # 子查询：判断每个节点是否有子节点
+    child_exists = exists().where(MaterialDict.parent_id == MaterialDict.id)
+
+    base_query = db.query(MaterialDict).order_by(MaterialDict.name)
+
+    if parent_id is None:
+        base_query = base_query.filter(MaterialDict.parent_id.is_(None))
+    else:
+        base_query = base_query.filter(MaterialDict.parent_id == parent_id)
+
+    if keyword:
+        base_query = base_query.filter(MaterialDict.name.ilike(f"%{keyword}%"))
+
+    # 总数
+    total = base_query.count()
+
+    # 分页查询
+    rows = base_query.offset((page - 1) * page_size).limit(page_size).all()
+
+    children = []
+    for r in rows:
+        # 批量判断hasChild（避免N+1查询）
+        has_child = db.query(MaterialDict.id).filter(MaterialDict.parent_id == r.id).first() is not None
+        children.append({
+            "id": r.id,
+            "name": r.name,
+            "level": r.level,
+            "parent_id": r.parent_id,
+            "hasChild": has_child,
+        })
+
+    return {
+        "children": children,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "has_more": page * page_size < total,
+    }
+
+
+@router.get("/tree/roots")
+async def list_dict_roots(
+    user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """获取树形结构根节点（仅 l1 + l2 两级，用于初始快速渲染）。"""
+    from sqlalchemy import exists, case
+
+    child_exists = exists().where(MaterialDict.parent_id == MaterialDict.id)
+
+    # 只查询 l1 和 l2（约 236 条，快速渲染）
+    rows = db.query(
+        MaterialDict.id,
+        MaterialDict.name,
+        MaterialDict.level,
+        MaterialDict.parent_id,
+        case((child_exists, True), else_=False).label("has_child"),
+    ).filter(
+        MaterialDict.level.in_(["l1", "l2"])
+    ).order_by(MaterialDict.level, MaterialDict.name).all()
+
+    tree = [
+        {
+            "id": r.id,
+            "name": r.name,
+            "level": r.level,
+            "parent_id": r.parent_id,
+            "hasChild": r.has_child,
+            "loaded": r.level == "l2",  # l2 的子节点尚未加载
+        }
+        for r in rows
+    ]
+
+    total = db.query(func.count(MaterialDict.id)).scalar() or 0
+    return {"tree": tree, "total": int(total)}
+
+
 @router.post("")
 async def create_dict(
     req: DictCreateRequest,
     user=Depends(require_role(ROLE_ADMIN, ROLE_ESTIMATOR)),
     db: Session = Depends(get_db),
 ):
-    """新增物料分类。l2/l3 必须指定 parent_id；同级同名拒绝。"""
+    """新增物料分类。l2-l5 必须指定 parent_id；同级同名拒绝。"""
     # 校验父级
-    if req.level in ("l2", "l3") and not req.parent_id:
+    if req.level != "l1" and not req.parent_id:
         raise HTTPException(status_code=400, detail=f"{req.level} 层级必须指定 parent_id")
     if req.level == "l1" and req.parent_id:
         raise HTTPException(status_code=400, detail="l1 层级不能指定 parent_id")
@@ -83,7 +190,9 @@ async def create_dict(
         parent = db.query(MaterialDict).filter(MaterialDict.id == req.parent_id).first()
         if not parent:
             raise HTTPException(status_code=404, detail=f"父级分类 {req.parent_id} 不存在")
-        expected_parent_level = "l1" if req.level == "l2" else "l2"
+        # 父级层级必须是当前层级的上一级
+        level_num = int(req.level[1])
+        expected_parent_level = f"l{level_num - 1}"
         if parent.level != expected_parent_level:
             raise HTTPException(status_code=400, detail=f"{req.level} 的父级必须是 {expected_parent_level}")
 

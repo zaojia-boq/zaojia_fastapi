@@ -667,7 +667,10 @@ def _dict_node(n, depth: int, parent_path: str = "") -> dict[str, Any]:
 
 
 def get_material_dict_tree(db: Session | None = None, selected: int | None = None) -> dict[str, Any]:
-    """物料字典三级树。小表全量载入后 Python 侧递归展开，避免递归 SQL。"""
+    """物料字典五级树（懒加载版）。
+    性能优化：初始只加载 l1 + l2 两级（约 236 条），不递归展开 l3-l5。
+    前端点击展开时通过 /api/dict/children?parent_id=xxx 按需加载子节点。
+    """
     if USE_MOCK_DATA:
         tree = _demo_payload()["dict_tree"]
         return _empty_result(is_demo=True, tree=tree, total=len(tree), shown=len(tree),
@@ -675,22 +678,41 @@ def get_material_dict_tree(db: Session | None = None, selected: int | None = Non
 
     try:
         from app.models.material_dict import MaterialDict
+        from sqlalchemy import exists, case
+
         with _session_scope(db) as s:
-            roots = s.query(MaterialDict).filter(
-                MaterialDict.parent_id == None  # noqa: E711
-            ).order_by(MaterialDict.name).all()
+            # 只查询 l1 和 l2（约 236 条，快速渲染）
+            child_exists = exists().where(MaterialDict.parent_id == MaterialDict.id)
+            rows = s.query(
+                MaterialDict.id,
+                MaterialDict.name,
+                MaterialDict.level,
+                MaterialDict.parent_id,
+                case((child_exists, True), else_=False).label("has_child"),
+            ).filter(
+                MaterialDict.level.in_(["l1", "l2"])
+            ).order_by(MaterialDict.level, MaterialDict.name).all()
 
             total = s.query(func.count(MaterialDict.id)).scalar() or 0
+
+            # 构建扁平树列表（前端按 parent_id 渲染缩进）
             tree: list[dict] = []
-
-            def walk(node, depth: int, parent_path: str):
-                item = _dict_node(node, depth, parent_path)
-                tree.append(item)
-                for child in sorted(node.child_ids or [], key=lambda c: c.name or ""):
-                    walk(child, depth + 1, item["category_path"])
-
-            for r in roots:
-                walk(r, 0, "")
+            for r in rows:
+                depth = 0 if r.level == "l1" else 1
+                tree.append({
+                    "id": r.id,
+                    "parent_id": r.parent_id,
+                    "name": r.name,
+                    "level": r.level,
+                    "depth": depth,
+                    "hasChild": r.has_child,
+                    "badge": None,  # 懒加载模式下不预计算子节点数量
+                    "category_path": "",
+                    "synonyms": [],
+                    "spec_whitelist": [],
+                    "note": "",
+                    "loaded": False,  # 子节点尚未加载
+                })
 
             detail = None
             sel = selected

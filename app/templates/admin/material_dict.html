@@ -1,29 +1,11 @@
 {% extends "admin/base_admin.html" %}
 {% block title %}物料字典{% endblock %}
 
-{% macro render_nodes(nodes, parent_id, depth) %}
-  {% for n in nodes if n.parent_id == parent_id %}
-  <div class="tree-node {% if n.id == selected %}sel{% endif %}"
-       data-id="{{ n.id }}" style="padding-left:{{ 8 + depth * 16 }}px">
-    <span class="tree-caret {% if n.hasChild %}open{% endif %}" data-caret="{{ n.id }}">
-      {% if n.hasChild %}&#9654;{% endif %}
-    </span>
-    <a href="/admin/dict?sel={{ n.id }}" style="color:inherit;text-decoration:none;flex:1">{{ n.name }}</a>
-    {% if n.badge %}<span class="tree-badge">{{ n.badge }}</span>{% endif %}
-  </div>
-  {% if n.hasChild %}
-  <div class="tree-children" data-children="{{ n.id }}">
-    {{ render_nodes(nodes, n.id, depth + 1) }}
-  </div>
-  {% endif %}
-  {% endfor %}
-{% endmacro %}
-
 {% block content %}
   <div class="page-head">
     <div>
       <h1 class="page-title">物料字典</h1>
-      <div class="page-desc">三级分类 · 标准名称 / 规格白名单 / 业务同义词 · 共 {{ total }} 项</div>
+      <div class="page-desc">五级分类 · 标准名称 / 规格白名单 / 业务同义词 · 共 {{ total }} 项 · 点击展开加载子级</div>
     </div>
     <div class="page-actions">
       <a class="btn btn-sec" href="/admin/match">去匹配确认</a>
@@ -33,15 +15,30 @@
 
   {% if not data_error %}
   <div class="grid" style="grid-template-columns:300px 1fr;gap:var(--grid-gap)">
-    <!-- ======= 分类树 ======= -->
+    <!-- ======= 分类树（懒加载：初始仅 l1/l2，点击展开按需加载） ======= -->
     <div class="card">
       <div class="card-head">
         <div class="card-title">分类树</div>
         <div class="right"><span class="chip">{{ total }} 项</span></div>
       </div>
+      <div style="padding:8px 12px;border-bottom:1px solid var(--border)">
+        <input type="text" id="dictTreeSearch" class="inp" placeholder="搜索分类名称..." style="width:100%;font-size:13px">
+      </div>
       {% if tree %}
       <div class="tree" id="dictTree">
-        {{ render_nodes(tree, None, 0) }}
+        {% for n in tree %}
+        <div class="tree-node {% if n.id == selected %}sel{% endif %}"
+             data-id="{{ n.id }}" data-level="{{ n.level }}" data-loaded="false"
+             style="padding-left:{{ 8 + n.depth * 16 }}px">
+          <span class="tree-caret {% if n.hasChild %}open{% endif %}" data-caret="{{ n.id }}">
+            {% if n.hasChild %}&#9654;{% endif %}
+          </span>
+          <a href="/admin/dict?sel={{ n.id }}" style="color:inherit;text-decoration:none;flex:1">{{ n.name }}</a>
+        </div>
+        {% if n.hasChild %}
+        <div class="tree-children" data-children="{{ n.id }}" style="display:none"></div>
+        {% endif %}
+        {% endfor %}
       </div>
       {% else %}
       <div class="empty">
@@ -132,8 +129,10 @@
             <label>层级 <span class="err">*</span></label>
             <select class="inp" id="dictLevel">
               <option value="l1">一级（大类）</option>
-              <option value="l2">二级（系列）</option>
-              <option value="l3">三级（规格集合）</option>
+              <option value="l2">二级（中类）</option>
+              <option value="l3">三级（小类）</option>
+              <option value="l4">四级（材料名称）</option>
+              <option value="l5">五级（规格）</option>
             </select>
           </div>
           <div class="field" id="parentField" style="display:none">

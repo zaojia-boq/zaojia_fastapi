@@ -124,19 +124,154 @@
     });
   }
 
-  /* ===================== 物料字典树 ===================== */
+  /* ===================== 物料字典树（懒加载+分页+缓存+搜索版） ===================== */
   function bindDictTree() {
     const tree = $('#dictTree');
     if (!tree) return;
-    tree.addEventListener('click', e => {
+
+    // 缓存：已加载的子节点 { nodeId: { page, data, loadedAll } }
+    const cache = {};
+    const PAGE_SIZE = 100;
+
+    // 动态创建子节点HTML
+    function createChildNode(child, parentDepth) {
+      const depth = parentDepth + 1;
+      const hasCaret = child.hasChild ? '&#9654;' : '';
+      const caretClass = child.hasChild ? 'open' : '';
+      const childrenContainer = child.hasChild
+        ? '<div class="tree-children" data-children="' + child.id + '" style="display:none"></div>'
+        : '';
+      return '' +
+        '<div class="tree-node" data-id="' + child.id + '" data-level="' + child.level + '" data-loaded="false"' +
+        ' style="padding-left:' + (8 + depth * 16) + 'px">' +
+        '<span class="tree-caret ' + caretClass + '" data-caret="' + child.id + '">' + hasCaret + '</span>' +
+        '<a href="/admin/dict?sel=' + child.id + '" style="color:inherit;text-decoration:none;flex:1">' +
+        escapeHtml(child.name) + '</a></div>' + childrenContainer;
+    }
+
+    // 创建"加载更多"按钮
+    function createLoadMoreBtn(nodeId, parentDepth, loadedCount, total) {
+      const depth = parentDepth + 1;
+      return '<div class="tree-node load-more-node" data-load-more="' + nodeId + '"' +
+        ' style="padding-left:' + (8 + depth * 16) + 'px;cursor:pointer;color:#4D7CFE">' +
+        '<span style="margin-right:8px">⤵</span>' +
+        '<a style="color:#4D7CFE;text-decoration:none;flex:1">加载更多（已显示 ' + loadedCount + '/' + total + '）</a></div>';
+    }
+
+    // 懒加载子节点（支持分页）
+    async function loadChildren(nodeId, childrenContainer, caret, page) {
+      page = page || 1;
+      try {
+        if (caret) caret.textContent = '⟳'; // 加载中指示
+        const resp = await apiFetch('/api/dict/children?parent_id=' + nodeId + '&page=' + page + '&page_size=' + PAGE_SIZE);
+        if (!resp.ok) {
+          if (caret) caret.innerHTML = '&#9654;';
+          toast('加载子节点失败', 'err');
+          return false;
+        }
+        const data = await resp.json();
+        const node = tree.querySelector('.tree-node[data-id="' + CSS.escape(nodeId) + '"]');
+        const depth = node ? parseInt(node.style.paddingLeft) || 8 : 8;
+        const parentDepth = Math.floor((depth - 8) / 16);
+
+        // 更新缓存
+        if (!cache[nodeId]) {
+          cache[nodeId] = { page: 0, data: [], loadedAll: false, total: data.total };
+        }
+        cache[nodeId].page = page;
+        cache[nodeId].total = data.total;
+        cache[nodeId].loadedAll = !data.has_more;
+        cache[nodeId].data = cache[nodeId].data.concat(data.children);
+
+        // 渲染（第一页替换，后续追加）
+        if (page === 1) {
+          if (data.children && data.children.length > 0) {
+            childrenContainer.innerHTML = data.children.map(c => createChildNode(c, parentDepth)).join('');
+          } else {
+            childrenContainer.innerHTML = '<div class="muted small" style="padding-left:' + (8 + (parentDepth + 1) * 16) + 'px">（无子节点）</div>';
+          }
+        } else {
+          // 移除旧的"加载更多"按钮
+          const oldBtn = childrenContainer.querySelector('[data-load-more]');
+          if (oldBtn) oldBtn.remove();
+          // 追加新节点
+          const html = data.children.map(c => createChildNode(c, parentDepth)).join('');
+          childrenContainer.insertAdjacentHTML('beforeend', html);
+        }
+
+        // 如果还有更多，添加"加载更多"按钮
+        if (data.has_more) {
+          const loadedCount = cache[nodeId].data.length;
+          childrenContainer.insertAdjacentHTML('beforeend', createLoadMoreBtn(nodeId, parentDepth, loadedCount, data.total));
+        }
+
+        // 标记为已加载（至少第一页已加载）
+        if (node && page === 1) node.dataset.loaded = 'true';
+        if (caret) caret.innerHTML = '&#9654;';
+        return true;
+      } catch (e) {
+        if (caret) caret.innerHTML = '&#9654;';
+        toast('加载子节点异常: ' + e.message, 'err');
+        return false;
+      }
+    }
+
+    // 树点击事件（展开/收起 + 加载更多）
+    tree.addEventListener('click', async e => {
+      // 处理"加载更多"按钮
+      const loadMoreBtn = e.target.closest('[data-load-more]');
+      if (loadMoreBtn) {
+        const nodeId = loadMoreBtn.dataset.loadMore;
+        const children = tree.querySelector('.tree-children[data-children="' + CSS.escape(nodeId) + '"]');
+        if (!children) return;
+        const cached = cache[nodeId];
+        const nextPage = cached ? cached.page + 1 : 2;
+        await loadChildren(nodeId, children, null, nextPage);
+        return;
+      }
+
+      // 处理展开/收起
       const caret = e.target.closest('.tree-caret[data-caret]');
       if (!caret) return;
       const id = caret.dataset.caret;
       const children = tree.querySelector('.tree-children[data-children="' + CSS.escape(id) + '"]');
       if (!children) return;
-      const hidden = children.classList.toggle('hide');
-      caret.classList.toggle('open', !hidden);
+
+      const node = tree.querySelector('.tree-node[data-id="' + CSS.escape(id) + '"]');
+      const loaded = node ? node.dataset.loaded === 'true' : false;
+
+      // 如果未加载，先懒加载
+      if (!loaded) {
+        const ok = await loadChildren(id, children, caret, 1);
+        if (!ok) return;
+      }
+
+      // 展开/收起
+      const isHidden = children.style.display === 'none' || children.style.display === '';
+      children.style.display = isHidden ? 'block' : 'none';
+      caret.classList.toggle('open', isHidden);
     });
+
+    // 搜索过滤（在树内快速定位）
+    const searchInput = $('#dictTreeSearch');
+    if (searchInput) {
+      let searchTimer = null;
+      searchInput.addEventListener('input', () => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => {
+          const keyword = searchInput.value.trim().toLowerCase();
+          const nodes = tree.querySelectorAll('.tree-node:not(.load-more-node)');
+          nodes.forEach(node => {
+            const name = node.querySelector('a')?.textContent?.toLowerCase() || '';
+            if (!keyword || name.includes(keyword)) {
+              node.style.display = '';
+            } else {
+              node.style.display = 'none';
+            }
+          });
+        }, 200);
+      });
+    }
   }
 
   /* ===================== 导入向导步骤条 ===================== */
@@ -1049,7 +1184,9 @@
         return;
       }
       parentField.style.display = '';
-      const parentLevel = level === 'l2' ? 'l1' : 'l2';
+      // 通用：父级层级 = 当前层级 - 1
+      const levelNum = parseInt(level.replace('l', ''));
+      const parentLevel = 'l' + (levelNum - 1);
       try {
         const resp = await apiFetch('/api/dict?level=' + parentLevel);
         // 如果没有列表 API，用页面上的树节点
@@ -1058,9 +1195,10 @@
         const opts = [];
         nodes.forEach(a => {
           const node = a.closest('.tree-node');
-          // 简单过滤：根据缩进判断层级（l1=8px, l2=24px, l3=40px）
+          // 根据缩进判断层级（l1=8px, l2=24px, l3=40px, l4=56px, l5=72px）
           const pl = parseInt(node.style.paddingLeft) || 8;
-          const nodeLevel = pl <= 8 ? 'l1' : (pl <= 24 ? 'l2' : 'l3');
+          const depth = Math.floor((pl - 8) / 16);
+          const nodeLevel = 'l' + (depth + 1);
           if (nodeLevel === parentLevel) {
             const id = node.dataset.id;
             opts.push('<option value="' + id + '">' + escapeHtml(a.textContent.trim()) + '</option>');
