@@ -184,9 +184,15 @@ async def list_dict_children(
     rows = base_query.offset((page - 1) * page_size).limit(page_size).all()
 
     children = []
+    # 批量判断 hasChild（一次查询取所有子节点的 parent_id 集合，避免 N+1）
+    row_ids = [r.id for r in rows]
+    has_child_ids = set()
+    if row_ids:
+        has_child_ids = {row[0] for row in db.query(MaterialDict.parent_id).filter(
+            MaterialDict.parent_id.in_(row_ids)
+        ).all()}
     for r in rows:
-        # 批量判断hasChild（避免N+1查询）
-        has_child = db.query(MaterialDict.id).filter(MaterialDict.parent_id == r.id).first() is not None
+        has_child = r.id in has_child_ids
         children.append({
             "id": r.id,
             "name": r.name,

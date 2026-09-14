@@ -48,5 +48,10 @@ class MaterialDict(Base, BizIdMixin, TimestampMixin):
     parent = relationship("MaterialDict", remote_side=[id], foreign_keys=[parent_id])
     child_ids = relationship("MaterialDict", back_populates="parent", foreign_keys=[parent_id])
 
+    # 复合索引：/dict/children 的 filter(parent_id==).order_by(name) 走此索引
+    __table_args__ = (
+        Index("ix_material_dict_parent_name", "parent_id", "name"),
+    )
+
     def __repr__(self):
         return f"<MaterialDict id={self.id} level={self.level} name={self.name!r}>"

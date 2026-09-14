@@ -831,12 +831,17 @@ def get_material_dict_tree(db: Session | None = None, selected: int | None = Non
                             MaterialDict.parent_id == node.id
                         ).order_by(MaterialDict.name).limit(200).all()
                         detail["children"] = []
+                        # 批量统计子节点数（避免 N+1）
+                        child_counts: dict[int, int] = {}
+                        if child_rows:
+                            cid_list = [c.id for c in child_rows]
+                            for row in s.query(MaterialDict.parent_id, func.count(MaterialDict.id)).filter(
+                                MaterialDict.parent_id.in_(cid_list)
+                            ).group_by(MaterialDict.parent_id).all():
+                                child_counts[row[0]] = row[1]
                         for c in child_rows:
                             syn = c.synonyms if isinstance(c.synonyms, dict) else {}
-                            # 统计子节点的子节点数
-                            cc_count = s.query(func.count(MaterialDict.id)).filter(
-                                MaterialDict.parent_id == c.id
-                            ).scalar() or 0
+                            cc_count = child_counts.get(c.id, 0)
                             detail["children"].append({
                                 "id": c.id,
                                 "name": c.name,
@@ -894,11 +899,14 @@ def get_pending_matches(db: Session | None = None, limit: int = 50) -> dict[str,
 
             dict_count = s.query(func.count(MaterialDict.id)).scalar() or 0
 
-            # 候选池：取叶子/三级节点（有 category_path 权重才有意义）
-            dict_rows = s.query(MaterialDict).all()
-            cat_by_id = {}
-            for n in dict_rows:
-                cat_by_id[n.id] = n
+            # 候选池：列裁剪只取匹配所需字段（id/name/spec_whitelist/parent_id/level），
+            # 避免全列加载 15.7 万行（synonyms JSON/note/cat_l1~l3 等大字段占内存大头）。
+            # 行为不变：仍全表取候选，TF-IDF 索引构建在裁剪后的轻量行上。
+            dict_rows = s.query(
+                MaterialDict.id, MaterialDict.name, MaterialDict.spec_whitelist,
+                MaterialDict.parent_id, MaterialDict.level
+            ).all()
+            cat_by_id = {n.id: n for n in dict_rows}
             pool = [{
                 "id": n.id,
                 "name": n.name,
