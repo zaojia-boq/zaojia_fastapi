@@ -799,7 +799,26 @@ def get_material_dict_tree(db: Session | None = None, selected: int | None = Non
                 node = s.query(MaterialDict).filter(MaterialDict.id == sel).first()
                 if node is not None:
                     detail = _dict_node(node, 0, "")
-                    detail["cat_path"] = detail["category_path"]
+                    # 向上遍历祖先链，构建完整类目路径（如：钢材及有色金属 / 钢材 / 型钢 / 角钢）
+                    path_parts: list[str] = []
+                    cur = node
+                    seen: set[int] = set()
+                    while cur is not None and cur.id not in seen:
+                        seen.add(cur.id)
+                        if cur.name:
+                            path_parts.append(cur.name)
+                        cur = s.query(MaterialDict).filter(
+                            MaterialDict.id == cur.parent_id
+                        ).first() if cur.parent_id else None
+                    path_parts.reverse()
+                    # 合并相邻同名节点（v5 数据中 l3/l4/l5 材料名常同名，如 型钢/角钢/角钢/角钢）
+                    deduped: list[str] = []
+                    for p in path_parts:
+                        if not deduped or deduped[-1] != p:
+                            deduped.append(p)
+                    full_path = " / ".join(deduped)
+                    detail["category_path"] = full_path
+                    detail["cat_path"] = full_path
                     # 前四级（l1-l4）添加直接子节点列表，用于详情页展示
                     if node.level != "l5":
                         child_rows = s.query(
@@ -807,13 +826,28 @@ def get_material_dict_tree(db: Session | None = None, selected: int | None = Non
                             MaterialDict.name,
                             MaterialDict.code,
                             MaterialDict.level,
+                            MaterialDict.synonyms,
                         ).filter(
                             MaterialDict.parent_id == node.id
-                        ).order_by(MaterialDict.name).limit(100).all()
-                        detail["children"] = [
-                            {"id": c.id, "name": c.name, "code": c.code or "", "level": c.level}
-                            for c in child_rows
-                        ]
+                        ).order_by(MaterialDict.name).limit(200).all()
+                        detail["children"] = []
+                        for c in child_rows:
+                            syn = c.synonyms if isinstance(c.synonyms, dict) else {}
+                            # 统计子节点的子节点数
+                            cc_count = s.query(func.count(MaterialDict.id)).filter(
+                                MaterialDict.parent_id == c.id
+                            ).scalar() or 0
+                            detail["children"].append({
+                                "id": c.id,
+                                "name": c.name,
+                                "code": c.code or "",
+                                "level": c.level,
+                                "spec": _normalize_unit(syn.get("规格", "") or ""),
+                                "model": syn.get("型号", "") or "",
+                                "unit": _normalize_unit(syn.get("单位", "") or ""),
+                                "material": syn.get("材质", "") or "",
+                                "child_count": cc_count,
+                            })
                     else:
                         detail["children"] = []
 

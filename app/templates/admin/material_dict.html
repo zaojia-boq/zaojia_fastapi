@@ -33,8 +33,8 @@
           <span class="tree-caret" data-caret="{{ n.id }}">
             {% if n.hasChild %}+{% endif %}
           </span>
-          <a href="/admin/dict?sel={{ n.id }}" style="color:inherit;text-decoration:none;flex:1">
-            {% if n.code %}<span style="color:#64748b;font-family:monospace;font-size:11px;margin-right:6px">{{ n.code }}</span>{% endif %}{{ n.name }}
+          <a href="/admin/dict?sel={{ n.id }}" style="color:inherit;text-decoration:none;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+            {% if n.code %}<span class="mono-code">{{ n.code }}</span>{% endif %}{{ n.name }}
           </a>
         </div>
         {% if n.hasChild %}
@@ -55,85 +55,113 @@
     <!-- ======= 详情 ======= -->
     <div>
       {% if detail %}
-      <div class="card mb">
+      <div class="card mb dict-card">
         <div class="card-head">
-          <div>
-            <div class="card-title">{{ detail.name }}</div>
-            <div class="card-sub">{{ detail.cat_path }} · 层级 {{ detail.level|upper }}{% if detail.code %} · 编码 {{ detail.code }}{% endif %}</div>
+          <div class="dict-head-main">
+            <div class="card-title">
+              {{ detail.name }}
+              <span class="level-tag lt-{{ detail.level }}">{{ detail.level|upper }}</span>
+            </div>
+            <div class="dict-head-code">
+              {% if detail.code %}<span class="mono-code">{{ detail.code }}</span>{% endif %}
+              {% if detail.level != 'l5' and detail.badge %}<span class="dict-head-count">下级 {{ detail.badge }} 项</span>{% endif %}
+            </div>
           </div>
-          <div class="right"><span class="chip ok">已启用</span>
-            <button class="btn btn-sec btn-sm" id="editDictBtn" data-id="{{ detail.id }}">编辑</button></div>
+          <div class="right">
+            {% if detail.level == 'l5' %}<span class="chip ok">已启用</span>{% endif %}
+            <button class="btn btn-sec btn-sm" id="editDictBtn" data-id="{{ detail.id }}">编辑</button>
+          </div>
         </div>
+
         {% if detail.level == 'l5' %}
-        <!-- 第五级（规格叶子）：显示基本信息 + 材料属性 -->
-        <div class="grid g2">
-          <div class="field"><label>标准名称</label><input class="inp" value="{{ detail.name }}" readonly></div>
-          <div class="field"><label>五级编码</label><input class="inp" value="{{ detail.code or '—' }}" readonly style="font-family:monospace;color:#4D7CFE"></div>
-          <div class="field"><label>层级</label><input class="inp" value="{{ detail.level|upper }}" readonly></div>
-          <div class="field"><label>完整类目路径</label><input class="inp" value="{{ detail.cat_path }}" readonly></div>
-          <div class="field"><label>子级数量</label><input class="inp" value="{{ detail.badge }}" readonly></div>
-        </div>
-        {% if detail.attr_material_name or detail.attr_spec or detail.attr_material or detail.attr_model or detail.attr_unit %}
-        <div class="grid g2 mt">
-          {% if detail.attr_material_name %}
-          <div class="field"><label>材料名称</label><input class="inp" value="{{ detail.attr_material_name }}" readonly></div>
-          {% endif %}
-          {% if detail.attr_spec %}
-          <div class="field"><label>规格</label><input class="inp" value="{{ detail.attr_spec }}" readonly></div>
-          {% endif %}
-          {% if detail.attr_material %}
-          <div class="field"><label>材质</label><input class="inp" value="{{ detail.attr_material }}" readonly></div>
-          {% endif %}
-          {% if detail.attr_model %}
-          <div class="field"><label>型号</label><input class="inp" value="{{ detail.attr_model }}" readonly></div>
-          {% endif %}
-          {% if detail.attr_unit %}
-          <div class="field"><label>单位</label><input class="inp" value="{{ detail.attr_unit }}" readonly></div>
-          {% endif %}
+        <!-- ========== 第五级（规格叶子）：材料属性网格 ========== -->
+        {% if detail.cat_path %}
+        <div class="dict-breadcrumb">
+          <span class="dict-bc-label">类目路径</span>{{ detail.cat_path }}
         </div>
         {% endif %}
+        {% set has_attr = detail.attr_material_name or detail.attr_spec or detail.attr_material or detail.attr_model or detail.attr_unit %}
+        {% if has_attr %}
+        <div class="attr-grid">
+          {% if detail.attr_material_name %}
+          <div class="attr-item"><div class="attr-label">材料名称</div><div class="attr-value">{{ detail.attr_material_name }}</div></div>
+          {% endif %}
+          {% if detail.attr_spec %}
+          <div class="attr-item attr-item-hl"><div class="attr-label">规格</div><div class="attr-value attr-spec">{{ detail.attr_spec }}</div></div>
+          {% endif %}
+          {% if detail.attr_material %}
+          <div class="attr-item"><div class="attr-label">材质</div><div class="attr-value">{{ detail.attr_material }}</div></div>
+          {% endif %}
+          {% if detail.attr_model %}
+          <div class="attr-item"><div class="attr-label">型号</div><div class="attr-value">{{ detail.attr_model }}</div></div>
+          {% endif %}
+          {% if detail.attr_unit %}
+          <div class="attr-item"><div class="attr-label">单位</div><div class="attr-value attr-unit">{{ detail.attr_unit }}</div></div>
+          {% endif %}
+        </div>
         {% else %}
-        <!-- 前四级（分类节点）：只显示下级分类表格，不显示基本信息 -->
+        <div class="muted small dict-noattr">该规格节点暂无材料属性，可点击「编辑」补充规格 / 材质 / 型号 / 单位。</div>
+        {% endif %}
+        {% if detail.note %}
+        <div class="note mt"><span>&#9432;</span><div>{{ detail.note }}</div></div>
+        {% endif %}
+
+        {% else %}
+        <!-- ========== 前四级（分类节点）：下级分类表格（按层级动态列） ========== -->
         {% if detail.children %}
-        <div class="mt">
-          <div class="card-sub mb-sm">下级分类（{{ detail.children|length }}{% if detail.badge > 200 %}，共 {{ detail.badge }} 条{% endif %}）</div>
-          <div style="overflow-x:auto">
-          <table class="tbl" style="width:100%;font-size:13px">
+        <div class="dict-tbl-wrap">
+          <table class="tbl dict-children-tbl {% if detail.level == 'l4' %}is-spec{% endif %}">
             <thead>
+              {% if detail.level == 'l4' %}
+              <!-- l4 的子节点是 l5 规格：展示材料属性列 -->
               <tr>
-                <th style="width:130px">编码</th>
+                <th style="width:150px">编码</th>
                 <th>名称</th>
                 <th style="width:120px">规格</th>
-                <th style="width:100px">型号</th>
-                <th style="width:60px">单位</th>
+                <th style="width:80px">型号</th>
                 <th style="width:80px">材质</th>
-                <th style="width:50px">层级</th>
-                <th style="width:70px">子节点</th>
+                <th style="width:52px">单位</th>
               </tr>
+              {% else %}
+              <!-- l1/l2/l3 的子节点是分类：只展示编码 / 名称 / 包含子项 -->
+              <tr>
+                <th style="width:168px">编码</th>
+                <th>名称</th>
+                <th style="width:110px">包含子项</th>
+              </tr>
+              {% endif %}
             </thead>
             <tbody>
               {% for c in detail.children %}
-              <tr style="cursor:pointer" onclick="window.location.href='/admin/dict?sel={{ c.id }}'">
-                <td style="font-family:monospace;color:#4D7CFE;font-size:11px">{{ c.code or '—' }}</td>
-                <td style="font-weight:500">{{ c.name }}</td>
-                <td style="color:#10B981">{{ c.spec or '—' }}</td>
-                <td>{{ c.model or '—' }}</td>
-                <td>{{ c.unit or '—' }}</td>
-                <td>{{ c.material or '—' }}</td>
-                <td style="color:#64748b">{{ c.level|upper }}</td>
-                <td style="color:#64748b">{{ c.child_count if c.child_count > 0 else '叶子' }}</td>
+              <tr class="dict-child-row" onclick="window.location.href='/admin/dict?sel={{ c.id }}'">
+                <td><span class="mono-code">{{ c.code or '—' }}</span></td>
+                <td class="dict-child-name">{{ c.name }}</td>
+                {% if detail.level == 'l4' %}
+                <td class="dict-cell-spec">{{ c.spec or '—' }}</td>
+                <td class="muted">{{ c.model or '—' }}</td>
+                <td class="muted">{{ c.material or '—' }}</td>
+                <td class="dict-cell-unit">{{ c.unit or '—' }}</td>
+                {% else %}
+                <td class="muted dict-cell-count">
+                  {% if c.child_count > 0 %}<span class="count-badge">{{ c.child_count }}</span>{% else %}<span class="leaf-tag">叶子</span>{% endif %}
+                </td>
+                {% endif %}
               </tr>
               {% endfor %}
             </tbody>
           </table>
-          </div>
+          {% if detail.badge > 200 %}
+          <div class="dict-more-hint">仅显示前 200 项，共 {{ detail.badge }} 项；完整列表请在左侧分类树逐级展开查看。</div>
+          {% endif %}
         </div>
         {% else %}
-        <div class="muted small mt">暂无下级分类</div>
-        {% endif %}
+        <div class="dict-empty-children">
+          <div class="muted small">暂无下级分类</div>
+        </div>
         {% endif %}
         {% if detail.note %}
         <div class="note mt"><span>&#9432;</span><div>{{ detail.note }}</div></div>
+        {% endif %}
         {% endif %}
       </div>
 
