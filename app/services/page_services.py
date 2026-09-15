@@ -1093,21 +1093,15 @@ def get_price_analysis(
                 dict_nodes = s.query(MaterialDict).filter(MaterialDict.id.in_(dict_ids)).all()
                 # 构建 id -> node 映射，用于自底向上拼分类路径
                 node_by_id = {n.id: n for n in dict_nodes}
-                # 还需要查询所有祖先节点
-                all_parent_ids = set()
-                for n in dict_nodes:
-                    cur = n
-                    guard = 0
-                    while cur.parent_id and guard < 10:
-                        all_parent_ids.add(cur.parent_id)
-                        cur = node_by_id.get(cur.parent_id)
-                        if cur is None:
-                            break
-                        guard += 1
-                if all_parent_ids:
-                    parent_nodes = s.query(MaterialDict).filter(MaterialDict.id.in_(all_parent_ids)).all()
-                    for pn in parent_nodes:
-                        node_by_id[pn.id] = pn
+                # 逐级向上查询所有祖先节点（避免只查一层导致路径断链）
+                current_level_ids = {n.parent_id for n in dict_nodes if n.parent_id}
+                guard = 0
+                while current_level_ids and guard < 10:
+                    parents = s.query(MaterialDict).filter(MaterialDict.id.in_(current_level_ids)).all()
+                    for p in parents:
+                        node_by_id[p.id] = p
+                    current_level_ids = {p.parent_id for p in parents if p.parent_id}
+                    guard += 1
                 # 拼名称和分类路径（同时存 l1/l2/l3 层级，供前端分组展示）
                 for n in dict_nodes:
                     parts = []  # [叶子, l4, l3, l2, l1] 从底向上
