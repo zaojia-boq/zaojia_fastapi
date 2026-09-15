@@ -52,17 +52,19 @@ MAJOR_DEFS = [
 MAJOR_BY_PREFIX = {m["prefix"]: m for m in MAJOR_DEFS}
 FALLBACK_MAJOR = {"name": "其他", "prefix": "", "color": "#A855F7"}
 
-# A档核心材料大类白名单（单价分析默认只统计这些大类下的聚合组）
-# 按材料字典 code 前缀匹配（子节点 code 以父节点 code 开头）
+# A档核心材料白名单（单价分析默认只统计这些前缀下的聚合组）
+# 支持任意层级 code 前缀：l1 前缀（如 I001%）或 l3 前缀（如 I0120104% 塑料管）
+# key=code前缀, value=分组显示名称（覆盖字典树 l1 名称）
 # 注意：
-#   - I014 电气安装材料及设备不纳入——配电箱柜为成套设备，非材料单价分析范畴
-#   - I018 管道安装辅材不纳入——支吊架/波纹管等非管材本身（钢管/不锈钢管已在 I001 下）
-#   - I012 塑料橡胶制品暂不纳入——含塑料布/薄膜/橡胶板等非管材，待后续精确到 l3 前缀
+#   - I014 电气不纳入（配电箱柜为成套设备）
+#   - I018 管道辅材不纳入（支吊架/波纹管非管材，钢管已在 I001 下）
 MAJOR_CATEGORY_PREFIXES = {
     "I001": "钢材及有色金属",
     "I002": "水泥、石膏及制品",
     "I003": "砼",
     "I031": "电线电缆",
+    "I0120104": "塑料管",
+    "I0120110": "塑料管",
 }
 
 DATA_SOURCE_TYPES = {
@@ -1117,6 +1119,7 @@ def get_price_analysis(
                     cat_path = "/".join(reversed(parts))
                     dict_name_map[n.id] = {
                         "display": f"{n.name}（{cat_path}）",
+                        "code": n.code or "",
                         "l1": parts[-1] if len(parts) >= 1 else "",
                         "l2": parts[-2] if len(parts) >= 2 else "",
                         "l3": parts[-3] if len(parts) >= 3 else "",
@@ -1223,6 +1226,12 @@ def get_price_analysis(
                         info = dict_name_map.get(did)
                         if info:
                             g_l1, g_l2, g_l3 = info["l1"], info["l2"], info["l3"]
+                            # 白名单前缀覆盖分组名（如 I0120104 塑料管 → 分组名"塑料管"而非"塑料橡胶制品"）
+                            node_code = info.get("code", "")
+                            for prefix, label in MAJOR_CATEGORY_PREFIXES.items():
+                                if node_code.startswith(prefix):
+                                    g_l1 = label
+                                    break
                     except (ValueError, IndexError):
                         pass
                 groups.append({
