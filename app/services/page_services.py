@@ -1050,13 +1050,6 @@ def get_pending_matches(db: Session | None = None, limit: int = 50) -> dict[str,
         from app.models.material_dict import MaterialDict
 
         with _session_scope(db) as s:
-            pending = s.query(BoqItem).filter(
-                BoqItem.active == True,  # noqa: E712
-                BoqItem.material_dict_id == None,  # noqa: E711
-            ).order_by(BoqItem.id).limit(limit).all()
-
-            dict_count = s.query(func.count(MaterialDict.id)).scalar() or 0
-
             # 候选池：取 l3+l4 级（l3大类如"槽式桥架及配件"，l4材料名称如"照明配电箱"）
             # 不取 l5 叶子节点（spec 字段会导致匹配到无意义碎片）
             dict_rows = s.query(
@@ -1072,6 +1065,52 @@ def get_pending_matches(db: Session | None = None, limit: int = 50) -> dict[str,
                         else "",
                 "category_path": _category_path_of(n, cat_by_id),
             } for n in dict_rows if n.name and len(n.name.strip()) >= 3]
+
+            # === 批量自动确认：遍历所有未确认项，前9位映射+候选池精确同名(100分)直接写库 ===
+            from app.models.list_material_mapping import ListMaterialMapping
+            from app.core.audit import log_audit
+            all_pending = s.query(BoqItem).filter(
+                BoqItem.active == True,  # noqa: E712
+                BoqItem.material_dict_id == None,  # noqa: E711
+            ).all()
+            pool_by_name = {c['name'].strip(): c for c in pool}
+            auto_done = 0
+            for r in all_pending:
+                code9 = (r.item_code or '')[:9]
+                if len(code9) != 9:
+                    continue
+                mm = s.query(ListMaterialMapping.material_name).filter(
+                    ListMaterialMapping.list_item_code == code9
+                ).first()
+                if not mm or not mm[0]:
+                    continue
+                expected = mm[0].strip()
+                hit = pool_by_name.get(expected)
+                if not hit:
+                    continue
+                unit = r.unit_std or r.unit or ''
+                r.material_dict_id = hit['id']
+                r.match_key = f"dict:{hit['id']}|{unit}"
+                r.aggregate_id = f"dict:{hit['id']}:{hit['name']}"
+                r.match_key_source = 'dict_auto'
+                try:
+                    log_audit(
+                        db=s, model='boq_item', res_id=r.id, action='write',
+                        field_name='material_dict_id', old_value=None,
+                        new_value=str(hit['id']), operator='system-auto',
+                        reason='高置信自动确认（前9位清单码映射100分）',
+                    )
+                except Exception:
+                    pass
+                auto_done += 1
+            if auto_done:
+                print(f"[auto-confirm] 批量自动确认 {auto_done} 条")
+
+            # 候选池已构建（复用上面的pool）
+            pending = s.query(BoqItem).filter(
+                BoqItem.active == True,  # noqa: E712
+                BoqItem.material_dict_id == None,  # noqa: E711
+            ).order_by(BoqItem.id).limit(limit).all()
 
             # 构建 TF-IDF 索引（复用，避免每个清单项重新构建）
             tfidf_matcher = TfidfMatcher(pool) if pool else None
@@ -1144,34 +1183,6 @@ def get_pending_matches(db: Session | None = None, limit: int = 50) -> dict[str,
                             deduped.append(c)
                     cands = deduped[:3]
 
-                # 高置信自动确认：top1 分数≥100（前9位清单码命中映射+候选池精确同名）直接写库
-                auto_confirmed = 0
-                if cands and cands[0].get('score', 0) >= 100:
-                    top = cands[0]
-                    unit = r.unit_std or r.unit or ''
-                    r.material_dict_id = top['dict_id']
-                    r.match_key = f"dict:{top['dict_id']}|{unit}"
-                    r.aggregate_id = f"dict:{top['dict_id']}:{top['name']}"
-                    r.match_key_source = 'dict_auto'
-                    # 审计落库
-                    try:
-                        from app.core.audit import log_audit
-                        log_audit(
-                            db=s,
-                            model='boq_item',
-                            res_id=r.id,
-                            action='write',
-                            field_name='material_dict_id',
-                            old_value=None,
-                            new_value=str(top['dict_id']),
-                            operator='system-auto',
-                            reason='高置信自动确认（前9位清单码映射100分）',
-                        )
-                    except Exception:
-                        pass
-                    auto_confirmed += 1
-                    continue  # 不进待确认列表
-
                 items.append({
                     "id": r.id,
                     "code": r.item_code or "—",
@@ -1187,6 +1198,7 @@ def get_pending_matches(db: Session | None = None, limit: int = 50) -> dict[str,
                     "cands": [dict(c, color=_score_color(c["score"])) for c in cands],
                 })
 
+            dict_count = s.query(func.count(MaterialDict.id)).scalar() or 0
             result = _empty_result(
                 items=items,
                 pendingCount=len(items),
