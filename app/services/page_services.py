@@ -997,7 +997,7 @@ def _category_path_of(node, cat_by_id: dict) -> str:
 
 def get_price_analysis(
     db: Session | None = None,
-    range_period: str = "all",
+    range_months: int = 24,
     major: str = "all",
     min_sample: int = 3,
     show_all: bool = False,
@@ -1009,7 +1009,7 @@ def get_price_analysis(
     show_all=False（默认）：只统计 A 档核心材料大类（钢材/水泥/砼/电缆/塑料管）下的聚合组；
     show_all=True：统计全部（含施工工序类、零星材料）。
     group：指定 aggregate_id 时，KPI/趋势/直方图只统计该聚合组的数据。
-    range_period：价格期筛选，"all" 表示全部，或具体日期如 "2024-06-01"。
+    range_months：近N月，若该范围无数据则自动查全部数据（兜底）。
     """
     if USE_MOCK_DATA:
         d = _demo_payload()
@@ -1024,20 +1024,17 @@ def get_price_analysis(
 
     try:
         from app.models.boq_item import BoqItem
-        from datetime import datetime
         with _session_scope(db) as s:
             q = s.query(BoqItem).filter(
                 BoqItem.active == True,  # noqa: E712
                 BoqItem.unit_rate_num != None,  # noqa: E711
                 BoqItem.price_period != None,  # noqa: E711
             )
-            # 价格期筛选
-            if range_period and range_period != "all":
-                try:
-                    period_date = datetime.strptime(range_period, "%Y-%m-%d").date()
-                    q = q.filter(BoqItem.price_period == period_date)
-                except ValueError:
-                    pass
+            # 先按近N月过滤；如果结果为0则取消时间过滤（兜底）
+            since = (date.today().replace(day=1) - timedelta(days=int(range_months) * 30.5))
+            q_month = q.filter(BoqItem.price_period >= since)
+            if q_month.first() is not None:
+                q = q_month
             if major and major != "all":
                 q = q.filter(BoqItem.item_code.like(f"{major}%"))
 
