@@ -498,13 +498,27 @@ def search_boq_items(
             q = s.query(BoqItem).filter(BoqItem.active == True)  # noqa: E712
 
             if kw:
-                like = f"%{kw}%"
-                q = q.filter(or_(
-                    BoqItem.item_name.like(like),
-                    BoqItem.item_code.like(like),
-                    BoqItem.item_feature.like(like),
-                    BoqItem.project_name.like(like),
-                ))
+                import re as _re
+                # 关键词归一化：去空格/横杠/下划线，统一 ×/x/* → *
+                def _norm(t):
+                    t = (t or "").upper()
+                    t = _re.sub(r'[\s\-_—－]', '', t)
+                    t = t.replace('×', '*').replace('X', '*')
+                    return t
+                kw_norm = _norm(kw)
+                # 生成SQL LIKE变体（原始 + 归一化）
+                variants = {kw, kw_norm}
+                like_conds = []
+                for v in variants:
+                    if not v:
+                        continue
+                    like = f"%{v}%"
+                    like_conds.append(BoqItem.item_name.ilike(like))
+                    like_conds.append(BoqItem.item_code.ilike(like))
+                    like_conds.append(BoqItem.item_feature.ilike(like))
+                    like_conds.append(BoqItem.project_name.ilike(like))
+                if like_conds:
+                    q = q.filter(or_(*like_conds))
             if f_major:
                 q = q.filter(BoqItem.item_code.like(f"{f_major}%"))
             if f_code:
@@ -525,23 +539,65 @@ def search_boq_items(
                 q = q.filter(BoqItem.std_name != None)  # noqa: E711
 
             total = q.count()
-            pages = max(1, (total + per_page - 1) // per_page)
-            page = max(1, min(page, pages))
+            items = None
+            # 错别字模糊匹配 fallback：SQL LIKE 结果太少时用 rapidfuzz 补充
+            if kw and total < 3:
+                try:
+                    from rapidfuzz import fuzz as _fuzz
+                    # 去掉kw过滤，从所有非kw条件的记录里模糊匹配
+                    base_q = s.query(BoqItem).filter(BoqItem.active == True)  # noqa: E712
+                    if f_major:
+                        base_q = base_q.filter(BoqItem.item_code.like(f"{f_major}%"))
+                    if f_code:
+                        base_q = base_q.filter(BoqItem.item_code.like(f"%{f_code}%"))
+                    if f_name:
+                        base_q = base_q.filter(BoqItem.item_name.like(f"%{f_name}%"))
+                    if f_source:
+                        base_q = base_q.filter(BoqItem.data_source_type == f_source)
+                    if f_anomaly:
+                        base_q = base_q.filter(BoqItem.anomaly_flag == f_anomaly)
+                    if std_status == "std":
+                        base_q = base_q.filter(BoqItem.std_name != None)  # noqa: E711
+                    elif std_status == "pending":
+                        base_q = base_q.filter(BoqItem.std_name == None)  # noqa: E711
+                    if only_std:
+                        base_q = base_q.filter(BoqItem.std_name != None)  # noqa: E711
 
-            # 排序
-            if sort == "name":
-                q = q.order_by(BoqItem.item_name.asc(), BoqItem.id.desc())
-            elif sort == "relevance" and kw:
-                # 名称开头匹配优先，其次按 id desc
-                from sqlalchemy import case as _case
-                q = q.order_by(
-                    _case((BoqItem.item_name.like(f"{kw}%"), 0), else_=1),
-                    BoqItem.id.desc(),
-                )
-            else:  # recent
-                q = q.order_by(BoqItem.price_period.desc().nulls_last(), BoqItem.id.desc())
+                    # 拉全表（数据量~1500条，可接受），rapidfuzz 模糊匹配
+                    all_rows = base_q.all()
+                    scored = []
+                    kw_upper = (kw or "").upper()
+                    for r in all_rows:
+                        name = (r.item_name or "").upper()
+                        feature = (r.item_feature or "").upper()
+                        # 名称相似度 + 特征相似度取最大
+                        score = max(_fuzz.partial_ratio(kw_upper, name),
+                                    _fuzz.partial_ratio(kw_upper, feature))
+                        if score >= 70:
+                            scored.append((score, r))
+                    scored.sort(key=lambda x: -x[0])
+                    total = len(scored)
+                    pages = max(1, (total + per_page - 1) // per_page)
+                    page = max(1, min(page, pages))
+                    items = [r for _, r in scored[(page - 1) * per_page:page * per_page]]
+                except Exception:
+                    pass
 
-            items = q.offset((page - 1) * per_page).limit(per_page).all()
+            if items is None:
+                pages = max(1, (total + per_page - 1) // per_page)
+                page = max(1, min(page, pages))
+                # 排序
+                if sort == "name":
+                    q = q.order_by(BoqItem.item_name.asc(), BoqItem.id.desc())
+                elif sort == "relevance" and kw:
+                    from sqlalchemy import case as _case
+                    q = q.order_by(
+                        _case((BoqItem.item_name.ilike(f"{kw}%"), 0), else_=1),
+                        BoqItem.id.desc(),
+                    )
+                else:
+                    q = q.order_by(BoqItem.price_period.desc().nulls_last(), BoqItem.id.desc())
+                items = q.offset((page - 1) * per_page).limit(per_page).all()
 
             std_count = q.filter(BoqItem.std_name != None).count()  # noqa: E711
             pending_count = total - std_count
