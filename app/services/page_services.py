@@ -1122,16 +1122,17 @@ def get_pending_matches(db: Session | None = None, limit: int = 50) -> dict[str,
                                     }
                                     break
 
-                    rf_cands = score_candidates(query_name, query_spec, pool)
-                    if tfidf_matcher:
-                        tf_cands = tfidf_matcher.match(query_name, query_spec, top_n=10)
-                        cands = fuse_scores(rf_cands, tf_cands)
-                    else:
-                        cands = rf_cands
-
-                    # 预期材料名排第一（100分），去重后合并
                     if expected_cand:
-                        cands = [expected_cand] + [c for c in cands if c.get('name') != expected_mat]
+                        # 有映射：只显示映射结果，不做模糊匹配补充（避免不相关候选项）
+                        cands = [expected_cand]
+                    else:
+                        # 无映射：走模糊匹配
+                        rf_cands = score_candidates(query_name, query_spec, pool)
+                        if tfidf_matcher:
+                            tf_cands = tfidf_matcher.match(query_name, query_spec, top_n=10)
+                            cands = fuse_scores(rf_cands, tf_cands)
+                        else:
+                            cands = rf_cands
                     # 按 name 去重 + 最低分过滤：同名候选项只保留分数最高的，<50分不显示
                     seen = set()
                     deduped = []
