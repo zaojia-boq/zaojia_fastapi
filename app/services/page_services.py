@@ -1143,6 +1143,35 @@ def get_pending_matches(db: Session | None = None, limit: int = 50) -> dict[str,
                             seen.add(n)
                             deduped.append(c)
                     cands = deduped[:3]
+
+                # 高置信自动确认：top1 分数≥100（前9位清单码命中映射+候选池精确同名）直接写库
+                auto_confirmed = 0
+                if cands and cands[0].get('score', 0) >= 100:
+                    top = cands[0]
+                    unit = r.unit_std or r.unit or ''
+                    r.material_dict_id = top['dict_id']
+                    r.match_key = f"dict:{top['dict_id']}|{unit}"
+                    r.aggregate_id = f"dict:{top['dict_id']}:{top['name']}"
+                    r.match_key_source = 'dict_auto'
+                    # 审计落库
+                    try:
+                        from app.core.audit import log_audit
+                        log_audit(
+                            db=s,
+                            model='boq_item',
+                            res_id=r.id,
+                            action='write',
+                            field_name='material_dict_id',
+                            old_value=None,
+                            new_value=str(top['dict_id']),
+                            operator='system-auto',
+                            reason='高置信自动确认（前9位清单码映射100分）',
+                        )
+                    except Exception:
+                        pass
+                    auto_confirmed += 1
+                    continue  # 不进待确认列表
+
                 items.append({
                     "id": r.id,
                     "code": r.item_code or "—",
