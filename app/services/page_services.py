@@ -526,9 +526,10 @@ def search_boq_items(
                     # 多词：AND 匹配，每个词在 name/code/feature/source 任一位置命中
                     for w in kw_words:
                         w_norm = _norm(w)
-                        word_variants = {w, w_norm}
+                        # 同时生成 × 变体（数据库里可能写 ×）
+                        w_variants = {w, w_norm, w_norm.replace('*', '×')}
                         word_conds = []
-                        for v in word_variants:
+                        for v in w_variants:
                             if not v:
                                 continue
                             like = f"%{v}%"
@@ -608,15 +609,36 @@ def search_boq_items(
                 # 排序
                 if sort == "name":
                     q = q.order_by(BoqItem.item_name.asc(), BoqItem.id.desc())
+                    items = q.offset((page - 1) * per_page).limit(per_page).all()
                 elif sort == "relevance" and kw:
-                    from sqlalchemy import case as _case
-                    q = q.order_by(
-                        _case((BoqItem.item_name.ilike(f"{kw}%"), 0), else_=1),
-                        BoqItem.id.desc(),
-                    )
+                    # 拉全部匹配项，Python侧按匹配度排序
+                    all_items = q.order_by(BoqItem.price_period.desc().nulls_last()).all()
+                    kw_words = [w.strip() for w in kw.split() if w.strip()]
+                    import re as _re
+                    def _norm2(t):
+                        t = (t or "").upper()
+                        t = _re.sub(r'[\-_—－]', '', t)
+                        t = t.replace('×', '*').replace('X', '*')
+                        return t
+                    def _score(r):
+                        name_n = _norm2(r.item_name or "")
+                        feat_n = _norm2(r.item_feature or "")
+                        name_hits = sum(1 for w in kw_words if _norm2(w) in name_n)
+                        feat_hits = sum(1 for w in kw_words if _norm2(w) in feat_n)
+                        # 名称全命中=0，名称部分命中=1，特征全命中=2，其他=3
+                        if name_hits == len(kw_words):
+                            return 0
+                        elif name_hits > 0:
+                            return 1
+                        elif feat_hits == len(kw_words):
+                            return 2
+                        else:
+                            return 3
+                    all_items.sort(key=lambda r: (_score(r), -(r.price_period.toordinal() if r.price_period else 0)))
+                    items = all_items[(page - 1) * per_page:page * per_page]
                 else:
                     q = q.order_by(BoqItem.price_period.desc().nulls_last(), BoqItem.id.desc())
-                items = q.offset((page - 1) * per_page).limit(per_page).all()
+                    items = q.offset((page - 1) * per_page).limit(per_page).all()
 
             std_count = q.filter(BoqItem.std_name != None).count()  # noqa: E711
             pending_count = total - std_count
