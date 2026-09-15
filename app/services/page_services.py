@@ -596,8 +596,8 @@ def search_boq_items(
             )
             if kw and should_fuzzy:
                 try:
-                    from rapidfuzz import fuzz as _fuzz
-                    # 去掉kw过滤，从所有非kw条件的记录里模糊匹配
+                    # pg_trgm 模糊匹配兜底：用PG similarity()替代Python端rapidfuzz
+                    # 保留非kw的过滤条件，排除已匹配的记录
                     base_q = s.query(BoqItem).filter(BoqItem.active == True)  # noqa: E712
                     if f_major:
                         base_q = base_q.filter(BoqItem.item_code.like(f"{f_major}%"))
@@ -616,23 +616,24 @@ def search_boq_items(
                     if only_std:
                         base_q = base_q.filter(BoqItem.std_name != None)  # noqa: E711
 
-                    # 拉全表（数据量~1500条，可接受），rapidfuzz 模糊匹配
-                    all_rows = base_q.all()
-                    scored = []
-                    kw_upper = (kw_parts[0] or "").upper()
-                    for r in all_rows:
-                        name = (r.item_name or "").upper()
-                        feature = (r.item_feature or "").upper()
-                        # 名称相似度 + 特征相似度取最大
-                        score = max(_fuzz.partial_ratio(kw_upper, name),
-                                    _fuzz.partial_ratio(kw_upper, feature))
-                        if score >= 70:
-                            scored.append((score, r))
-                    scored.sort(key=lambda x: -x[0])
-                    total = len(scored)
+                    # 用PG similarity()在数据库侧做模糊匹配（GIN索引加速）
+                    kw_single = kw_parts[0]
+                    from sqlalchemy import text as _text
+                    # 排除已被精确匹配的记录
+                    matched_ids = [r[0] for r in q.with_entities(BoqItem.id).all()]
+                    fuzzy_q = base_q.filter(~BoqItem.id.in_(matched_ids))
+                    # 相似度子查询：similarity(item_name, kw) 或 similarity(item_feature, kw)
+                    fuzzy_q = fuzzy_q.add_columns(
+                        _text("GREATEST(similarity(item_name, :kw), similarity(item_feature, :kw)) AS sim_score")
+                    ).params(kw=kw_single)
+                    fuzzy_q = fuzzy_q.having(_text("GREATEST(similarity(item_name, :kw), similarity(item_feature, :kw)) > 0.3"))
+                    fuzzy_q = fuzzy_q.order_by(_text("sim_score DESC"))
+                    result = fuzzy_q.all()
+                    scored_rows = [(row.sim_score, row[0]) for row in result]  # (score, BoqItem)
+                    total = len(scored_rows)
                     pages = max(1, (total + per_page - 1) // per_page)
                     page = max(1, min(page, pages))
-                    items = [r for _, r in scored[(page - 1) * per_page:page * per_page]]
+                    items = [r for _, r in scored_rows[(page - 1) * per_page:page * per_page]]
                 except Exception:
                     pass
 
