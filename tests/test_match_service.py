@@ -232,8 +232,8 @@ class TestConfirmMatch:
         material_match_service.confirm_match(db_session, payload)
         db_session.refresh(item)
 
-        # 回填后 aggregate_id 应为 dict:<id>
-        assert item.aggregate_id == f'dict:{d.id}'
+        # 回填后 aggregate_id 应为 dict:<id>[:<规格>]
+        assert item.aggregate_id.startswith(f'dict:{d.id}')
         assert item.match_key_source == 'dict'  # 有 material_dict_id → 来源为 dict
 
     def test_nonexistent_boq_item(self, db_session):

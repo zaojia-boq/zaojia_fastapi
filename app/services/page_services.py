@@ -1154,9 +1154,15 @@ def get_price_analysis(
                     return "—"
                 if agg.startswith("dict:"):
                     try:
-                        did = int(agg.split(":")[1])
+                        # dict:<did>[:<规格>]
+                        parts = agg.split(":", 2)
+                        did = int(parts[1])
                         info = dict_name_map.get(did)
-                        return info["display"] if info else f"字典项#{did}"
+                        base = info["display"] if info else f"字典项#{did}"
+                        spec = parts[2] if len(parts) > 2 else ""
+                        if spec:
+                            return f"{base} [{spec}]"
+                        return base
                     except (ValueError, IndexError):
                         return agg
                 if agg.startswith("code:"):

@@ -144,8 +144,9 @@ class TestMatchKeyAutoCompute:
         # 有物料字典 → dict 优先级最高
         assert item.match_key_source == "dict"
         assert item.match_key.startswith(f"dict:{l3.id}|")
-        # aggregate_id = dict:<id>
-        assert item.aggregate_id == f"dict:{l3.id}"
+        # aggregate_id = dict:<id>[:<规格>]（std_spec="YJV" 作为规格后缀）
+        assert item.aggregate_id.startswith(f"dict:{l3.id}")
+        assert ":YJV" in item.aggregate_id
 
     def test_std_priority_above_code(self, db_session):
         """标准化名称+规格（B 类）优先级高于编码。"""

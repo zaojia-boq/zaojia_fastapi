@@ -15,6 +15,7 @@
 - B 类字段（std_name/std_spec/material_dict_id/anomaly_flag/anomaly_reason/data_source_type）
   禁静默覆盖，分层常量见 data/field_spec.py B_FIELDS。
 """
+import re
 from datetime import date, datetime
 from decimal import Decimal
 
@@ -190,6 +191,24 @@ _MATCH_KEY_FIELDS = {
 }
 
 
+def _extract_spec(feature: str) -> str:
+    """从项目特征文本中提取规格/型号信息，用于区分同材料不同规格的聚合组。"""
+    if not feature:
+        return ""
+    specs = []
+    for m in re.finditer(r'(?:规格|型号|规格型号|截面|线径|管径)[：:]\s*([^;；\n]+?)(?=\s*\d+[.．]|$)', feature):
+        val = m.group(1).strip().rstrip('；;。，,')
+        if val and len(val) <= 60:
+            specs.append(val)
+    seen = set()
+    unique = []
+    for s in specs:
+        if s not in seen:
+            seen.add(s)
+            unique.append(s)
+    return "|".join(unique[:3])
+
+
 def _compute_and_set(target):
     """计算 match_key / match_key_source / aggregate_id 并写入目标对象。"""
     match_key, source = compute_match_key(
@@ -204,9 +223,16 @@ def _compute_and_set(target):
     )
     target.match_key = match_key
     target.match_key_source = source
-    # aggregate_id：dict 模式用 dict:<id>，其他模式用 match_key
+    # aggregate_id：dict 模式用 dict:<id>:<规格>，其他模式用 match_key
+    # 加入规格维度，区分同一材料不同规格（如电力电缆 3x185 vs 4x25）
     if source == "dict" and target.material_dict_id:
-        target.aggregate_id = f"dict:{target.material_dict_id}"
+        spec = _extract_spec(target.item_feature or "")
+        if target.std_spec and target.std_spec not in spec:
+            spec = (spec + "|" if spec else "") + target.std_spec
+        if spec:
+            target.aggregate_id = f"dict:{target.material_dict_id}:{spec}"
+        else:
+            target.aggregate_id = f"dict:{target.material_dict_id}"
     else:
         target.aggregate_id = match_key
 
