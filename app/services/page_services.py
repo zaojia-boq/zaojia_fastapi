@@ -499,26 +499,45 @@ def search_boq_items(
 
             if kw:
                 import re as _re
-                # 关键词归一化：去空格/横杠/下划线，统一 ×/x/* → *
+                # 关键词归一化：去横杠/下划线，统一 ×/x/* → *
                 def _norm(t):
                     t = (t or "").upper()
-                    t = _re.sub(r'[\s\-_—－]', '', t)
+                    t = _re.sub(r'[\-_—－]', '', t)
                     t = t.replace('×', '*').replace('X', '*')
                     return t
-                kw_norm = _norm(kw)
-                # 生成SQL LIKE变体（原始 + 归一化）
-                variants = {kw, kw_norm}
-                like_conds = []
-                for v in variants:
-                    if not v:
-                        continue
-                    like = f"%{v}%"
-                    like_conds.append(BoqItem.item_name.ilike(like))
-                    like_conds.append(BoqItem.item_code.ilike(like))
-                    like_conds.append(BoqItem.item_feature.ilike(like))
-                    like_conds.append(BoqItem.project_name.ilike(like))
-                if like_conds:
-                    q = q.filter(or_(*like_conds))
+                # 按空格拆分多词，AND 匹配（每个词都要命中）
+                kw_words = [w.strip() for w in kw.split() if w.strip()]
+                if len(kw_words) == 1:
+                    # 单词：OR 匹配（原逻辑）
+                    kw_norm = _norm(kw_words[0])
+                    variants = {kw_words[0], kw_norm}
+                    like_conds = []
+                    for v in variants:
+                        if not v:
+                            continue
+                        like = f"%{v}%"
+                        like_conds.append(BoqItem.item_name.ilike(like))
+                        like_conds.append(BoqItem.item_code.ilike(like))
+                        like_conds.append(BoqItem.item_feature.ilike(like))
+                        like_conds.append(BoqItem.project_name.ilike(like))
+                    if like_conds:
+                        q = q.filter(or_(*like_conds))
+                else:
+                    # 多词：AND 匹配，每个词在 name/code/feature/source 任一位置命中
+                    for w in kw_words:
+                        w_norm = _norm(w)
+                        word_variants = {w, w_norm}
+                        word_conds = []
+                        for v in word_variants:
+                            if not v:
+                                continue
+                            like = f"%{v}%"
+                            word_conds.append(BoqItem.item_name.ilike(like))
+                            word_conds.append(BoqItem.item_code.ilike(like))
+                            word_conds.append(BoqItem.item_feature.ilike(like))
+                            word_conds.append(BoqItem.project_name.ilike(like))
+                        if word_conds:
+                            q = q.filter(or_(*word_conds))
             if f_major:
                 q = q.filter(BoqItem.item_code.like(f"{f_major}%"))
             if f_code:
