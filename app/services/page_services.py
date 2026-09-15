@@ -1098,6 +1098,22 @@ def get_pending_matches(db: Session | None = None, limit: int = 50) -> dict[str,
                     query_name = r.item_name or ''
                     query_spec = r.std_spec or r.item_feature or ''
                     rf_cands = score_candidates(query_name, query_spec, pool)
+
+                    # 第一层：按清单前9位查映射，锁定预期材料名称
+                    code9 = (r.item_code or '')[:9]
+                    expected_mat = None
+                    if code9 and len(code9) == 9:
+                        from app.models.list_material_mapping import ListMaterialMapping
+                        mm = s.query(ListMaterialMapping.material_name).filter(
+                            ListMaterialMapping.list_item_code.like(code9 + '%')
+                        ).first()
+                        if mm and mm[0]:
+                            expected_mat = mm[0].strip()
+                            # 预期材料名称在候选池中提分（+15分，封顶100）
+                            for c in rf_cands:
+                                if expected_mat and (c.get('name') or '').strip() == expected_mat:
+                                    c['score'] = min(100.0, c['score'] + 15)
+
                     if tfidf_matcher:
                         tf_cands = tfidf_matcher.match(query_name, query_spec, top_n=10)
                         cands = fuse_scores(rf_cands, tf_cands)
@@ -1108,7 +1124,7 @@ def get_pending_matches(db: Session | None = None, limit: int = 50) -> dict[str,
                     deduped = []
                     for c in cands:
                         n = (c.get('name') or '').strip()
-                        if n and n not in seen:
+                        if n and len(n) >= 3 and n not in seen:
                             seen.add(n)
                             deduped.append(c)
                     cands = deduped[:3]
