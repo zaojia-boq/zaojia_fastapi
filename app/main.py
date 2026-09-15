@@ -31,6 +31,18 @@ app = FastAPI(
 # 审计中间件（所有写操作落审计日志）
 app.add_middleware(AuditMiddleware)
 
+
+@app.on_event("startup")
+async def _run_startup_auto_confirm():
+    """启动时一次性跑高置信自动确认，避免挂在读路径上。"""
+    try:
+        from app.services.page_services import auto_confirm_high_conf
+        n = auto_confirm_high_conf()
+        if n:
+            print(f"[startup] 高置信自动确认完成，{n} 条")
+    except Exception as e:
+        print(f"[startup] 自动确认跳过: {e}")
+
 # 静态文件
 _STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 if os.path.isdir(_STATIC_DIR):

@@ -1066,46 +1066,6 @@ def get_pending_matches(db: Session | None = None, limit: int = 50) -> dict[str,
                 "category_path": _category_path_of(n, cat_by_id),
             } for n in dict_rows if n.name and len(n.name.strip()) >= 3]
 
-            # === 批量自动确认：遍历所有未确认项，前9位映射+候选池精确同名(100分)直接写库 ===
-            from app.models.list_material_mapping import ListMaterialMapping
-            from app.core.audit import log_audit
-            all_pending = s.query(BoqItem).filter(
-                BoqItem.active == True,  # noqa: E712
-                BoqItem.material_dict_id == None,  # noqa: E711
-            ).all()
-            pool_by_name = {c['name'].strip(): c for c in pool}
-            auto_done = 0
-            for r in all_pending:
-                code9 = (r.item_code or '')[:9]
-                if len(code9) != 9:
-                    continue
-                mm = s.query(ListMaterialMapping.material_name).filter(
-                    ListMaterialMapping.list_item_code == code9
-                ).first()
-                if not mm or not mm[0]:
-                    continue
-                expected = mm[0].strip()
-                hit = pool_by_name.get(expected)
-                if not hit:
-                    continue
-                unit = r.unit_std or r.unit or ''
-                r.material_dict_id = hit['id']
-                r.match_key = f"dict:{hit['id']}|{unit}"
-                r.aggregate_id = f"dict:{hit['id']}:{hit['name']}"
-                r.match_key_source = 'dict_auto'
-                try:
-                    log_audit(
-                        db=s, model='boq_item', res_id=r.id, action='write',
-                        field_name='material_dict_id', old_value=None,
-                        new_value=str(hit['id']), operator='system-auto',
-                        reason='高置信自动确认（前9位清单码映射100分）',
-                    )
-                except Exception:
-                    pass
-                auto_done += 1
-            if auto_done:
-                print(f"[auto-confirm] 批量自动确认 {auto_done} 条")
-
             # 候选池已构建（复用上面的pool）
             pending = s.query(BoqItem).filter(
                 BoqItem.active == True,  # noqa: E712
@@ -1210,6 +1170,64 @@ def get_pending_matches(db: Session | None = None, limit: int = 50) -> dict[str,
             return result
     except Exception as exc:
         return _fail(exc, items=[], pendingCount=0, dictCount=0, groupCount=0)
+
+
+def auto_confirm_high_conf() -> int:
+    """启动时/导入后一次性跑：前9位清单码命中映射+候选池精确同名(100分)直接写库。
+    不在读路径上跑，避免每次请求全量加载未匹配项。
+    返回自动确认条数。"""
+    from app.models.boq_item import BoqItem
+    from app.models.material_dict import MaterialDict
+    from app.models.list_material_mapping import ListMaterialMapping
+    from app.core.audit import log_audit
+
+    with _session_scope() as s:
+        # 候选池 l3+l4，名称长度>=3
+        dict_rows = s.query(
+            MaterialDict.id, MaterialDict.name,
+        ).filter(MaterialDict.level.in_(['l3', 'l4'])).all()
+        pool_by_name = {n.name.strip(): n for n in dict_rows if n.name and len(n.name.strip()) >= 3}
+
+        # 批量预加载全部映射表（消除 N+1：原来逐条 SELECT，100万数据量时卡死）
+        all_map_rows = s.query(
+            ListMaterialMapping.list_item_code, ListMaterialMapping.material_name
+        ).all()
+        code9_to_material = {r[0]: r[1] for r in all_map_rows if r[0] and r[1]}
+
+        all_pending = s.query(BoqItem).filter(
+            BoqItem.active == True,  # noqa: E712
+            BoqItem.material_dict_id == None,  # noqa: E711
+        ).all()
+        auto_done = 0
+        for r in all_pending:
+            code9 = (r.item_code or '')[:9]
+            if len(code9) != 9:
+                continue
+            expected = code9_to_material.get(code9)
+            if not expected:
+                continue
+            expected = expected.strip()
+            hit = pool_by_name.get(expected)
+            if not hit:
+                continue
+            unit = r.unit_std or r.unit or ''
+            r.material_dict_id = hit.id
+            r.match_key = f"dict:{hit.id}|{unit}"
+            r.aggregate_id = f"dict:{hit.id}:{hit.name}"
+            r.match_key_source = 'dict_auto'
+            try:
+                log_audit(
+                    db=s, model='boq_item', res_id=r.id, action='write',
+                    field_name='material_dict_id', old_value=None,
+                    new_value=str(hit.id), operator='system-auto',
+                    reason='高置信自动确认（前9位清单码映射100分）',
+                )
+            except Exception:
+                pass
+            auto_done += 1
+        if auto_done:
+            print(f"[auto-confirm] 批量自动确认 {auto_done} 条")
+        return auto_done
 
 
 def _category_path_of(node, cat_by_id: dict) -> str:
