@@ -279,10 +279,17 @@ def confirm_match(db: Session, payload: dict) -> dict[str, Any]:
             # 下次相同名称直接命中，无需再人工确认
             item_name = (boq.item_name or '').strip()
             if item_name and d.id:
-                current_syns = d.synonyms or []
-                if item_name not in current_syns:
-                    new_syns = current_syns + [item_name]
-                    d.synonyms = new_syns
+                current_syns = d.synonyms or {}
+                # synonyms 可能是 dict 或 list，统一成 list 处理
+                if isinstance(current_syns, dict):
+                    syn_list = list(current_syns.keys())
+                elif isinstance(current_syns, list):
+                    syn_list = list(current_syns)
+                else:
+                    syn_list = []
+                if item_name not in syn_list:
+                    syn_list.append(item_name)
+                    d.synonyms = syn_list
                     log_audit(
                         db=db,
                         model='material_dict',
@@ -290,7 +297,7 @@ def confirm_match(db: Session, payload: dict) -> dict[str, Any]:
                         action='write',
                         field_name='synonyms',
                         old_value=str(current_syns),
-                        new_value=str(new_syns),
+                        new_value=str(syn_list),
                         operator=operator,
                         reason='同义词自动扩展（学习记录）：确认清单项时自动学习名称',
                         trace_id=trace_id,
