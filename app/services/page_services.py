@@ -505,12 +505,31 @@ def search_boq_items(
                     t = _re.sub(r'[\-_—－]', '', t)
                     t = t.replace('×', '*').replace('X', '*')
                     return t
+                # 同义词扩展表（造价常用材料别名）
+                _SYNONYMS = {
+                    "配电箱": ["配电柜", "配电箱柜", "照明箱", "动力箱", "开关柜"],
+                    "配电柜": ["配电箱", "配电箱柜", "开关柜"],
+                    "桥架": ["电缆桥架", "电缆线槽", "线槽"],
+                    "电缆": ["电力电缆", "电线电缆", "控制电缆"],
+                    "钢管": ["焊接钢管", "镀锌钢管", "无缝钢管", "焊接钢管"],
+                    "塑料管": ["PVC管", "PPR管", "HDPE管", "PE管", "PVC-U管"],
+                    "钢筋": ["螺纹钢", "圆钢", "钢筋网"],
+                    "水泥": ["硅酸盐水泥", "普通水泥", "PO水泥"],
+                    "砼": ["混凝土", "商品砼", "商品混凝土"],
+                }
                 # 按空格拆分多词，AND 匹配（每个词都要命中）
                 kw_words = [w.strip() for w in kw.split() if w.strip()]
                 if len(kw_words) == 1:
-                    # 单词：OR 匹配（原逻辑）
-                    kw_norm = _norm(kw_words[0])
-                    variants = {kw_words[0], kw_norm}
+                    # 单词：OR 匹配（原逻辑）+ 同义词扩展
+                    kw0 = kw_words[0]
+                    kw_norm = _norm(kw0)
+                    variants = {kw0, kw_norm}
+                    # 同义词扩展
+                    for syn_key, syn_list in _SYNONYMS.items():
+                        if kw0 in syn_list or kw0 == syn_key:
+                            variants.add(syn_key)
+                            for s in syn_list:
+                                variants.add(s)
                     like_conds = []
                     for v in variants:
                         if not v:
@@ -528,6 +547,12 @@ def search_boq_items(
                         w_norm = _norm(w)
                         # 同时生成 × 变体（数据库里可能写 ×）
                         w_variants = {w, w_norm, w_norm.replace('*', '×')}
+                        # 同义词扩展
+                        for syn_key, syn_list in _SYNONYMS.items():
+                            if w in syn_list or w == syn_key:
+                                w_variants.add(syn_key)
+                                for s in syn_list:
+                                    w_variants.add(s)
                         word_conds = []
                         for v in w_variants:
                             if not v:
