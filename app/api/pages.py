@@ -341,6 +341,26 @@ async def portal_search(request: Request, db: Session = Depends(get_db),
         f_source=f_source, f_anomaly=f_anomaly, std_status=std_status, page=page,
         only_std=(user is None),  # 未登录用户仅能看到已标准化数据
     )
+
+    # 关键词高亮（复用字典页 .tree-hl 样式）
+    import re as _re
+    def _hl(text, *kws):
+        if not text:
+            return text
+        t = str(text)
+        for kw in kws:
+            if kw and kw.strip():
+                pattern = _re.compile(_re.escape(kw), _re.IGNORECASE)
+                t = pattern.sub(lambda m: f'<span class="tree-hl">{m.group()}</span>', t)
+        return t
+    hl_kw = f_code or kw
+    hl_name = f_name or kw
+    for r in data.get("rows", []):
+        r["code"] = _hl(r.get("code", ""), hl_kw)
+        r["name"] = _hl(r.get("name", ""), hl_name)
+        r["feature"] = _hl(r.get("feature", ""), kw)
+        r["source"] = _hl(r.get("source", ""), kw)
+
     return _render("portal/search.html", _ctx_portal(
         request, db, "boq", "清单检索", user,
         major_options=svc.MAJOR_DEFS,

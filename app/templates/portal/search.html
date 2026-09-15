@@ -124,15 +124,15 @@
           <tr>
             <td>
               <span class="dot" style="background:{{ r.majorColor }};margin-right:6px" title="{{ r.majorName }}"></span>
-              <span class="code">{{ r.code }}</span>
+              <span class="code">{{ r.code|safe }}</span>
             </td>
-            <td class="td-wrap">{{ r.name }}</td>
-            <td class="muted td-wrap">{{ r.feature }}</td>
+            <td class="td-wrap">{{ r.name|safe }}</td>
+            <td class="muted td-wrap">{{ r.feature|safe }}</td>
             <td>{{ r.unit }}</td>
             <td class="td-num">{{ r.qty }}</td>
             <td class="td-num">{{ r.rate }}</td>
             <td class="td-num">{{ r.total }}</td>
-            <td class="td-wrap">{{ r.source }}</td>
+            <td class="td-wrap">{{ r.source|safe }}</td>
             <td>{{ r.period or '—' }}</td>
             <td>
               {% if r.stCls == 'ok' %}<span class="chip ok">{{ r.stLabel }}</span>
