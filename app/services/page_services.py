@@ -1057,12 +1057,12 @@ def get_pending_matches(db: Session | None = None, limit: int = 50) -> dict[str,
 
             dict_count = s.query(func.count(MaterialDict.id)).scalar() or 0
 
-            # 候选池：只取 l4 材料名称级（与单价分析 material_dict_id 聚合一致）
-            # 不取 l5 叶子节点（spec 字段会导致匹配到"电箱""配电"等无意义碎片）
+            # 候选池：取 l3+l4 级（l3大类如"槽式桥架及配件"，l4材料名称如"照明配电箱"）
+            # 不取 l5 叶子节点（spec 字段会导致匹配到无意义碎片）
             dict_rows = s.query(
                 MaterialDict.id, MaterialDict.name, MaterialDict.spec_whitelist,
                 MaterialDict.parent_id, MaterialDict.level
-            ).filter(MaterialDict.level == 'l4').all()
+            ).filter(MaterialDict.level.in_(['l3', 'l4'])).all()
             cat_by_id = {n.id: n for n in dict_rows}
             pool = [{
                 "id": n.id,
@@ -1099,9 +1099,10 @@ def get_pending_matches(db: Session | None = None, limit: int = 50) -> dict[str,
                     query_spec = r.std_spec or r.item_feature or ''
                     rf_cands = score_candidates(query_name, query_spec, pool)
 
-                    # 第一层：按清单前9位查映射，锁定预期材料名称
+                    # 第一层：按清单前9位查映射，预期材料名直接设为第一候选项（100分）
                     code9 = (r.item_code or '')[:9]
                     expected_mat = None
+                    expected_cand = None
                     if code9 and len(code9) == 9:
                         from app.models.list_material_mapping import ListMaterialMapping
                         mm = s.query(ListMaterialMapping.material_name).filter(
@@ -1109,16 +1110,28 @@ def get_pending_matches(db: Session | None = None, limit: int = 50) -> dict[str,
                         ).first()
                         if mm and mm[0]:
                             expected_mat = mm[0].strip()
-                            # 预期材料名称在候选池中提分（+15分，封顶100）
-                            for c in rf_cands:
-                                if expected_mat and (c.get('name') or '').strip() == expected_mat:
-                                    c['score'] = min(100.0, c['score'] + 15)
+                            # 在候选池中找预期材料名，直接设为100分排第一
+                            for c in pool:
+                                if (c.get('name') or '').strip() == expected_mat:
+                                    expected_cand = {
+                                        'dict_id': c['id'],
+                                        'name': c['name'],
+                                        'spec': c.get('spec', ''),
+                                        'score': 100.0,
+                                        'category_path': c.get('category_path', ''),
+                                    }
+                                    break
 
+                    rf_cands = score_candidates(query_name, query_spec, pool)
                     if tfidf_matcher:
                         tf_cands = tfidf_matcher.match(query_name, query_spec, top_n=10)
                         cands = fuse_scores(rf_cands, tf_cands)
                     else:
                         cands = rf_cands
+
+                    # 预期材料名排第一（100分），去重后合并
+                    if expected_cand:
+                        cands = [expected_cand] + [c for c in cands if c.get('name') != expected_mat]
                     # 按 name 去重 + 最低分过滤：同名候选项只保留分数最高的，<50分不显示
                     seen = set()
                     deduped = []
