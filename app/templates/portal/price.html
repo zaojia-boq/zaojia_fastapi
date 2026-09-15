@@ -2,11 +2,20 @@
 {% block title %}单价分析{% endblock %}
 
 {% macro q(p, m) -%}
-/price?range={{ p }}&amp;major={{ m }}
+/price?range={{ p }}&amp;major={{ m }}{% if current_show_all %}&amp;show_all=1{% endif %}
 {%- endmacro %}
 
 {% block head_extra %}
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<style>
+  table tr.group-header td {
+    background: var(--accent, #4D7CFE);
+    color: #fff;
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+  table tr.group-header:hover td { background: var(--accent, #4D7CFE); }
+</style>
 {% endblock %}
 
 {% block content %}
@@ -32,6 +41,10 @@
            href="{{ q(current_range, m.prefix) }}">{{ m.label }}</a>
         {% endfor %}
       </div>
+      <a class="btn btn-sm {{ 'btn-primary' if current_show_all else 'btn-sec' }}"
+         href="/price?range={{ current_range }}&amp;major={{ current_major }}{% if not current_show_all %}&amp;show_all=1{% endif %}">
+        {% if current_show_all %}仅核心材料{% else %}显示全部{% endif %}
+      </a>
     </div>
   </div>
 
@@ -143,9 +156,16 @@
               <th class="td-num">异常数</th><th class="td-num">偏离均价</th><th>判定</th></tr>
         </thead>
         <tbody>
-          {% for g in groups %}
+          {% for l1_name, l1_groups in groups|groupby('l1') %}
+          <tr class="group-header">
+            <td colspan="8"><b>{{ l1_name or '其他' }}</b></td>
+          </tr>
+          {% for g in l1_groups %}
           <tr>
-            <td class="mono">{{ g.name }}</td>
+            <td class="mono">
+              {% if g.l2 %}<span class="muted small" style="margin-right:6px">{{ g.l2 }}</span>{% endif %}
+              {{ g.name }}
+            </td>
             <td class="td-num">{{ g.count }}</td>
             <td class="td-num">{{ "{:,.2f}".format(g.min) }}</td>
             <td class="td-num"><b>{{ "{:,.2f}".format(g.avg) }}</b></td>
@@ -158,6 +178,7 @@
               {% else %}<span class="chip ok">区间内</span>{% endif %}
             </td>
           </tr>
+          {% endfor %}
           {% endfor %}
         </tbody>
       </table>

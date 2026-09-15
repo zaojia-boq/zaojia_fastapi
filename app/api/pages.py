@@ -363,8 +363,9 @@ async def portal_price(request: Request, db: Session = Depends(get_db),
     if range_months not in (6, 12, 24, 36):
         range_months = 24
     major = qp.get("major", "all")
+    show_all = qp.get("show_all", "0") == "1"
 
-    data = svc.get_price_analysis(db, range_months=range_months, major=major)
+    data = svc.get_price_analysis(db, range_months=range_months, major=major, show_all=show_all)
     return _render("portal/price.html", _ctx_portal(
         request, db, "price", "价格分析", user,
         range_options=[{"month": m, "label": f"近 {m} 月"} for m in (6, 12, 24, 36)],
@@ -373,6 +374,7 @@ async def portal_price(request: Request, db: Session = Depends(get_db),
         ],
         current_range=range_months,
         current_major=major,
+        current_show_all=show_all,
         **data,
     ))
 

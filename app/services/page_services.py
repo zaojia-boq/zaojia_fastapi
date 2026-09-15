@@ -52,6 +52,16 @@ MAJOR_DEFS = [
 MAJOR_BY_PREFIX = {m["prefix"]: m for m in MAJOR_DEFS}
 FALLBACK_MAJOR = {"name": "其他", "prefix": "", "color": "#A855F7"}
 
+# A档核心材料大类白名单（单价分析默认只统计这些大类下的聚合组）
+# 按材料字典 l1 code 前缀匹配（子节点 code 以 l1 code 开头）
+MAJOR_CATEGORY_PREFIXES = {
+    "I001": "钢材及有色金属",
+    "I002": "水泥、石膏及制品",
+    "I003": "砼",
+    "I014": "电气安装材料及设备",
+    "I031": "电线电缆",
+}
+
 DATA_SOURCE_TYPES = {
     "completed": "已完工程",
     "control_price": "招标控制价",
@@ -985,10 +995,13 @@ def get_price_analysis(
     range_months: int = 24,
     major: str = "all",
     min_sample: int = 3,
+    show_all: bool = False,
 ) -> dict[str, Any]:
     """单价分析。
 
     口径：默认仅统计 data_source_type='completed'（M3 §3.1，待审/控制价/信息价不进历史均价）。
+    show_all=False（默认）：只统计 A 档核心材料大类（钢材/水泥/砼/电气/电缆）下的聚合组；
+    show_all=True：统计全部（含施工工序类、零星材料）。
     """
     if USE_MOCK_DATA:
         d = _demo_payload()
@@ -1013,6 +1026,15 @@ def get_price_analysis(
             )
             if major and major != "all":
                 q = q.filter(BoqItem.item_code.like(f"{major}%"))
+
+            # A档核心材料白名单过滤：默认只统计 A 档大类下的 boq_item
+            # 通过 material_dict_id 关联到 material_dict.code 前缀匹配（l1/l2/l3/l4/l5 code 都以 l1 code 开头）
+            if not show_all:
+                from sqlalchemy import or_ as sa_or
+                from app.models.material_dict import MaterialDict as MD
+                major_cond = sa_or(*[MD.code.like(f"{prefix}%") for prefix in MAJOR_CATEGORY_PREFIXES])
+                major_dict_ids = s.query(MD.id).filter(major_cond)
+                q = q.filter(BoqItem.material_dict_id.in_(major_dict_ids))
 
             items = q.all()
             rows = [{
@@ -1086,9 +1108,9 @@ def get_price_analysis(
                     parent_nodes = s.query(MaterialDict).filter(MaterialDict.id.in_(all_parent_ids)).all()
                     for pn in parent_nodes:
                         node_by_id[pn.id] = pn
-                # 拼名称和分类路径
+                # 拼名称和分类路径（同时存 l1/l2/l3 层级，供前端分组展示）
                 for n in dict_nodes:
-                    parts = []
+                    parts = []  # [叶子, l4, l3, l2, l1] 从底向上
                     cur = n
                     guard = 0
                     while cur is not None and guard < 10:
@@ -1096,7 +1118,12 @@ def get_price_analysis(
                         cur = node_by_id.get(cur.parent_id) if cur.parent_id else None
                         guard += 1
                     cat_path = "/".join(reversed(parts))
-                    dict_name_map[n.id] = f"{n.name}（{cat_path}）"
+                    dict_name_map[n.id] = {
+                        "display": f"{n.name}（{cat_path}）",
+                        "l1": parts[-1] if len(parts) >= 1 else "",
+                        "l2": parts[-2] if len(parts) >= 2 else "",
+                        "l3": parts[-3] if len(parts) >= 3 else "",
+                    }
 
             # 批量查询清单-材料映射表（list_item_code -> material_name）
             # 用于将国标码映射到材料名称，提高聚合身份可读性
@@ -1128,7 +1155,8 @@ def get_price_analysis(
                 if agg.startswith("dict:"):
                     try:
                         did = int(agg.split(":")[1])
-                        return dict_name_map.get(did, f"字典项#{did}")
+                        info = dict_name_map.get(did)
+                        return info["display"] if info else f"字典项#{did}"
                     except (ValueError, IndexError):
                         return agg
                 if agg.startswith("code:"):
@@ -1190,9 +1218,22 @@ def get_price_analysis(
             for g in raw_groups:
                 agg_raw = g.get("group") or "—"
                 sample_row = agg_sample_map.get(agg_raw)
+                # 提取层级信息（仅 dict: 模式有字典层级）
+                g_l1, g_l2, g_l3 = "", "", ""
+                if agg_raw.startswith("dict:"):
+                    try:
+                        did = int(agg_raw.split(":")[1])
+                        info = dict_name_map.get(did)
+                        if info:
+                            g_l1, g_l2, g_l3 = info["l1"], info["l2"], info["l3"]
+                    except (ValueError, IndexError):
+                        pass
                 groups.append({
                     "name": _friendly_agg_name(agg_raw, sample_row),
                     "raw_id": agg_raw,
+                    "l1": g_l1,
+                    "l2": g_l2,
+                    "l3": g_l3,
                     "avg": round(g.get("avg") or 0, 2),
                     "min": round(g.get("min") or 0, 2),
                     "max": round(g.get("max") or 0, 2),
