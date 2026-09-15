@@ -2,7 +2,7 @@
 {% block title %}单价分析{% endblock %}
 
 {% macro q(p, m) -%}
-/price?range={{ p }}&amp;major={{ m }}{% if current_show_all %}&amp;show_all=1{% endif %}{% if selected_group %}&amp;group={{ selected_group|urlencode }}{% endif %}
+/portal/price?range={{ p }}&amp;major={{ m }}{% if current_show_all %}&amp;show_all=1{% endif %}{% if selected_group %}&amp;group={{ selected_group|urlencode }}{% endif %}
 {%- endmacro %}
 
 {% block head_extra %}
@@ -42,7 +42,7 @@
         {% endfor %}
       </div>
       <a class="btn btn-sm {{ 'btn-primary' if current_show_all else 'btn-sec' }}"
-         href="/price?range={{ current_range }}&amp;major={{ current_major }}{% if not current_show_all %}&amp;show_all=1{% endif %}">
+         href="/portal/price?range={{ current_range }}&amp;major={{ current_major }}{% if not current_show_all %}&amp;show_all=1{% endif %}">
         {% if current_show_all %}仅核心材料{% else %}显示全部{% endif %}
       </a>
     </div>
@@ -185,8 +185,8 @@
             var cls = Math.abs(dev) > (k.threshold||30) ? 'chip err' : (Math.abs(dev) > (k.threshold||15) ? 'chip warn' : 'chip ok');
             var lbl = Math.abs(dev) > (k.threshold||30) ? '偏离预警' : (Math.abs(dev) > (k.threshold||15) ? '关注' : '区间内');
             var btn = d.selected_group
-              ? '<a class="btn btn-xs btn-sec" href="/price?range={{ current_range }}&major={{ current_major }}{% if current_show_all %}&show_all=1{% endif %}">返回全部</a>'
-              : '<a class="btn btn-xs btn-sec" href="/price?range={{ current_range }}&major={{ current_major }}{% if current_show_all %}&show_all=1{% endif %}&group='+encodeURIComponent(g.raw_id)+'">趋势</a>';
+              ? '<a class="btn btn-xs btn-sec" href="/portal/price?range={{ current_range }}&major={{ current_major }}{% if current_show_all %}&show_all=1{% endif %}">返回全部</a>'
+              : '<a class="btn btn-xs btn-sec" href="/portal/price?range={{ current_range }}&major={{ current_major }}{% if current_show_all %}&show_all=1{% endif %}&group='+encodeURIComponent(g.raw_id)+'">趋势</a>';
             return '<tr><td class="mono">'+(g.l2?'<span class="muted small" style="margin-right:6px">'+g.l2+'</span>':'')+g.name+'</td>'
               +'<td class="td-num">'+g.count+'</td>'
               +'<td class="td-num">'+Number(g.min).toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td>'
@@ -208,7 +208,7 @@
       status.textContent='加载中...';
       fetch(url).then(function(r){return r.json();}).then(function(d){
         updateUI(d);
-        var newUrl='/price?range={{ current_range }}&major={{ current_major }}';
+        var newUrl='/portal/price?range={{ current_range }}&major={{ current_major }}';
         {% if current_show_all %}newUrl+='&show_all=1';{% endif %}
         if(group) newUrl+='&group='+encodeURIComponent(group);
         history.replaceState(null,'',newUrl);
@@ -355,7 +355,7 @@
               {% if selected_group %}
               <a class="btn btn-xs btn-sec" href="{{ q(current_range, current_major) }}">返回全部</a>
               {% else %}
-              <a class="btn btn-xs btn-sec" href="/price?range={{ current_range }}&amp;major={{ current_major }}{% if current_show_all %}&amp;show_all=1{% endif %}&amp;group={{ g.raw_id|urlencode }}">趋势</a>
+              <a class="btn btn-xs btn-sec" href="/portal/price?range={{ current_range }}&amp;major={{ current_major }}{% if current_show_all %}&amp;show_all=1{% endif %}&amp;group={{ g.raw_id|urlencode }}">趋势</a>
               {% endif %}
             </td>
           </tr>
