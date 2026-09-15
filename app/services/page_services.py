@@ -1132,13 +1132,14 @@ def get_pending_matches(db: Session | None = None, limit: int = 50) -> dict[str,
                             cands = fuse_scores(rf_cands, tf_cands)
                         else:
                             cands = rf_cands
-                    # 按 name 去重 + 最低分过滤：同名候选项只保留分数最高的，<50分不显示
+                    # 按 name 去重 + 最低分过滤：同名候选项只保留分数最高的。
+                    # D级（0<score<50）也推荐最多3条参考候选；仅全0分（无任何相似）视为无候选。
                     seen = set()
                     deduped = []
                     for c in cands:
                         n = (c.get('name') or '').strip()
                         sc = c.get('score', 0)
-                        if n and len(n) >= 3 and sc >= 50 and n not in seen:
+                        if n and len(n) >= 3 and sc > 0 and n not in seen:
                             seen.add(n)
                             deduped.append(c)
                     cands = deduped[:3]
