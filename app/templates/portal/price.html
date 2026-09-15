@@ -28,7 +28,7 @@
         异常判定阈值 ±{{ kpis.threshold }}%，样本下限 {{ kpis.minSample }} 条。
       </div>
     </div>
-    <div class="page-actions">
+    <div class="page-actions" style="flex-wrap:wrap;gap:8px">
       <div class="seg">
         {% for r in range_options %}
         <a class="btn btn-sm {{ 'btn-primary' if current_range == r.month else 'btn-sec' }}"
@@ -159,6 +159,46 @@
       } else { hb.innerHTML=''; }
 
       status.textContent = d.selected_group_name ? '✓ 已筛选：'+d.selected_group_name : '';
+
+      // 重建聚合组表格
+      var tblCard = document.querySelectorAll('.card');
+      var groupCard = null;
+      tblCard.forEach(function(c){
+        var t = c.querySelector('.card-title');
+        if (t && (t.textContent.indexOf('聚合组')>=0 || t.textContent.indexOf('样本明细')>=0)) groupCard = c;
+      });
+      if (groupCard) {
+        var gtitle = groupCard.querySelector('.card-title');
+        var gright = groupCard.querySelector('.right .muted');
+        var groups = d.groups || [];
+        if (d.selected_group) {
+          gtitle.textContent = '样本明细（按价格期）';
+          if (gright) gright.textContent = '该聚合组在各价格期的单价分布';
+        } else {
+          gtitle.textContent = '聚合组报价对比';
+          if (gright) gright.textContent = '按 aggregate_id 聚合 · 偏离相对全区间均价';
+        }
+        var tbody = groupCard.querySelector('tbody');
+        if (tbody) {
+          tbody.innerHTML = groups.map(function(g){
+            var dev = g.deviation||0;
+            var cls = Math.abs(dev) > (k.threshold||30) ? 'chip err' : (Math.abs(dev) > (k.threshold||15) ? 'chip warn' : 'chip ok');
+            var lbl = Math.abs(dev) > (k.threshold||30) ? '偏离预警' : (Math.abs(dev) > (k.threshold||15) ? '关注' : '区间内');
+            var btn = d.selected_group
+              ? '<a class="btn btn-xs btn-sec" href="/price?range={{ current_range }}&major={{ current_major }}{% if current_show_all %}&show_all=1{% endif %}">返回全部</a>'
+              : '<a class="btn btn-xs btn-sec" href="/price?range={{ current_range }}&major={{ current_major }}{% if current_show_all %}&show_all=1{% endif %}&group='+encodeURIComponent(g.raw_id)+'">趋势</a>';
+            return '<tr><td class="mono">'+(g.l2?'<span class="muted small" style="margin-right:6px">'+g.l2+'</span>':'')+g.name+'</td>'
+              +'<td class="td-num">'+g.count+'</td>'
+              +'<td class="td-num">'+Number(g.min).toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td>'
+              +'<td class="td-num"><b>'+Number(g.avg).toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2})+'</b></td>'
+              +'<td class="td-num">'+Number(g.max).toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td>'
+              +'<td class="td-num">'+(g.anomaly||0)+'</td>'
+              +'<td class="td-num">'+(dev>=0?'+':'')+dev.toFixed(1)+'%</td>'
+              +'<td><span class="'+cls+'">'+lbl+'</span></td>'
+              +'<td>'+btn+'</td></tr>';
+          }).join('');
+        }
+      }
     }
 
     function go(){
@@ -191,7 +231,7 @@
     <div class="card kpi"><div class="kpi-bar"></div>
       <div class="kpi-label">样本数</div>
       <div class="kpi-val" id="kpi-sample" style="font-size:26px">{{ "{:,}".format(kpis.sampleCount) }}</div>
-      <div class="kpi-foot">近 {{ current_range }} 个月有效单价行</div>
+      <div class="kpi-foot">{% if current_range == 'all' %}全部价格期{% else %}{{ current_range }}{% endif %}有效单价行</div>
     </div>
     <div class="card kpi"><div class="kpi-bar k-ok"></div>
       <div class="kpi-label">区间均价（元）</div>
@@ -277,12 +317,12 @@
     </div>
   </div>
 
-  <!-- ======= 各聚合组对比 ======= -->
+  <!-- ======= 各聚合组对比 / 选中组样本明细 ======= -->
   <div class="card">
     <div class="card-head">
-      <div class="card-title">聚合组报价对比</div>
+      <div class="card-title">{% if selected_group %}样本明细（按价格期）{% else %}聚合组报价对比{% endif %}</div>
       <div class="right">
-        <span class="muted small">按 aggregate_id 聚合 · 偏离相对全区间均价</span>
+        <span class="muted small">{% if selected_group %}该聚合组在各价格期的单价分布{% else %}按 aggregate_id 聚合 · 偏离相对全区间均价{% endif %}</span>
       </div>
     </div>
     {% if groups %}
@@ -294,11 +334,7 @@
               <th class="td-num">异常数</th><th class="td-num">偏离均价</th><th>判定</th><th></th></tr>
         </thead>
         <tbody>
-          {% for l1_name, l1_groups in groups|groupby('l1') %}
-          <tr class="group-header">
-            <td colspan="9"><b>{{ l1_name or '其他' }}</b></td>
-          </tr>
-          {% for g in l1_groups %}
+          {% for g in groups %}
           <tr>
             <td class="mono">
               {% if g.l2 %}<span class="muted small" style="margin-right:6px">{{ g.l2 }}</span>{% endif %}
@@ -316,14 +352,13 @@
               {% else %}<span class="chip ok">区间内</span>{% endif %}
             </td>
             <td>
-              {% if selected_group == g.raw_id %}
-              <a class="btn btn-xs btn-sec" href="{{ q(current_range, current_major) }}">取消</a>
+              {% if selected_group %}
+              <a class="btn btn-xs btn-sec" href="{{ q(current_range, current_major) }}">返回全部</a>
               {% else %}
               <a class="btn btn-xs btn-sec" href="/price?range={{ current_range }}&amp;major={{ current_major }}{% if current_show_all %}&amp;show_all=1{% endif %}&amp;group={{ g.raw_id|urlencode }}">趋势</a>
               {% endif %}
             </td>
           </tr>
-          {% endfor %}
           {% endfor %}
         </tbody>
       </table>

@@ -355,25 +355,43 @@ async def portal_search(request: Request, db: Session = Depends(get_db),
 async def portal_price(request: Request, db: Session = Depends(get_db),
                        user: dict | None = Depends(get_page_user_optional)):
     """Portal 价格分析 —— 未登录可访问（只读）。"""
+    from sqlalchemy import distinct
+    from app.models.boq_item import BoqItem
     qp = request.query_params
-    try:
-        range_months = int(qp.get("range", 24))
-    except ValueError:
-        range_months = 24
-    if range_months not in (6, 12, 24, 36):
-        range_months = 24
+    range_period = qp.get("range", "all")
     major = qp.get("major", "all")
     show_all = qp.get("show_all", "0") == "1"
     group = qp.get("group", "")
 
-    data = svc.get_price_analysis(db, range_months=range_months, major=major, show_all=show_all, group=group)
+    # 从数据库查实际存在的价格期
+    periods = db.query(distinct(BoqItem.price_period)).filter(
+        BoqItem.active == True, BoqItem.price_period != None
+    ).order_by(BoqItem.price_period).all()
+    period_labels = {
+        "2024-06-01": "第二期(24.06)", "2024-09-01": "第三期(24.09)",
+        "2024-12-01": "第四期(24.12)", "2025-03-01": "第五期(25.03)",
+        "2025-06-01": "第六期(25.06)",
+    }
+    range_options = [{"month": "all", "label": "全部期"}]
+    for (p,) in periods:
+        if p:
+            key = p.strftime("%Y-%m-%d")
+            range_options.append({"month": key, "label": period_labels.get(key, p.strftime("%Y年%m月"))})
+
+    # A档材料大类快捷按钮（按label去重）
+    seen_labels = set()
+    major_options = [{"prefix": "all", "label": "全部材料"}]
+    for k, v in svc.MAJOR_CATEGORY_PREFIXES.items():
+        if v not in seen_labels:
+            major_options.append({"prefix": k, "label": v})
+            seen_labels.add(v)
+
+    data = svc.get_price_analysis(db, range_period=range_period, major=major, show_all=show_all, group=group)
     return _render("portal/price.html", _ctx_portal(
         request, db, "price", "价格分析", user,
-        range_options=[{"month": m, "label": f"近 {m} 月"} for m in (6, 12, 24, 36)],
-        major_options=[{"prefix": "all", "label": "全部专业"}] + [
-            {"prefix": m["prefix"], "label": m["name"]} for m in svc.MAJOR_DEFS
-        ],
-        current_range=range_months,
+        range_options=range_options,
+        major_options=major_options,
+        current_range=range_period,
         current_major=major,
         current_show_all=show_all,
         **data,
@@ -384,14 +402,11 @@ async def portal_price(request: Request, db: Session = Depends(get_db),
 async def portal_price_data(request: Request, db: Session = Depends(get_db)):
     """JSON API：返回 KPI/trend/hist/groups，供前端 AJAX 联动。"""
     qp = request.query_params
-    try:
-        range_months = int(qp.get("range", 24))
-    except ValueError:
-        range_months = 24
+    range_period = qp.get("range", "all")
     major = qp.get("major", "all")
     show_all = qp.get("show_all", "0") == "1"
     group = qp.get("group", "")
-    data = svc.get_price_analysis(db, range_months=range_months, major=major, show_all=show_all, group=group)
+    data = svc.get_price_analysis(db, range_period=range_period, major=major, show_all=show_all, group=group)
     return {
         "kpis": data.get("kpis"),
         "trend": data.get("trend"),
