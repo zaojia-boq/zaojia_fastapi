@@ -1057,13 +1057,12 @@ def get_pending_matches(db: Session | None = None, limit: int = 50) -> dict[str,
 
             dict_count = s.query(func.count(MaterialDict.id)).scalar() or 0
 
-            # 候选池：列裁剪只取匹配所需字段（id/name/spec_whitelist/parent_id/level），
-            # 避免全列加载 15.7 万行（synonyms JSON/note/cat_l1~l3 等大字段占内存大头）。
-            # 行为不变：仍全表取候选，TF-IDF 索引构建在裁剪后的轻量行上。
+            # 候选池：只取 l4 材料名称级（与单价分析 material_dict_id 聚合一致）
+            # 不取 l5 叶子节点（spec 字段会导致匹配到"电箱""配电"等无意义碎片）
             dict_rows = s.query(
                 MaterialDict.id, MaterialDict.name, MaterialDict.spec_whitelist,
                 MaterialDict.parent_id, MaterialDict.level
-            ).all()
+            ).filter(MaterialDict.level == 'l4').all()
             cat_by_id = {n.id: n for n in dict_rows}
             pool = [{
                 "id": n.id,
@@ -1072,7 +1071,7 @@ def get_pending_matches(db: Session | None = None, limit: int = 50) -> dict[str,
                         if isinstance(n.spec_whitelist, dict) and n.spec_whitelist.get("list")
                         else "",
                 "category_path": _category_path_of(n, cat_by_id),
-            } for n in dict_rows]
+            } for n in dict_rows if n.name and len(n.name.strip()) >= 3]
 
             # 构建 TF-IDF 索引（复用，避免每个清单项重新构建）
             tfidf_matcher = TfidfMatcher(pool) if pool else None
