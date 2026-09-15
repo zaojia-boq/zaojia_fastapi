@@ -360,7 +360,7 @@ async def portal_price(request: Request, db: Session = Depends(get_db),
         range_months = int(qp.get("range", 24))
     except ValueError:
         range_months = 24
-    if range_months not in (6, 12, 24, 36):
+    if range_months not in (0, 6, 12, 24, 36):
         range_months = 24
     major = qp.get("major", "all")
     show_all = qp.get("show_all", "0") == "1"
@@ -377,7 +377,7 @@ async def portal_price(request: Request, db: Session = Depends(get_db),
     data = svc.get_price_analysis(db, range_months=range_months, major=major, show_all=show_all, group=group)
     return _render("portal/price.html", _ctx_portal(
         request, db, "price", "价格分析", user,
-        range_options=[{"month": m, "label": f"近 {m} 月"} for m in (6, 12, 24, 36)],
+        range_options=[{"month": 0, "label": "全部时间"}] + [{"month": m, "label": f"近 {m} 月"} for m in (6, 12, 24, 36)],
         major_options=major_options,
         current_range=range_months,
         current_major=major,
@@ -393,6 +393,8 @@ async def portal_price_data(request: Request, db: Session = Depends(get_db)):
     try:
         range_months = int(qp.get("range", 24))
     except ValueError:
+        range_months = 24
+    if range_months not in (0, 6, 12, 24, 36):
         range_months = 24
     major = qp.get("major", "all")
     show_all = qp.get("show_all", "0") == "1"

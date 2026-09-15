@@ -1031,10 +1031,11 @@ def get_price_analysis(
                 BoqItem.price_period != None,  # noqa: E711
             )
             # 先按近N月过滤；如果结果为0则取消时间过滤（兜底）
-            since = (date.today().replace(day=1) - timedelta(days=int(range_months) * 30.5))
-            q_month = q.filter(BoqItem.price_period >= since)
-            if q_month.first() is not None:
-                q = q_month
+            if range_months and range_months > 0:
+                since = (date.today().replace(day=1) - timedelta(days=int(range_months) * 30.5))
+                q_month = q.filter(BoqItem.price_period >= since)
+                if q_month.first() is not None:
+                    q = q_month
             if major and major != "all":
                 q = q.filter(BoqItem.item_code.like(f"{major}%"))
 
