@@ -560,8 +560,16 @@ def search_boq_items(
 
             total = q.count()
             items = None
-            # 错别字模糊匹配 fallback：SQL LIKE 结果太少时用 rapidfuzz 补充
-            if kw and total < 3:
+            # 错别字模糊匹配 fallback：仅当单关键词长度>=2且SQL结果<3时触发
+            # 多词搜索不做模糊兜底（AND已严格）；纯数字短词不做模糊（"20"太宽泛）
+            kw_parts = [w for w in kw.split() if w.strip()] if kw else []
+            should_fuzzy = (
+                len(kw_parts) == 1
+                and len(kw_parts[0].strip()) >= 2
+                and not kw_parts[0].strip().isdigit()
+                and total < 3
+            )
+            if kw and should_fuzzy:
                 try:
                     from rapidfuzz import fuzz as _fuzz
                     # 去掉kw过滤，从所有非kw条件的记录里模糊匹配
@@ -586,7 +594,7 @@ def search_boq_items(
                     # 拉全表（数据量~1500条，可接受），rapidfuzz 模糊匹配
                     all_rows = base_q.all()
                     scored = []
-                    kw_upper = (kw or "").upper()
+                    kw_upper = (kw_parts[0] or "").upper()
                     for r in all_rows:
                         name = (r.item_name or "").upper()
                         feature = (r.item_feature or "").upper()
@@ -610,8 +618,8 @@ def search_boq_items(
                 if sort == "name":
                     q = q.order_by(BoqItem.item_name.asc(), BoqItem.id.desc())
                     items = q.offset((page - 1) * per_page).limit(per_page).all()
-                elif sort == "relevance" and kw:
-                    # 拉全部匹配项，Python侧按匹配度排序
+                else:
+                    # 默认和相关性都拉全部在Python侧排序：名称命中优先，其次时间
                     all_items = q.order_by(BoqItem.price_period.desc().nulls_last()).all()
                     kw_words = [w.strip() for w in kw.split() if w.strip()]
                     import re as _re
@@ -625,7 +633,7 @@ def search_boq_items(
                         feat_n = _norm2(r.item_feature or "")
                         name_hits = sum(1 for w in kw_words if _norm2(w) in name_n)
                         feat_hits = sum(1 for w in kw_words if _norm2(w) in feat_n)
-                        # 名称全命中=0，名称部分命中=1，特征全命中=2，其他=3
+                        # 名称全命中=0，名称部分=1，特征全命中=2，其他=3
                         if name_hits == len(kw_words):
                             return 0
                         elif name_hits > 0:
@@ -636,9 +644,6 @@ def search_boq_items(
                             return 3
                     all_items.sort(key=lambda r: (_score(r), -(r.price_period.toordinal() if r.price_period else 0)))
                     items = all_items[(page - 1) * per_page:page * per_page]
-                else:
-                    q = q.order_by(BoqItem.price_period.desc().nulls_last(), BoqItem.id.desc())
-                    items = q.offset((page - 1) * per_page).limit(per_page).all()
 
             std_count = q.filter(BoqItem.std_name != None).count()  # noqa: E711
             pending_count = total - std_count
