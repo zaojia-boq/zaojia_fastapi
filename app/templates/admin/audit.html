@@ -1,0 +1,50 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}审计日志{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1 class="page-title">审计日志</h1>
+  <p class="page-sub">所有写操作的不可变记录（append-only），共 {{ total }} 条</p>
+</div>
+
+<div class="card">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>时间</th>
+        <th>操作人</th>
+        <th>动作</th>
+        <th>对象</th>
+        <th>记录ID</th>
+        <th>变更字段</th>
+        <th>原因</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+      <tr>
+        <td class="nowrap">{{ item.timestamp.strftime('%Y-%m-%d %H:%M') if item.timestamp else '—' }}</td>
+        <td>{{ item.operator or 'anonymous' }}</td>
+        <td>
+          {% set action_colors = {'create':'#22c55e','write':'#3b82f6','soft_delete':'#f59e0b','restore':'#22c55e','import':'#8b5cf6','export':'#06b6d4','hard_delete':'#ef4444'} %}
+          <span class="badge" style="background:{{ action_colors.get(item.action, '#6b7280') }}22;color:{{ action_colors.get(item.action, '#6b7280') }}">{{ item.action }}</span>
+        </td>
+        <td>{{ item.model or '—' }}</td>
+        <td class="nowrap">{{ item.res_id or '—' }}</td>
+        <td>{{ item.field_name or '—' }}</td>
+        <td class="reason-cell">{{ (item.reason or '')[:60] }}{% if item.reason and item.reason|length > 60 %}…{% endif %}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7" class="empty">暂无审计日志</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% if pages > 1 %}
+  <div class="pagination">
+    {% if page > 1 %}<a href="?page={{ page - 1 }}">上一页</a>{% endif %}
+    <span>第 {{ page }} / {{ pages }} 页</span>
+    {% if page < pages %}<a href="?page={{ page + 1 }}">下一页</a>{% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

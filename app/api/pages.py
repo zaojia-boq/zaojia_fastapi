@@ -153,6 +153,7 @@ ADMIN_NAV_GROUPS = [
         "label": "质量与设置",
         "items": [
             {"id": "quality", "label": "数据质量", "path": "/admin/quality", "icon": "◍", "badge_key": None},
+            {"id": "audit", "label": "审计日志", "path": "/admin/audit", "icon": "◷", "badge_key": None},
             {"id": "setting", "label": "系统设置", "path": "/admin/settings", "icon": "⚙", "badge_key": None},
         ],
     },
@@ -535,3 +536,18 @@ async def admin_settings(request: Request, db: Session = Depends(get_db),
     """Admin 系统设置 —— 仅 admin。"""
     data = svc.get_settings()
     return _render("admin/settings.html", _ctx_admin(request, db, "setting", "系统设置", user, **data))
+
+
+@router.get("/admin/audit", response_class=HTMLResponse)
+async def admin_audit(request: Request, db: Session = Depends(get_db),
+                      user: dict = Depends(require_admin_role),
+                      page: int = 1, per_page: int = 50):
+    """Admin 审计日志 —— 仅 admin。"""
+    from app.models.audit_log import AuditLog
+    query = db.query(AuditLog).order_by(AuditLog.timestamp.desc())
+    total = query.count()
+    items = query.offset((page - 1) * per_page).limit(per_page).all()
+    pages = max(1, (total + per_page - 1) // per_page)
+    return _render("admin/audit.html", _ctx_admin(
+        request, db, "audit", "审计日志", user,
+        items=items, total=total, page=page, pages=pages, per_page=per_page))
