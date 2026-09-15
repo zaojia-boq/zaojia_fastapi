@@ -331,6 +331,9 @@ async def portal_search(request: Request, db: Session = Depends(get_db),
     f_source = qp.get("source", "")
     f_anomaly = qp.get("anomaly", "")
     std_status = qp.get("status", "")
+    sort = qp.get("sort", "recent")
+    if sort not in ("recent", "relevance", "name"):
+        sort = "recent"
     try:
         page = max(1, int(qp.get("page", 1)))
     except ValueError:
@@ -339,7 +342,7 @@ async def portal_search(request: Request, db: Session = Depends(get_db),
     data = svc.search_boq_items(
         db, kw=kw, f_major=f_major, f_code=f_code, f_name=f_name,
         f_source=f_source, f_anomaly=f_anomaly, std_status=std_status, page=page,
-        only_std=(user is None),  # 未登录用户仅能看到已标准化数据
+        only_std=(user is None), sort=sort,
     )
 
     # 关键词高亮（复用字典页 .tree-hl 样式）
@@ -366,7 +369,7 @@ async def portal_search(request: Request, db: Session = Depends(get_db),
         major_options=svc.MAJOR_DEFS,
         source_options=[{"id": k, "label": v} for k, v in svc.DATA_SOURCE_TYPES.items()],
         params={"kw": kw, "major": f_major, "code": f_code, "name": f_name,
-                "source": f_source, "anomaly": f_anomaly, "status": std_status},
+                "source": f_source, "anomaly": f_anomaly, "status": std_status, "sort": sort},
         **data,
     ))
 

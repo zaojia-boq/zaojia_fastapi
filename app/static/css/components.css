@@ -361,7 +361,7 @@ select.inp{cursor:pointer;appearance:none;background-image:linear-gradient(45deg
 .tree-children{overflow:hidden;}
 .tree-children.hide{display:none;}
 /* 搜索高亮 */
-.tree-hl{background:var(--c-warn-soft,#fef3c7);color:var(--c-warn,#d97706);font-weight:600;border-radius:2px;padding:0 1px;}
+.tree-hl{color:var(--c-warn,#d97706);font-weight:600;border-radius:2px;padding:0 1px;}
 .tree-search-empty{padding:16px 12px;text-align:center;color:var(--c-text-3);font-size:13px;}
 
 /* ---------- 待办 / 列表 ---------- */

@@ -479,6 +479,7 @@ def search_boq_items(
     page: int = 1,
     per_page: int = PAGE_SIZE,
     only_std: bool = False,
+    sort: str = "recent",
 ) -> dict[str, Any]:
     """清单检索。多条件 AND 过滤 + 分页；page 越界自动夹取。
 
@@ -526,7 +527,21 @@ def search_boq_items(
             total = q.count()
             pages = max(1, (total + per_page - 1) // per_page)
             page = max(1, min(page, pages))
-            items = q.order_by(BoqItem.id.desc()).offset((page - 1) * per_page).limit(per_page).all()
+
+            # 排序
+            if sort == "name":
+                q = q.order_by(BoqItem.item_name.asc(), BoqItem.id.desc())
+            elif sort == "relevance" and kw:
+                # 名称开头匹配优先，其次按 id desc
+                from sqlalchemy import case as _case
+                q = q.order_by(
+                    _case((BoqItem.item_name.like(f"{kw}%"), 0), else_=1),
+                    BoqItem.id.desc(),
+                )
+            else:  # recent
+                q = q.order_by(BoqItem.price_period.desc().nulls_last(), BoqItem.id.desc())
+
+            items = q.offset((page - 1) * per_page).limit(per_page).all()
 
             std_count = q.filter(BoqItem.std_name != None).count()  # noqa: E711
             pending_count = total - std_count

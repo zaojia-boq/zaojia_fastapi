@@ -2,7 +2,7 @@
 {% block title %}清单检索{% endblock %}
 
 {% macro keep(p=1) -%}
-/portal/search?kw={{ params.kw|urlencode }}&amp;major={{ params.major|urlencode }}&amp;code={{ params.code|urlencode }}&amp;name={{ params.name|urlencode }}&amp;source={{ params.source|urlencode }}&amp;anomaly={{ params.anomaly|urlencode }}&amp;status={{ params.status|urlencode }}&amp;page={{ p }}
+/portal/search?kw={{ params.kw|urlencode }}&amp;major={{ params.major|urlencode }}&amp;code={{ params.code|urlencode }}&amp;name={{ params.name|urlencode }}&amp;source={{ params.source|urlencode }}&amp;anomaly={{ params.anomaly|urlencode }}&amp;status={{ params.status|urlencode }}&amp;sort={{ params.sort }}&amp;page={{ p }}
 {%- endmacro %}
 
 {% block content %}
@@ -88,7 +88,12 @@
   <div class="card">
     <div class="card-head">
       <div class="card-title">检索结果</div>
-      <div class="right">
+      <div class="right" style="display:flex;gap:12px;align-items:center">
+        <div class="seg">
+          <a class="btn btn-sm {{ 'btn-primary' if params.sort == 'recent' else 'btn-sec' }}" href="{{ keep(1) }}&sort=recent">最近时间</a>
+          <a class="btn btn-sm {{ 'btn-primary' if params.sort == 'relevance' else 'btn-sec' }}" href="/portal/search?kw={{ params.kw|urlencode }}&amp;major={{ params.major|urlencode }}&amp;code={{ params.code|urlencode }}&amp;name={{ params.name|urlencode }}&amp;source={{ params.source|urlencode }}&amp;anomaly={{ params.anomaly|urlencode }}&amp;status={{ params.status|urlencode }}&amp;sort=relevance">按相关性</a>
+          <a class="btn btn-sm {{ 'btn-primary' if params.sort == 'name' else 'btn-sec' }}" href="/portal/search?kw={{ params.kw|urlencode }}&amp;major={{ params.major|urlencode }}&amp;code={{ params.code|urlencode }}&amp;name={{ params.name|urlencode }}&amp;source={{ params.source|urlencode }}&amp;anomaly={{ params.anomaly|urlencode }}&amp;status={{ params.status|urlencode }}&amp;sort=name">按名称</a>
+        </div>
         <div class="seg">
           <a class="btn btn-sm {{ 'btn-primary' if params.status == '' else 'btn-sec' }}" href="{{ keep(1) }}">全部</a>
           <a class="btn btn-sm {{ 'btn-primary' if params.status == 'std' else 'btn-sec' }}" href="/portal/search?status=std">已标准化</a>
