@@ -48,6 +48,67 @@
     </div>
   </div>
 
+  {# 多级材料选择器 #}
+  {% if groups %}
+  <div class="card" style="margin-bottom:16px;padding:12px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+    <span class="muted" style="font-size:13px">选择材料：</span>
+    <select id="sel-l1" style="padding:6px 10px;border:1px solid #d0d5dd;border-radius:6px;font-size:13px;min-width:180px">
+      <option value="">全部大类</option>
+    </select>
+    <select id="sel-l2" style="padding:6px 10px;border:1px solid #d0d5dd;border-radius:6px;font-size:13px;min-width:180px">
+      <option value="">全部中类</option>
+    </select>
+    <select id="sel-leaf" style="padding:6px 10px;border:1px solid #d0d5dd;border-radius:6px;font-size:13px;min-width:280px">
+      <option value="">全部材料</option>
+    </select>
+    <a class="btn btn-sm btn-sec" href="/price?range={{ current_range }}&amp;major={{ current_major }}{% if current_show_all %}&amp;show_all=1{% endif %}" style="margin-left:auto">重置</a>
+  </div>
+  <script>
+  (function(){
+    var groups = {{ groups | tojson }};
+    var sel1 = document.getElementById('sel-l1');
+    var sel2 = document.getElementById('sel-l2');
+    var sel3 = document.getElementById('sel-leaf');
+    var currentGroup = {{ selected_group|default('')|tojson }};
+
+    function uniq(arr){ var seen={}; return arr.filter(function(x){ if(!x) return false; if(seen[x]) return false; seen[x]=true; return true; }); }
+
+    function fill(sel, items){
+      var cur = sel.value;
+      sel.innerHTML = '<option value="">' + sel.options[0].text + '</option>';
+      items.forEach(function(v){
+        var o = document.createElement('option');
+        o.value = v; o.textContent = v;
+        sel.appendChild(o);
+      });
+      if (cur && Array.from(sel.options).some(function(o){return o.value===cur;})) sel.value = cur;
+    }
+    function l1List(){ return uniq(groups.map(function(g){return g.l1;})); }
+    function l2List(){ var l1=sel1.value; return uniq(groups.filter(function(g){return !l1||g.l1===l1;}).map(function(g){return g.l2;})); }
+    function leafList(){ var l1=sel1.value,l2=sel2.value; return groups.filter(function(g){return (!l1||g.l1===l1)&&(!l2||g.l2===l2);}); }
+
+    function renderLeaf(){
+      var items = leafList();
+      sel3.innerHTML = '<option value="">全部材料</option>';
+      items.forEach(function(g){ var o=document.createElement('option'); o.value=g.raw_id; o.textContent=g.name; sel3.appendChild(o); });
+      if (currentGroup && items.some(function(g){return g.raw_id===currentGroup;})) sel3.value = currentGroup;
+    }
+    fill(sel1, l1List());
+    fill(sel2, l2List());
+    renderLeaf();
+    sel1.onchange=function(){ fill(sel2,l2List()); renderLeaf(); go(); };
+    sel2.onchange=function(){ renderLeaf(); go(); };
+    sel3.onchange=function(){ go(); };
+    function go(){
+      var base='/price?range={{ current_range }}&major={{ current_major }}';
+      {% if current_show_all %}base+='&show_all=1';{% endif %}
+      if(sel3.value) base+='&group='+encodeURIComponent(sel3.value);
+      window.location.href=base;
+    }
+  })();
+  </script>
+  {% endif %}
+
   {% if not data_error %}
   <!-- ======= KPI ======= -->
   <div class="grid g4">
