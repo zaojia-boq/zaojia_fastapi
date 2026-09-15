@@ -54,19 +54,22 @@ def _build_dict_rows(db: Session, dict_ids=None) -> list[dict]:
     """从 material_dict 构建候选行（L3 规格集合为主）。
 
     每个 dict_row 含：id / name / spec / category_path。
-    spec 取 cat_l3（L3 规格集合名），无 cat_l3 时回退 name。
-    category_path 用 cat_l1/cat_l2/cat_l3 拼接。
+    取 l4 材料名称级（与单价分析 material_dict_id 聚合一致），spec 取 l5 规格白名单。
+    category_path 用 cat_l1/cat_l2/cat_l3/name 拼接。
     """
-    query = db.query(MaterialDict).filter(MaterialDict.level == 'l3')
+    query = db.query(MaterialDict).filter(MaterialDict.level == 'l4')
     if dict_ids:
         query = db.query(MaterialDict).filter(MaterialDict.id.in_(list(dict_ids)))
     rows = []
     for d in query.all():
-        cat_path = '/'.join(p for p in [d.cat_l1, d.cat_l2, d.cat_l3] if p)
+        cat_path = '/'.join(p for p in [d.cat_l1, d.cat_l2, d.cat_l3, d.name] if p)
+        spec = ''
+        if d.spec_whitelist:
+            spec = d.spec_whitelist[0] if isinstance(d.spec_whitelist, list) else str(d.spec_whitelist)
         rows.append({
             'id': d.id,
             'name': d.name or '',
-            'spec': d.cat_l3 or d.name or '',
+            'spec': spec or d.name or '',
             'category_path': cat_path or d.name or '',
         })
     return rows

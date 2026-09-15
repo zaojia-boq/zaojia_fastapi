@@ -39,11 +39,11 @@ def get_prematch_status() -> dict:
 
 
 def _build_dict_rows(db: Session) -> list[dict]:
-    """构建物料字典候选行（用于 score_candidates）。"""
-    dict_nodes = db.query(MaterialDict).filter(MaterialDict.level == "l3").all()
+    """构建物料字典候选行（用于 score_candidates）。取 l4 材料名称级，有规格区分度。"""
+    dict_nodes = db.query(MaterialDict).filter(MaterialDict.level == "l4").all()
     rows = []
     for n in dict_nodes:
-        cat_path = "/".join(filter(None, [n.cat_l1, n.cat_l2, n.cat_l3]))
+        cat_path = "/".join(filter(None, [n.cat_l1, n.cat_l2, n.cat_l3, n.name]))
         rows.append({
             "id": n.id,
             "name": n.name or "",
