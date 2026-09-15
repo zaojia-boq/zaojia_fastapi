@@ -48,20 +48,22 @@
     </div>
   </div>
 
-  {# 多级材料选择器 #}
+  {# 多级材料选择器（AJAX 联动） #}
   {% if groups %}
-  <div class="card" style="margin-bottom:16px;padding:12px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-    <span class="muted" style="font-size:13px">选择材料：</span>
-    <select id="sel-l1" style="padding:6px 10px;border:1px solid #d0d5dd;border-radius:6px;font-size:13px;min-width:180px">
+  <div class="card" id="material-bar" style="margin-bottom:16px;padding:10px 16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:var(--card,#fff)">
+    <span style="font-size:13px;font-weight:600;color:#333;white-space:nowrap">📊 材料选择</span>
+    <select id="sel-l1" style="padding:6px 28px 6px 10px;border:1px solid #d0d5dd;border-radius:6px;font-size:13px;min-width:160px;background:#fff;cursor:pointer">
       <option value="">全部大类</option>
     </select>
-    <select id="sel-l2" style="padding:6px 10px;border:1px solid #d0d5dd;border-radius:6px;font-size:13px;min-width:180px">
+    <select id="sel-l2" style="padding:6px 28px 6px 10px;border:1px solid #d0d5dd;border-radius:6px;font-size:13px;min-width:160px;background:#fff;cursor:pointer">
       <option value="">全部中类</option>
     </select>
-    <select id="sel-leaf" style="padding:6px 10px;border:1px solid #d0d5dd;border-radius:6px;font-size:13px;min-width:280px">
+    <select id="sel-leaf" style="padding:6px 28px 6px 10px;border:1px solid #d0d5dd;border-radius:6px;font-size:13px;min-width:260px;background:#fff;cursor:pointer">
       <option value="">全部材料</option>
     </select>
-    <a class="btn btn-sm btn-sec" href="/price?range={{ current_range }}&amp;major={{ current_major }}{% if current_show_all %}&amp;show_all=1{% endif %}" style="margin-left:auto">重置</a>
+    <span id="sel-status" class="muted small" style="font-size:12px;margin-left:4px"></span>
+    <button id="btn-reset" class="btn btn-sm btn-sec" style="margin-left:auto"
+      data-href="/price?range={{ current_range }}&amp;major={{ current_major }}{% if current_show_all %}&amp;show_all=1{% endif %}">重置</button>
   </div>
   <script>
   (function(){
@@ -69,7 +71,11 @@
     var sel1 = document.getElementById('sel-l1');
     var sel2 = document.getElementById('sel-l2');
     var sel3 = document.getElementById('sel-leaf');
+    var status = document.getElementById('sel-status');
     var currentGroup = {{ selected_group|default('')|tojson }};
+    var currentName = {{ selected_group_name|default('')|tojson }};
+    window.__priceTrendChart = null;
+    window.__priceData = { trend: {{ trend|tojson }} };
 
     function uniq(arr){ var seen={}; return arr.filter(function(x){ if(!x) return false; if(seen[x]) return false; seen[x]=true; return true; }); }
 
@@ -96,15 +102,73 @@
     fill(sel1, l1List());
     fill(sel2, l2List());
     renderLeaf();
+
+    if (currentGroup) {
+      var cur = groups.find(function(g){return g.raw_id===currentGroup;});
+      if (cur) { sel1.value=cur.l1||''; fill(sel2,l2List()); sel2.value=cur.l2||''; renderLeaf(); }
+    }
+
+    function fmt(n){ return n ? n.toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—'; }
+
+    function updateUI(d){
+      var k = d.kpis || {};
+      document.getElementById('kpi-sample').textContent = (k.sampleCount||0).toLocaleString();
+      document.getElementById('kpi-avg').textContent = k.hasSamples ? fmt(k.avg) : '—';
+      document.getElementById('kpi-min').textContent = fmt(k.min);
+      document.getElementById('kpi-max').textContent = fmt(k.max);
+      document.getElementById('kpi-anomaly').textContent = (k.anomalyCount||0).toLocaleString();
+      document.getElementById('kpi-cv').textContent = k.cv + (k.cv!=='—'?'%':'');
+      document.getElementById('kpi-anomaly-foot').innerHTML = k.anomalyCount>0
+        ? '<span class="chip err">偏离 &gt; ±'+k.threshold+'%</span>'
+        : '<span class="chip ok">无异常偏离</span>';
+
+      var title = document.querySelector('#priceTrendChart').closest('.card').querySelector('.card-title');
+      if (title) title.textContent = '价格趋势与离散带' + (d.selected_group_name ? ' — '+d.selected_group_name : '');
+
+      if (window.__priceTrendChart && d.trend) {
+        var periods=d.trend.map(function(t){return t.period;});
+        window.__priceTrendChart.setOption({
+          xAxis:{data:periods},
+          series:[
+            {data:d.trend.map(function(t){return t.min;})},
+            {data:d.trend.map(function(t,i){return t.max-t.min;})},
+            {data:d.trend.map(function(t){return t.avg;})}
+          ]
+        });
+      }
+
+      var hb=document.getElementById('hist-bars');
+      var hist=d.hist||[];
+      if(hist.length){
+        var hmax=Math.max.apply(null,hist.map(function(h){return h.count;}));
+        hb.innerHTML=hist.map(function(h){return '<i style="height:'+(h.count/hmax*100)+'%" title="'+h.lo+' ~ '+h.hi+' 元：'+h.count+' 条（'+h.pct+'%）"></i>';}).join('');
+        document.getElementById('hist-lo').textContent=hist[0].lo;
+        document.getElementById('hist-hi').textContent=hist[hist.length-1].hi+' 元';
+      } else { hb.innerHTML=''; }
+
+      status.textContent = d.selected_group_name ? '✓ 已筛选：'+d.selected_group_name : '';
+    }
+
+    function go(){
+      var group=sel3.value||'';
+      var url='/api/price/data?range={{ current_range }}&major={{ current_major }}&show_all={% if current_show_all %}1{% else %}0{% endif %}';
+      if(group) url+='&group='+encodeURIComponent(group);
+      status.textContent='加载中...';
+      fetch(url).then(function(r){return r.json();}).then(function(d){
+        updateUI(d);
+        var newUrl='/price?range={{ current_range }}&major={{ current_major }}';
+        {% if current_show_all %}newUrl+='&show_all=1';{% endif %}
+        if(group) newUrl+='&group='+encodeURIComponent(group);
+        history.replaceState(null,'',newUrl);
+      }).catch(function(e){ status.textContent='加载失败'; console.error(e); });
+    }
+
     sel1.onchange=function(){ fill(sel2,l2List()); renderLeaf(); go(); };
     sel2.onchange=function(){ renderLeaf(); go(); };
     sel3.onchange=function(){ go(); };
-    function go(){
-      var base='/price?range={{ current_range }}&major={{ current_major }}';
-      {% if current_show_all %}base+='&show_all=1';{% endif %}
-      if(sel3.value) base+='&group='+encodeURIComponent(sel3.value);
-      window.location.href=base;
-    }
+    document.getElementById('btn-reset').onclick=function(){
+      sel1.value=''; sel2.value=''; sel3.value=''; go(); return false;
+    };
   })();
   </script>
   {% endif %}
@@ -114,25 +178,25 @@
   <div class="grid g4">
     <div class="card kpi"><div class="kpi-bar"></div>
       <div class="kpi-label">样本数</div>
-      <div class="kpi-val" style="font-size:26px">{{ "{:,}".format(kpis.sampleCount) }}</div>
+      <div class="kpi-val" id="kpi-sample" style="font-size:26px">{{ "{:,}".format(kpis.sampleCount) }}</div>
       <div class="kpi-foot">近 {{ current_range }} 个月有效单价行</div>
     </div>
     <div class="card kpi"><div class="kpi-bar k-ok"></div>
       <div class="kpi-label">区间均价（元）</div>
-      <div class="kpi-val" style="font-size:26px">{{ "{:,.2f}".format(kpis.avg) if kpis.hasSamples else '—' }}</div>
-      <div class="kpi-foot"><span class="muted">最低 {{ "{:,.2f}".format(kpis.min) }} · 最高 {{ "{:,.2f}".format(kpis.max) }}</span></div>
+      <div class="kpi-val" id="kpi-avg" style="font-size:26px">{{ "{:,.2f}".format(kpis.avg) if kpis.hasSamples else '—' }}</div>
+      <div class="kpi-foot"><span class="muted">最低 <span id="kpi-min">{{ "{:,.2f}".format(kpis.min) }}</span> · 最高 <span id="kpi-max">{{ "{:,.2f}".format(kpis.max) }}</span></span></div>
     </div>
     <div class="card kpi"><div class="kpi-bar k-info"></div>
       <div class="kpi-label">异常样本</div>
-      <div class="kpi-val" style="font-size:26px">{{ "{:,}".format(kpis.anomalyCount) }}</div>
-      <div class="kpi-foot">
+      <div class="kpi-val" id="kpi-anomaly" style="font-size:26px">{{ "{:,}".format(kpis.anomalyCount) }}</div>
+      <div class="kpi-foot" id="kpi-anomaly-foot">
         {% if kpis.anomalyCount %}<span class="chip err">偏离 &gt; ±{{ kpis.threshold }}%</span>
         {% else %}<span class="chip ok">无异常偏离</span>{% endif %}
       </div>
     </div>
     <div class="card kpi"><div class="kpi-bar k-warn"></div>
       <div class="kpi-label">离散系数 CV</div>
-      <div class="kpi-val" style="font-size:26px">{{ kpis.cv }}{% if kpis.cv != '—' %}%{% endif %}</div>
+      <div class="kpi-val" id="kpi-cv" style="font-size:26px">{{ kpis.cv }}{% if kpis.cv != '—' %}%{% endif %}</div>
       <div class="kpi-foot">
         {% if kpis.cv != '—' and kpis.cv|float < 15 %}<span class="chip ok">离散度低 · 可直接引用</span>
         {% elif kpis.cv != '—' %}<span class="chip warn">离散偏高 · 建议复核</span>
@@ -167,19 +231,19 @@
 
     <!-- ======= 直方图 + 分位 ======= -->
     <div class="card">
-      <div class="card-head"><div class="card-title">单价分布直方图</div>
+      <div class="card-head"><div class="card-title" id="hist-title">单价分布直方图</div>
         <div class="right"><span class="chip">10 等分桶</span></div>
       </div>
       {% if hist %}
         {% set hmax = hist|map(attribute='count')|max %}
-      <div class="hist">
+      <div class="hist" id="hist-bars">
         {% for h in hist %}
         <i style="height:{{ (h.count / hmax * 100) if hmax else 0 }}%"
            title="{{ h.lo }} ~ {{ h.hi }} 元：{{ h.count }} 条（{{ h.pct }}%）"></i>
         {% endfor %}
       </div>
       <div class="row mt small muted" style="justify-content:space-between">
-        <span>{{ hist[0].lo }}</span><span>{{ hist[-1].hi }} 元</span>
+        <span id="hist-lo">{{ hist[0].lo }}</span><span id="hist-hi">{{ hist[-1].hi }} 元</span>
       </div>
       {% else %}
       <div class="empty">
@@ -289,6 +353,7 @@
     var chartEl = document.getElementById('priceTrendChart');
     if (!chartEl || typeof echarts === 'undefined') return;
     var chart = echarts.init(chartEl);
+    window.__priceTrendChart = chart;
     var raw = document.getElementById('trendData');
     if (!raw) return;
     var trend = JSON.parse(raw.textContent);

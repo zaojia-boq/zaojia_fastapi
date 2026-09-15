@@ -380,6 +380,29 @@ async def portal_price(request: Request, db: Session = Depends(get_db),
     ))
 
 
+@router.get("/api/price/data", include_in_schema=False)
+async def portal_price_data(request: Request, db: Session = Depends(get_db)):
+    """JSON API：返回 KPI/trend/hist/groups，供前端 AJAX 联动。"""
+    qp = request.query_params
+    try:
+        range_months = int(qp.get("range", 24))
+    except ValueError:
+        range_months = 24
+    major = qp.get("major", "all")
+    show_all = qp.get("show_all", "0") == "1"
+    group = qp.get("group", "")
+    data = svc.get_price_analysis(db, range_months=range_months, major=major, show_all=show_all, group=group)
+    return {
+        "kpis": data.get("kpis"),
+        "trend": data.get("trend"),
+        "hist": data.get("hist"),
+        "statRows": data.get("statRows"),
+        "groups": data.get("groups"),
+        "selected_group": data.get("selected_group", ""),
+        "selected_group_name": data.get("selected_group_name", ""),
+    }
+
+
 # ============================================================================
 # Admin 后端管理页（/admin/*，必须登录+角色）
 # ============================================================================
