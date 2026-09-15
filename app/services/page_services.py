@@ -1084,7 +1084,15 @@ def get_pending_matches(db: Session | None = None, limit: int = 50) -> dict[str,
                 from app.services.prematch_service import get_cached_candidates
                 cached = get_cached_candidates(s, r.id)
                 if cached is not None:
-                    cands = cached[:3]
+                    # 缓存结果也按 name 去重
+                    seen = set()
+                    deduped_cached = []
+                    for c in cached:
+                        n = (c.get('name') or '').strip()
+                        if n and n not in seen:
+                            seen.add(n)
+                            deduped_cached.append(c)
+                    cands = deduped_cached[:3]
                     cache_hits += 1
                 else:
                     # 缓存未命中，实时计算（rapidfuzz + TF-IDF 融合）
@@ -1093,9 +1101,18 @@ def get_pending_matches(db: Session | None = None, limit: int = 50) -> dict[str,
                     rf_cands = score_candidates(query_name, query_spec, pool)
                     if tfidf_matcher:
                         tf_cands = tfidf_matcher.match(query_name, query_spec, top_n=10)
-                        cands = fuse_scores(rf_cands, tf_cands)[:3]
+                        cands = fuse_scores(rf_cands, tf_cands)
                     else:
-                        cands = rf_cands[:3]
+                        cands = rf_cands
+                    # 按 name 去重：同名候选项只保留分数最高的（避免"配电箱"重复出现）
+                    seen = set()
+                    deduped = []
+                    for c in cands:
+                        n = (c.get('name') or '').strip()
+                        if n and n not in seen:
+                            seen.add(n)
+                            deduped.append(c)
+                    cands = deduped[:3]
                 items.append({
                     "id": r.id,
                     "code": r.item_code or "—",

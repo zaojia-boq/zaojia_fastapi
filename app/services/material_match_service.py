@@ -148,10 +148,19 @@ def find_matches(db: Session, boq_item_ids: list[int]) -> dict[str, Any]:
                 tf_weight=tf_weight,
                 faiss_weight=faiss_weight,
             )
-            data[rec.id] = fused[:5]
         else:
             # TF-IDF 和 FAISS 都无结果时回退到 rapidfuzz
-            data[rec.id] = rf_cands[:5]
+            fused = rf_cands
+
+        # 按 name 去重：同名候选项只保留分数最高的（避免"配电箱"重复出现）
+        seen_names = {}
+        deduped = []
+        for c in fused:
+            n = c.get('name', '')
+            if n not in seen_names:
+                seen_names[n] = True
+                deduped.append(c)
+        data[rec.id] = deduped[:5]
 
     return {
         'success': True,
