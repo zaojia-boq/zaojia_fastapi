@@ -126,14 +126,27 @@
 
       if (window.__priceTrendChart && d.trend) {
         var periods=d.trend.map(function(t){return t.period;});
-        window.__priceTrendChart.setOption({
-          xAxis:{data:periods},
-          series:[
-            {data:d.trend.map(function(t){return t.min;})},
-            {data:d.trend.map(function(t,i){return t.max-t.min;})},
-            {data:d.trend.map(function(t){return t.avg;})}
-          ]
-        });
+        var chartDiv=document.getElementById('priceTrendChart');
+        var emptyDiv=document.getElementById('trend-empty');
+        if (d.trend.length >= 2) {
+          if (emptyDiv) emptyDiv.style.display='none';
+          chartDiv.style.display='block';
+          window.__priceTrendChart.resize();
+          window.__priceTrendChart.setOption({
+            xAxis:{data:periods},
+            series:[
+              {data:d.trend.map(function(t){return t.min;})},
+              {data:d.trend.map(function(t,i){return t.max-t.min;})},
+              {data:d.trend.map(function(t){return t.avg;})}
+            ]
+          });
+        } else {
+          chartDiv.style.display='none';
+          if (emptyDiv) {
+            emptyDiv.style.display='flex';
+            emptyDiv.querySelector('.s').textContent='趋势至少需要 2 个不同价格期。当前有效价格期 ' + d.trend.length + ' 个。';
+          }
+        }
       }
 
       var hb=document.getElementById('hist-bars');
@@ -217,15 +230,16 @@
 
       {% if trend|length >= 2 %}
       <div id="priceTrendChart" style="width:100%;height:220px;"></div>
-      <script type="application/json" id="trendData">{{ trend|tojson }}</script>
       {% else %}
-      <div class="empty">
+      <div id="priceTrendChart" style="width:100%;height:220px;display:none;"></div>
+      <div class="empty" id="trend-empty">
         <div class="ico">&#128200;</div>
         <div class="t">价格期不足，无法绘制趋势</div>
         <div class="s">趋势至少需要 2 个不同价格期。当前有效价格期 {{ trend|length }} 个，
           请确认清单导入时填写了价格期间（price_period）。</div>
       </div>
       {% endif %}
+      <script type="application/json" id="trendData">{{ trend|tojson }}</script>
     </div>
 
     <!-- ======= 直方图 + 分位 ======= -->
