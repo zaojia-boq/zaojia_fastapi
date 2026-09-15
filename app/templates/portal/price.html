@@ -2,7 +2,7 @@
 {% block title %}单价分析{% endblock %}
 
 {% macro q(p, m) -%}
-/price?range={{ p }}&amp;major={{ m }}{% if current_show_all %}&amp;show_all=1{% endif %}
+/price?range={{ p }}&amp;major={{ m }}{% if current_show_all %}&amp;show_all=1{% endif %}{% if selected_group %}&amp;group={{ selected_group|urlencode }}{% endif %}
 {%- endmacro %}
 
 {% block head_extra %}
@@ -85,7 +85,7 @@
     <div class="card">
       <div class="card-head">
         <div>
-          <div class="card-title">价格趋势与离散带</div>
+          <div class="card-title">价格趋势与离散带{% if selected_group_name %} — {{ selected_group_name }}{% endif %}</div>
           <div class="card-sub">按价格期聚合（均价 ± 当期极值区间）</div>
         </div>
         <div class="right"><span class="chip">均价</span><span class="chip grey">极值区间</span></div>
@@ -153,12 +153,12 @@
         <thead>
           <tr><th>聚合身份</th><th class="td-num">样本数</th><th class="td-num">最低</th>
               <th class="td-num">均价</th><th class="td-num">最高</th>
-              <th class="td-num">异常数</th><th class="td-num">偏离均价</th><th>判定</th></tr>
+              <th class="td-num">异常数</th><th class="td-num">偏离均价</th><th>判定</th><th></th></tr>
         </thead>
         <tbody>
           {% for l1_name, l1_groups in groups|groupby('l1') %}
           <tr class="group-header">
-            <td colspan="8"><b>{{ l1_name or '其他' }}</b></td>
+            <td colspan="9"><b>{{ l1_name or '其他' }}</b></td>
           </tr>
           {% for g in l1_groups %}
           <tr>
@@ -176,6 +176,13 @@
               {% if g.deviation|abs > kpis.threshold %}<span class="chip err">偏离预警</span>
               {% elif g.deviation|abs > kpis.threshold / 2 %}<span class="chip warn">关注</span>
               {% else %}<span class="chip ok">区间内</span>{% endif %}
+            </td>
+            <td>
+              {% if selected_group == g.raw_id %}
+              <a class="btn btn-xs btn-sec" href="{{ q(current_range, current_major) }}">取消</a>
+              {% else %}
+              <a class="btn btn-xs btn-sec" href="/price?range={{ current_range }}&amp;major={{ current_major }}{% if current_show_all %}&amp;show_all=1{% endif %}&amp;group={{ g.raw_id|urlencode }}">趋势</a>
+              {% endif %}
             </td>
           </tr>
           {% endfor %}

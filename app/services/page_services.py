@@ -1001,12 +1001,14 @@ def get_price_analysis(
     major: str = "all",
     min_sample: int = 3,
     show_all: bool = False,
+    group: str = "",
 ) -> dict[str, Any]:
     """单价分析。
 
     口径：默认仅统计 data_source_type='completed'（M3 §3.1，待审/控制价/信息价不进历史均价）。
-    show_all=False（默认）：只统计 A 档核心材料大类（钢材/水泥/砼/电气/电缆）下的聚合组；
+    show_all=False（默认）：只统计 A 档核心材料大类（钢材/水泥/砼/电缆/塑料管）下的聚合组；
     show_all=True：统计全部（含施工工序类、零星材料）。
+    group：指定 aggregate_id 时，KPI/趋势/直方图只统计该聚合组的数据。
     """
     if USE_MOCK_DATA:
         d = _demo_payload()
@@ -1041,8 +1043,9 @@ def get_price_analysis(
                 major_dict_ids = s.query(MD.id).filter(major_cond)
                 q = q.filter(BoqItem.material_dict_id.in_(major_dict_ids))
 
+            # 指定聚合组时，KPI/趋势/直方图只统计该组；groups 列表仍显示全部
             items = q.all()
-            rows = [{
+            rows_all = [{
                 "unit_rate_num": _f(r.unit_rate_num),
                 "price_period": _period(r.price_period),
                 "project_name": r.project_name or "—",
@@ -1051,6 +1054,12 @@ def get_price_analysis(
                 "item_name": r.item_name or "",
                 "material_dict_id": r.material_dict_id,
             } for r in items]
+
+            # KPI/趋势用的 rows：指定 group 时过滤
+            if group:
+                rows = [r for r in rows_all if r["aggregate_id"] == group]
+            else:
+                rows = rows_all
 
             kpis_raw = compute_kpis(rows)
             has_samples = kpis_raw["sample_count"] > 0
@@ -1083,7 +1092,7 @@ def get_price_analysis(
             # 先收集所有 dict:<id> 格式的 aggregate_id，批量查询材料字典名称
             from app.models.material_dict import MaterialDict
             from app.models.list_material_mapping import ListMaterialMapping
-            raw_groups = analyze_group(rows, "aggregate_id")
+            raw_groups = analyze_group(rows_all, "aggregate_id")
             dict_ids = set()
             for g in raw_groups:
                 agg = g.get("group") or ""
@@ -1265,6 +1274,14 @@ def get_price_analysis(
             metrics = compute_metrics(raw_metrics)
             gate = evaluate_gate_from_metrics(metrics) if raw_metrics else None
 
+            # 选中的聚合组名称（用于标题显示）
+            selected_name = ""
+            if group:
+                for g in groups:
+                    if g["raw_id"] == group:
+                        selected_name = g["name"]
+                        break
+
             return _empty_result(
                 kpis={
                     "sampleCount": kpis_raw["sample_count"],
@@ -1279,6 +1296,8 @@ def get_price_analysis(
                 },
                 trend=trend, hist=hist, statRows=stat_rows, groups=groups[:20], gate=gate,
                 metrics=metrics,
+                selected_group=group,
+                selected_group_name=selected_name,
             )
     except Exception as exc:
         return _fail(exc,
