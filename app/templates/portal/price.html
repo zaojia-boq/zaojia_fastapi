@@ -50,20 +50,19 @@
 
   {# 多级材料选择器（AJAX 联动） #}
   {% if groups %}
-  <div class="card" id="material-bar" style="margin-bottom:16px;padding:10px 16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:var(--card,#fff)">
-    <span style="font-size:13px;font-weight:600;color:#333;white-space:nowrap">📊 材料选择</span>
-    <select id="sel-l1" style="padding:6px 28px 6px 10px;border:1px solid #d0d5dd;border-radius:6px;font-size:13px;min-width:160px;background:#fff;cursor:pointer">
+  <div class="card" id="material-bar" style="margin-bottom:16px;padding:12px 20px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+    <span style="font-size:13px;font-weight:600;color:var(--c-text);white-space:nowrap">📊 材料选择</span>
+    <select id="sel-l1" style="padding:6px 28px 6px 10px;border:1px solid var(--c-sep);border-radius:var(--r-sm);font-size:13px;min-width:140px;max-width:180px;background:var(--c-app-bg);color:var(--c-text);cursor:pointer;outline:none">
       <option value="">全部大类</option>
     </select>
-    <select id="sel-l2" style="padding:6px 28px 6px 10px;border:1px solid #d0d5dd;border-radius:6px;font-size:13px;min-width:160px;background:#fff;cursor:pointer">
+    <select id="sel-l2" style="padding:6px 28px 6px 10px;border:1px solid var(--c-sep);border-radius:var(--r-sm);font-size:13px;min-width:140px;max-width:180px;background:var(--c-app-bg);color:var(--c-text);cursor:pointer;outline:none">
       <option value="">全部中类</option>
     </select>
-    <select id="sel-leaf" style="padding:6px 28px 6px 10px;border:1px solid #d0d5dd;border-radius:6px;font-size:13px;min-width:260px;background:#fff;cursor:pointer">
+    <select id="sel-leaf" style="padding:6px 28px 6px 10px;border:1px solid var(--c-sep);border-radius:var(--r-sm);font-size:13px;flex:1;min-width:200px;background:var(--c-app-bg);color:var(--c-text);cursor:pointer;outline:none">
       <option value="">全部材料</option>
     </select>
-    <span id="sel-status" class="muted small" style="font-size:12px;margin-left:4px"></span>
-    <button id="btn-reset" class="btn btn-sm btn-sec" style="margin-left:auto"
-      data-href="/price?range={{ current_range }}&amp;major={{ current_major }}{% if current_show_all %}&amp;show_all=1{% endif %}">重置</button>
+    <span id="sel-status" class="muted small" style="font-size:12px;color:var(--c-text-2);margin-left:4px"></span>
+    <button id="btn-reset" class="btn btn-sm btn-sec" style="margin-left:auto">重置</button>
   </div>
   <script>
   (function(){
