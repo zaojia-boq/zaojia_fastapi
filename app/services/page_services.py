@@ -1036,8 +1036,12 @@ def get_price_analysis(
                 q_month = q.filter(BoqItem.price_period >= since)
                 if q_month.first() is not None:
                     q = q_month
+            # 材料大类筛选：按 material_dict_id 关联 material_dict.code 前缀匹配
             if major and major != "all":
-                q = q.filter(BoqItem.item_code.like(f"{major}%"))
+                from sqlalchemy import or_ as sa_or
+                from app.models.material_dict import MaterialDict as MD
+                major_dict_ids = s.query(MD.id).filter(MD.code.like(f"{major}%"))
+                q = q.filter(BoqItem.material_dict_id.in_(major_dict_ids))
 
             # A档核心材料白名单过滤：默认只统计 A 档大类下的 boq_item
             # 通过 material_dict_id 关联到 material_dict.code 前缀匹配（l1/l2/l3/l4/l5 code 都以 l1 code 开头）
