@@ -51,13 +51,15 @@ def _err(code, msg, trace_id):
 
 
 def _build_dict_rows(db: Session, dict_ids=None) -> list[dict]:
-    """从 material_dict 构建候选行（L3 规格集合为主）。
+    """从 material_dict 构建候选行（L3 大类 + L4 材料名称级）。
 
     每个 dict_row 含：id / name / spec / category_path。
-    取 l4 材料名称级（与单价分析 material_dict_id 聚合一致），spec 取 l5 规格白名单。
+    候选池规则与 page_services.get_pending_matches 保持一致：
+    取 l3（如"槽式桥架及配件"）+ l4（如"照明配电箱"）两级，
+    不取 l5 叶子节点（spec 碎片会导致匹配到无意义项）。
     category_path 用 cat_l1/cat_l2/cat_l3/name 拼接。
     """
-    query = db.query(MaterialDict).filter(MaterialDict.level == 'l4')
+    query = db.query(MaterialDict).filter(MaterialDict.level.in_(['l3', 'l4']))
     if dict_ids:
         query = db.query(MaterialDict).filter(MaterialDict.id.in_(list(dict_ids)))
     rows = []

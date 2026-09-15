@@ -971,7 +971,23 @@
         else if (mode === 'low') show = score < 75;
         it.style.display = show ? '' : 'none';
       });
+      // 同步 URL（筛选状态可刷新保持/分享）
+      const params = new URLSearchParams(location.search);
+      if (mode === 'all') params.delete('filter');
+      else params.set('filter', mode);
+      const qs = params.toString();
+      history.replaceState(null, '', qs ? location.pathname + '?' + qs : location.pathname);
     };
+    // 初始化时读取 URL 参数（?filter=high/low 直接生效）
+    const initMode = new URLSearchParams(location.search).get('filter');
+    if (initMode === 'high' || initMode === 'low') {
+      const b = seg.querySelector('button[data-filter="' + initMode + '"]');
+      if (b) {
+        $$('button', seg).forEach(x => x.classList.remove('on'));
+        b.classList.add('on');
+        filter(initMode);
+      }
+    }
     seg.addEventListener('click', e => {
       const b = e.target.closest('button[data-filter]');
       if (!b || b.disabled) return;
