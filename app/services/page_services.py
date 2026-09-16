@@ -1374,12 +1374,12 @@ def get_price_analysis(
             else:
                 rows = rows_all
 
-            kpis_raw = compute_kpis(rows)
+            kpis_raw = compute_kpis(rows, category=major if major != "all" else "")
             has_samples = kpis_raw["sample_count"] > 0
 
             # 趋势：按价格期分组（复用 analyze_group）
             trend = []
-            for g in analyze_group(rows, "price_period"):
+            for g in analyze_group(rows, "price_period", category=major if major != "all" else ""):
                 trend.append({
                     "period": g.get("group") or "—",
                     "avg": round(g.get("avg") or 0, 2),
