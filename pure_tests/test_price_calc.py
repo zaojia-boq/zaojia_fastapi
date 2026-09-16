@@ -40,6 +40,19 @@ analyze_group = price_calc.analyze_group
 
 
 # ----------------------------------------------------------------------
+# 常量取值断言（P0-1 回归门禁：阈值与 M3 §3.4 规格 30% 一致）
+# ----------------------------------------------------------------------
+class TestConstants(unittest.TestCase):
+    def test_default_threshold_is_30_percent(self):
+        # 回归门禁：DEFAULT_THRESHOLD 必须为 0.30（30%），与 M3 §3.4 规格一致。
+        # 防止再次被误写为 0.95 导致单价异常门禁实质失效。
+        self.assertEqual(price_calc.DEFAULT_THRESHOLD, 0.30)
+
+    def test_default_min_sample_is_3(self):
+        self.assertEqual(price_calc.DEFAULT_MIN_SAMPLE, 3)
+
+
+# ----------------------------------------------------------------------
 # deviation_pct
 # ----------------------------------------------------------------------
 class TestDeviationPct(unittest.TestCase):
