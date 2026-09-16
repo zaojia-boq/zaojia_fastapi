@@ -1322,6 +1322,10 @@ def get_price_analysis(
             if major and major != "all":
                 rows_all = [r for r in rows_all if r["category"] == major]
 
+            # 去重前先统计每个 aggregate_id 的原始条数（用于样本明细计数）
+            from collections import Counter
+            raw_count_by_agg = Counter(r["aggregate_id"] for r in rows_all)
+
             # 去重：同聚合组+同单价只算一次（不同项目重复导入不重复加权）
             seen = set()
             deduped = []
@@ -1400,7 +1404,7 @@ def get_price_analysis(
                     "avg": round(g.get("avg") or 0, 2),
                     "min": round(g.get("min") or 0, 2),
                     "max": round(g.get("max") or 0, 2),
-                    "count": g.get("count") or 0,
+                    "count": raw_count_by_agg.get(agg_raw, 0),
                     "anomaly": g.get("anomaly_count") or 0,
                     "deviation": round(deviation_pct(g.get("avg") or 0, kpis_raw["avg"]), 1),
                 })
