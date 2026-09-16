@@ -55,13 +55,13 @@
   ```
   C:\Users\ht835\AppData\Local\Programs\Python\Python312\python.exe -m pytest pure_tests/ -v
   ```
-  判据：**全绿零失败**（2026-09-07 基线：Odoo 迁移 90 + field_spec 21 + aliases 扩展 10 + match_score/quality_metrics 边界强化 6 + tfidf_matcher 13 + faiss_learning 17，与 `项目总控.md` §9.1 对齐，任何改动后必须保持全绿）。
+  判据：**全绿零失败**（2026-09-16 基线：238 passed，与 `项目总控.md` §9.1 对齐，任何改动后必须保持全绿）。
 
 - **FastAPI 集成测试**（M1 起，涉及模型/服务/API/权限的改动必跑）：
   ```
   C:\Users\ht835\AppData\Local\Programs\Python\Python312\python.exe -m pytest tests/ -v
   ```
-  判据：**315 passed**（2026-09-14 复检实测，含 S1-S9 安全用例 + N1-N3 反向用例 + 收藏/标签体验增强），零失败。测试使用隔离数据库：当前 conftest 以 SQLite 内存库 + override `get_db`；M1 建 PG 引擎后经 `TEST_DATABASE_URL` 切换（不碰开发/生产库）。
+  判据：**349 passed**（2026-09-16 实测，含 S1-S9 安全用例 + N1-N3 反向用例 + 收藏/标签体验增强 + 34 项行为级测试：test_confirm_match_synonyms 10 + test_search_boq_items 10 + test_get_price_analysis 14），零失败。全量回归（pure_tests 238 + tests 349）= 587 passed / 0 failed。测试使用隔离数据库：当前 conftest 以 SQLite 内存库 + override `get_db`；M1 建 PG 引擎后经 `TEST_DATABASE_URL` 切换（不碰开发/生产库）。
 
 - **应用启动验证**（改 `app/main.py`/路由/配置后必跑）：
   ```
