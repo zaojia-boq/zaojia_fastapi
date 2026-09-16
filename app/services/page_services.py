@@ -1323,6 +1323,17 @@ def get_price_analysis(
                     "material_dict_id": r.material_dict_id,
                 })
 
+            # 去重：同聚合组+同单价只算一次（不同项目重复导入不重复加权）
+            seen = set()
+            deduped = []
+            for row in rows_all:
+                key = (row["aggregate_id"], row["unit_rate_num"])
+                if key in seen:
+                    continue
+                seen.add(key)
+                deduped.append(row)
+            rows_all = deduped
+
             # KPI/趋势用的 rows：指定 group 时过滤
             if group:
                 rows = [r for r in rows_all if r["aggregate_id"] == group]
