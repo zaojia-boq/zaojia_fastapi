@@ -1503,7 +1503,7 @@ def get_price_analysis(
                     "threshold": int(kpis_raw.get("threshold", DEFAULT_THRESHOLD) * 100),
                     "minSample": min_sample,
                 },
-                trend=trend, hist=hist, statRows=stat_rows, groups=groups[:20], gate=gate,
+                trend=trend, hist=hist, statRows=stat_rows, groups=groups, topGroups=groups[:20], gate=gate,
                 metrics=metrics,
                 selected_group=group,
                 selected_group_name=selected_name,
