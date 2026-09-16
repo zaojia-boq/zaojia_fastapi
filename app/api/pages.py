@@ -390,13 +390,15 @@ async def portal_price(request: Request, db: Session = Depends(get_db),
     show_all = qp.get("show_all", "0") == "1"
     group = qp.get("group", "")
 
-    # A档材料大类快捷按钮（按label去重）
-    seen_labels = set()
-    major_options = [{"prefix": "all", "label": "全部材料"}]
-    for k, v in svc.MAJOR_CATEGORY_PREFIXES.items():
-        if v not in seen_labels:
-            major_options.append({"prefix": k, "label": v})
-            seen_labels.add(v)
+    # 5 大类快捷按钮（正则分类）
+    major_options = [
+        {"prefix": "all", "label": "全部材料"},
+        {"prefix": "电线电缆", "label": "电线电缆"},
+        {"prefix": "钢筋", "label": "钢筋"},
+        {"prefix": "水泥", "label": "水泥"},
+        {"prefix": "混凝土", "label": "混凝土"},
+        {"prefix": "管道", "label": "管道"},
+    ]
 
     data = svc.get_price_analysis(db, range_months=range_months, major=major, show_all=show_all, group=group)
     return _render("portal/price.html", _ctx_portal(
