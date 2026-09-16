@@ -1,7 +1,11 @@
-"""5 大类材料正则白名单分类器
+"""5 大类材料正则白名单分类器（v2 系统修复版）
 
-不依赖 material_dict_id / 9位码映射表，直接从 item_name + item_feature 提取。
-用于单价分析流水线。
+修复点：
+1. 电缆型号归一化：WDZA/WDZAN/WDZR/WDZRN 阻燃后缀统一去掉，同型号合并
+2. 电缆排除：电缆头/终端头/接线端子不算电缆本体
+3. 水泥收紧：只认 PO/PC/PI/PII + 强度等级，排除砂浆/楼地面/砖基础/擦缝
+4. 管道排除：阀门/管件/套管/地漏/栏杆/爬梯不算管道
+5. 钢筋无直径归"钢筋(无直径)"
 """
 import re
 from dataclasses import dataclass
@@ -9,20 +13,39 @@ from dataclasses import dataclass
 
 @dataclass
 class ClassifyResult:
-    category: str          # 5 大类之一，或 ""
-    spec: str              # 规格（如 YJV-4*120 / Φ20 / C30 / DN100）
-    material_type: str     # 材质细分（如 镀锌钢管/PPR/不锈钢/普通混凝土）
+    category: str
+    spec: str
+    material_type: str
 
 
-# 电缆型号前缀
-_CABLE_MODELS = [
-    r'WDZ[AB]N?-?YJY', r'WDZ[AB]N?-?YJV', r'WDZ[AB]?-?YJY', r'WDZ[AB]?-?YJV',
-    r'ZR-?YJV', r'ZR-?YJY', r'NH-?YJV', r'NH-?YJY', r'ZRC-?YJV', r'ZRC-?YJY',
-    r'BTLY', r'NG-A', r'BTTW', r'矿物绝缘', r'矿物电缆',
-    r'YJV', r'YJY', r'VV', r'VV22',
-    r'BV', r'BVR', r'RVV', r'RVVP', r'BVVB',
-    r'控制电缆', r'电力电缆', r'布电线',
+# 电缆型号前缀（按优先级排序，短的放后面避免误匹配）
+_CABLE_MODELS_ORDERED = [
+    # 矿物电缆
+    (r'BTLY|NG-A|BTTW|矿物绝缘|矿物电缆', 'BTLY'),
+    # 阻燃/耐火前缀归一化：WDZA-YJY / WDZAN-YJY / WDZR-YJY / WDZRN-YJY → YJY
+    (r'WDZ[AB]N?-?YJY', 'YJY'),
+    (r'WDZ[AB]N?-?YJV', 'YJV'),
+    (r'ZR-?YJV|ZRC?-?YJV|ZRN?-?YJV', 'YJV'),
+    (r'ZR-?YJY|ZRC?-?YJY|ZRN?-?YJY', 'YJY'),
+    (r'NH-?YJV', 'NH-YJV'),
+    (r'NH-?YJY', 'NH-YJY'),
+    # 普通型号
+    (r'YJV', 'YJV'),
+    (r'YJY', 'YJY'),
+    (r'VV22', 'VV22'),
+    (r'VV', 'VV'),
+    (r'BVVB', 'BVVB'),
+    (r'BV', 'BV'),
+    (r'BVR', 'BVR'),
+    (r'RVV', 'RVV'),
+    (r'RVVP', 'RVVP'),
 ]
+
+# 电缆排除项（不是电缆本体）
+_CABLE_EXCLUDE = re.compile(
+    r'(电缆头|终端头|中间头|接线端子|电缆终端|电力电缆头|控制电缆头)',
+    re.IGNORECASE,
+)
 
 # 钢筋
 _REBAR_PAT = re.compile(
@@ -34,19 +57,33 @@ _REBAR_DIA_PAT = re.compile(r'[Φφ]\s*(\d{1,3})')
 # 混凝土强度
 _CONCRETE_PAT = re.compile(r'\b(C\d{2}(?:\.\d)?)\b')
 
-# 水泥
+# 水泥（收紧：只认通用水泥型号+强度等级）
 _CEMENT_PAT = re.compile(
-    r'(P\.O\s*\d{3}|P\.C\s*\d{3}|P\.I\s*\d{3}|P\.II\s*\d{3}|硅酸盐水泥|普通水泥|矿渣水泥|快硬|白水泥|水泥)',
+    r'(P\.O\s*\d{3}|P\.C\s*\d{3}|P\.I\s*\d{3}|P\.II\s*\d{3}|'
+    r'硅酸盐水泥|普通硅酸盐水泥|矿渣硅酸盐水泥|白水泥)',
+    re.IGNORECASE,
+)
+# 水泥排除项（工序/构件不是水泥材料）
+_CEMENT_EXCLUDE = re.compile(
+    r'(砂浆|楼地面|砖基础|块料|石材|擦缝|勾缝|抹灰|找平|垫层|防水|堵漏|混凝土)',
     re.IGNORECASE,
 )
 
 # 管道
 _PIPE_PAT = re.compile(
     r'(镀锌钢管|焊接钢管|无缝钢管|不锈钢管|螺旋焊管|直缝焊管|'
-    r'PPR[- ]?管?|PVC[- ]?U?管?|HDPE[- ]?管?|PE[- ]?RT?管?|UPVC|PP管|'
+    r'PPR[- ]?管?|PVC[- ]?U?管?|CPVC[- ]?管?|HDPE[- ]?管?|PE[- ]?RT?管?|UPVC|PP管|'
     r'铸铁管|球墨铸铁管|铝塑复合管|铜管|'
     r'给水管|排水管|雨水管|采暖管|燃气管道|'
-    r'DN\s*\d+|de\s*\d+)',
+    r'DN\s*\d+|de\s*\d+|DE\s*\d+)',
+    re.IGNORECASE,
+)
+# 管道排除项（阀门/管件/套管/地漏/栏杆/爬梯/绝热/凿槽/预留洞）
+_PIPE_EXCLUDE = re.compile(
+    r'(截止阀|闸阀|球阀|蝶阀|止回阀|排气阀|安全阀|减压阀|低压螺纹阀门|'
+    r'管件|套管|地漏|法兰|弯头|三通|接头|堵头|'
+    r'栏杆|爬梯|扶手|支架|支吊架|'
+    r'一般填料|防水套管|绝热|凿|预留洞|雨水斗|散流器|风口)',
     re.IGNORECASE,
 )
 
@@ -57,24 +94,26 @@ _CABLE_SECTION_PAT = re.compile(
 )
 
 
-def _extract_cable_spec(text: str) -> str:
-    """从文本提取电缆型号+截面"""
+def _extract_cable_spec(name: str, feature: str) -> str:
+    text = f"{name or ''} {feature or ''}"
+    if _CABLE_EXCLUDE.search(text):
+        return ""
+    # 必须是电缆/电线/配线条目（配电箱尺寸/GRC线条/灯具尺寸不算）
+    if not re.search(r'电缆|电线|配线|布电线', name or '', re.IGNORECASE):
+        return ""
     model = ""
-    # 先找型号前缀（WDZA-YJY/BTLY/BV/YJV 等）
-    for pat in _CABLE_MODELS:
-        m = re.search(pat, text, re.IGNORECASE)
-        if m:
-            model = m.group(0).upper().replace(" ", "")
+    for pat, norm in _CABLE_MODELS_ORDERED:
+        if re.search(pat, text, re.IGNORECASE):
+            model = norm
             break
     sec = _CABLE_SECTION_PAT.search(text)
     if sec:
         sec_str = sec.group(1).replace(" ", "").replace("×", "*").replace("x", "*")
-        # 去掉 mm2/mm
         sec_str = re.sub(r'mm2?$', '', sec_str, flags=re.IGNORECASE)
         if model:
             return f"{model}-{sec_str}"
         return sec_str
-    return model or "电缆"
+    return model or ""
 
 
 def _extract_rebar_spec(text: str) -> str:
@@ -83,7 +122,7 @@ def _extract_rebar_spec(text: str) -> str:
     dm = _REBAR_DIA_PAT.search(text)
     if dm:
         return f"{grade} Φ{dm.group(1)}"
-    return grade
+    return f"{grade}(无直径)"
 
 
 def _extract_concrete_spec(text: str) -> str:
@@ -100,35 +139,34 @@ def _extract_cement_spec(text: str) -> str:
     return "水泥"
 
 
-def _extract_pipe_spec(text: str) -> str:
-    # 线管场景：SC25/SC20 转 DN25/DN20（焊接穿线管）
-    is_conduit = bool(re.search(r'穿线|线管|配管|SC\s*\d+', text, re.IGNORECASE))
+def _extract_pipe_spec(name: str, feature: str) -> str:
+    text = f"{name or ''} {feature or ''}"
+    # 排除阀门/管件/套管等
+    if _PIPE_EXCLUDE.search(text):
+        return ""
+    # 线管场景：SC25/SC20 转 DN25/DN20
+    is_conduit = bool(re.search(r'穿线|线管|配管', name or '', re.IGNORECASE))
     sc_m = re.search(r'SC\s*(\d+)', text, re.IGNORECASE)
     if is_conduit and sc_m:
         return f"焊接钢管 DN{sc_m.group(1)}"
     m = _PIPE_PAT.search(text)
     if m:
         material = m.group(0)
-        # 去掉 material 里已有的 DN/de 部分，避免 "DN50 DN50" 重复
-        material = re.sub(r'\s*(DN|de)\s*\d+\s*$', '', material, flags=re.IGNORECASE).strip()
-        dn = re.search(r'(DN|de)\s*(\d+)', text, re.IGNORECASE)
+        material = re.sub(r'\s*(DN|de|DE)\s*\d+\s*$', '', material, flags=re.IGNORECASE).strip()
+        dn = re.search(r'(DN|de|DE)\s*(\d+)', text, re.IGNORECASE)
         if dn:
             dn_str = f"{dn.group(1).upper()}{dn.group(2)}"
             return f"{material} {dn_str}" if material else dn_str
         return material
-    return "管道"
+    return ""
 
 
 def classify_boq(name: str, feature: str) -> ClassifyResult:
-    """对单条 boq_item 分类。name=item_name, feature=item_feature"""
     text = f"{name or ''} {feature or ''}"
-
-    # 排除桥架：只看 item_name（feature 里"沿桥架敷设"不算桥架材料）
     is_tray = bool(re.search(r'桥架|托盘|梯架|线槽', name or '', re.IGNORECASE))
 
-    # 1. 混凝土（优先，因为 "C25" 特征明显）
+    # 1. 混凝土
     if _CONCRETE_PAT.search(text) or re.search(r'\b(混凝土|砼)\b', text):
-        # 排除 "电缆桥架" 等
         if not is_tray:
             return ClassifyResult(
                 category="混凝土",
@@ -136,8 +174,8 @@ def classify_boq(name: str, feature: str) -> ClassifyResult:
                 material_type="普通混凝土",
             )
 
-    # 2. 水泥
-    if _CEMENT_PAT.search(text) and not re.search(r'混凝土', text):
+    # 2. 水泥（收紧：排除砂浆/楼地面/砖基础等工序）
+    if _CEMENT_PAT.search(text) and not re.search(r'混凝土', text) and not _CEMENT_EXCLUDE.search(text):
         return ClassifyResult(
             category="水泥",
             spec=_extract_cement_spec(text),
@@ -152,23 +190,22 @@ def classify_boq(name: str, feature: str) -> ClassifyResult:
             material_type="钢筋",
         )
 
-    # 4. 电缆（排除桥架）
+    # 4. 电缆（排除桥架和电缆头）
     if not is_tray:
-        for pat in _CABLE_MODELS:
-            if re.search(pat, text, re.IGNORECASE):
-                return ClassifyResult(
-                    category="电线电缆",
-                    spec=_extract_cable_spec(text),
-                    material_type="电力电缆",
-                )
+        spec = _extract_cable_spec(name, feature)
+        if spec:
+            return ClassifyResult(
+                category="电线电缆",
+                spec=spec,
+                material_type="电力电缆",
+            )
 
-    # 5. 管道（含 SC 焊接穿线管）
-    is_pipe = bool(_PIPE_PAT.search(text))
-    is_conduit_sc = bool(re.search(r'(穿线|线管|配管)', name or '', re.IGNORECASE)) and bool(re.search(r'SC\s*\d+', text, re.IGNORECASE))
-    if is_pipe or is_conduit_sc:
+    # 5. 管道（排除阀门/管件/套管）
+    spec = _extract_pipe_spec(name, feature)
+    if spec:
         return ClassifyResult(
             category="管道",
-            spec=_extract_pipe_spec(text),
+            spec=spec,
             material_type="管道",
         )
 
