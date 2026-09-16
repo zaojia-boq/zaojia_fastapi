@@ -48,29 +48,21 @@
     </div>
   </div>
 
-  {# 多级材料选择器（AJAX 联动） #}
+  {# 规格选择器（可搜索） #}
   {% if groups %}
   <div class="card" id="material-bar" style="margin-bottom:16px;padding:12px 20px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-    <span style="font-size:13px;font-weight:600;color:var(--c-text);white-space:nowrap">📊 材料选择</span>
-    <select id="sel-l1" style="padding:6px 28px 6px 10px;border:1px solid var(--c-sep);border-radius:var(--r-sm);font-size:13px;min-width:140px;max-width:180px;background:var(--c-app-bg);color:var(--c-text);cursor:pointer;outline:none">
-      <option value="">全部大类</option>
-    </select>
-    <select id="sel-l2" style="padding:6px 28px 6px 10px;border:1px solid var(--c-sep);border-radius:var(--r-sm);font-size:13px;min-width:140px;max-width:180px;background:var(--c-app-bg);color:var(--c-text);cursor:pointer;outline:none">
-      <option value="">全部中类</option>
-    </select>
-    <select id="sel-leaf" style="padding:6px 28px 6px 10px;border:1px solid var(--c-sep);border-radius:var(--r-sm);font-size:13px;flex:1;min-width:200px;background:var(--c-app-bg);color:var(--c-text);cursor:pointer;outline:none">
-      <option value="">全部材料</option>
-    </select>
-    <span id="sel-status" class="muted small" style="font-size:12px;color:var(--c-text-2);margin-left:4px"></span>
+    <span style="font-size:13px;font-weight:600;color:var(--c-text);white-space:nowrap">🔍 规格选择</span>
+    <input list="sel-leaf-list" id="sel-leaf-input" placeholder="输入关键词搜索规格，如 YJY-5*10" style="padding:6px 12px;border:1px solid var(--c-sep);border-radius:var(--r-sm);font-size:13px;flex:1;min-width:260px;max-width:500px;background:var(--c-app-bg);color:var(--c-text);outline:none">
+    <datalist id="sel-leaf-list"></datalist>
     <button id="btn-reset" class="btn btn-sm btn-sec" style="margin-left:auto">重置</button>
   </div>
+  <select id="sel-leaf" style="display:none"></select>
   <script>
   (function(){
     var groups = {{ groups | tojson }};
-    var sel1 = document.getElementById('sel-l1');
-    var sel2 = document.getElementById('sel-l2');
-    var sel3 = document.getElementById('sel-leaf');
-    var status = document.getElementById('sel-status');
+    var leafInput = document.getElementById('sel-leaf-input');
+    var leafList = document.getElementById('sel-leaf-list');
+    var sel3 = document.getElementById('sel-leaf');  // 隐藏的 select，兼容旧代码
     var currentGroup = {{ selected_group|default('')|tojson }};
     var currentName = {{ selected_group_name|default('')|tojson }};
     window.__priceTrendChart = null;
@@ -78,34 +70,38 @@
 
     function uniq(arr){ var seen={}; return arr.filter(function(x){ if(!x) return false; if(seen[x]) return false; seen[x]=true; return true; }); }
 
-    function fill(sel, items){
-      var cur = sel.value;
-      sel.innerHTML = '<option value="">' + sel.options[0].text + '</option>';
-      items.forEach(function(v){
-        var o = document.createElement('option');
-        o.value = v; o.textContent = v;
-        sel.appendChild(o);
-      });
-      if (cur && Array.from(sel.options).some(function(o){return o.value===cur;})) sel.value = cur;
-    }
-    function l1List(){ return uniq(groups.map(function(g){return g.l1;})); }
-    function l2List(){ var l1=sel1.value; return uniq(groups.filter(function(g){return !l1||g.l1===l1;}).map(function(g){return g.l2;})); }
-    function leafList(){ var l1=sel1.value,l2=sel2.value; return groups.filter(function(g){return (!l1||g.l1===l1)&&(!l2||g.l2===l2);}); }
-
+    // 填充 datalist（可搜索）
     function renderLeaf(){
-      var items = leafList();
+      leafList.innerHTML = '';
+      groups.forEach(function(g){
+        var o = document.createElement('option');
+        o.value = g.name;
+        o.setAttribute('data-value', g.raw_id);
+        leafList.appendChild(o);
+      });
+      // 同步到隐藏 select
       sel3.innerHTML = '<option value="">全部材料</option>';
-      items.forEach(function(g){ var o=document.createElement('option'); o.value=g.raw_id; o.textContent=g.name; sel3.appendChild(o); });
-      if (currentGroup && items.some(function(g){return g.raw_id===currentGroup;})) sel3.value = currentGroup;
+      groups.forEach(function(g){
+        var o = document.createElement('option');
+        o.value = g.raw_id;
+        o.textContent = g.name;
+        sel3.appendChild(o);
+      });
+      if (currentGroup) {
+        var cur = groups.find(function(g){return g.raw_id===currentGroup;});
+        if (cur) { leafInput.value = cur.name; sel3.value = currentGroup; }
+      }
     }
-    fill(sel1, l1List());
-    fill(sel2, l2List());
     renderLeaf();
 
-    if (currentGroup) {
-      var cur = groups.find(function(g){return g.raw_id===currentGroup;});
-      if (cur) { sel1.value=cur.l1||''; fill(sel2,l2List()); sel2.value=cur.l2||''; renderLeaf(); }
-    }
+    // input 选择后同步到隐藏 select 并触发 change
+    leafInput.addEventListener('change', function(){
+      var opt = leafList.querySelector('option[value="'+this.value+'"]');
+      if (opt) {
+        sel3.value = opt.getAttribute('data-value');
+        sel3.dispatchEvent(new Event('change'));
+      }
+    });
 
     function fmt(n){ return n ? n.toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—'; }
 
@@ -215,11 +211,9 @@
       }).catch(function(e){ status.textContent='加载失败'; console.error(e); });
     }
 
-    sel1.onchange=function(){ fill(sel2,l2List()); renderLeaf(); go(); };
-    sel2.onchange=function(){ renderLeaf(); go(); };
     sel3.onchange=function(){ go(); };
     document.getElementById('btn-reset').onclick=function(){
-      sel1.value=''; sel2.value=''; sel3.value=''; go(); return false;
+      leafInput.value=''; sel3.value=''; go(); return false;
     };
   })();
   </script>
