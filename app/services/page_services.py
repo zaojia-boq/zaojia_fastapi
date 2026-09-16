@@ -101,6 +101,11 @@ def _apply_nonkw_filters(query, f_major, f_code, f_name, f_source, f_anomaly, st
     主查询 q 与模糊兜底 base_q 共用本函数，消除双套过滤口径漂移风险。
     白名单字段校验（f_source/f_anomaly 取值）由上层 API 保证，本函数仅拼接。
     """
+    # P1-4 修复引入的回归 bug：本函数在模块顶部定义，但 BoqItem 原先是各函数体内
+    # 局部导入（from app.models.boq_item import BoqItem），导致此处引用 BoqItem 时
+    # 抛 NameError，被外层 except 吞掉 → 任何带非关键词过滤的搜索都 hitCount=0。
+    # 修复：函数内局部导入 BoqItem（与 search_boq_items / get_price_analysis 一致）。
+    from app.models.boq_item import BoqItem
     if f_major:
         query = query.filter(BoqItem.item_code.like(f"{f_major}%"))
     if f_code:
@@ -609,6 +614,7 @@ def search_boq_items(
                 and total < 3
             )
             fuzzy_used = False
+            kw_single = ""  # 预定义，避免 except 块在 try 中途异常时引用未绑定变量（UnboundLocalError）
             if kw and should_fuzzy:
                 try:
                     # pg_trgm 模糊匹配兜底：用PG similarity()替代Python端rapidfuzz

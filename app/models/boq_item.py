@@ -83,6 +83,10 @@ class BoqItem(Base, BizIdMixin, TimestampMixin):
         String(20), index=True, default='unknown',
         comment='清单版本（2013/2024/unknown）',
     )
+    version_confidence: Mapped[str | None] = mapped_column(
+        String(10), default='unknown',
+        comment='版本识别置信度（high/medium/low/unknown）',
+    )
     item_name: Mapped[str] = mapped_column(String, nullable=False, index=True, comment='项目名称')
     item_feature: Mapped[str | None] = mapped_column(Text, comment='项目特征描述')
     unit: Mapped[str | None] = mapped_column(String, comment='计量单位')
