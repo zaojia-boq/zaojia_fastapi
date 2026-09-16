@@ -1492,7 +1492,7 @@ def get_price_analysis(
                     "anomalyCount": kpis_raw["anomaly_count"],
                     "hasSamples": has_samples,
                     "cv": cv,
-                    "threshold": int(DEFAULT_THRESHOLD * 100),
+                    "threshold": int(kpis_raw.get("threshold", DEFAULT_THRESHOLD) * 100),
                     "minSample": min_sample,
                 },
                 trend=trend, hist=hist, statRows=stat_rows, groups=groups[:20], gate=gate,
