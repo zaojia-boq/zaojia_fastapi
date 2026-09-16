@@ -1349,9 +1349,12 @@ def get_price_analysis(
                     "material_dict_id": r.material_dict_id,
                 })
 
-            # 5 大类筛选
+            # 5 大类筛选（配管配线合并到电线电缆）
             if major and major != "all":
-                rows_all = [r for r in rows_all if r["category"] == major]
+                if major == "电线电缆":
+                    rows_all = [r for r in rows_all if r["category"] in ("电线电缆", "配管配线")]
+                else:
+                    rows_all = [r for r in rows_all if r["category"] == major]
 
             # 去重前先统计每个 aggregate_id 的原始条数（用于样本明细计数）
             from collections import Counter

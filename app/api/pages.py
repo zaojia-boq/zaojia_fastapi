@@ -451,7 +451,7 @@ async def portal_price(request: Request, db: Session = Depends(get_db),
     show_all = qp.get("show_all", "0") == "1"
     group = qp.get("group", "")
 
-    # 5 大类快捷按钮（正则分类）
+    # 5 大类快捷按钮（正则分类，配管配线合并到电线电缆）
     major_options = [
         {"prefix": "all", "label": "全部材料"},
         {"prefix": "电线电缆", "label": "电线电缆"},
