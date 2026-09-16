@@ -383,10 +383,10 @@
               <th class="td-num">异常数</th><th class="td-num">偏离均价</th><th>判定</th><th></th></tr>
         </thead>
         <tbody>
-          {% for g in topGroups %}
+          {% for g in groups %}
           <tr>
             <td class="mono">
-              {{ g.name }}
+              {{ g.name.split('[')[1].rstrip(']') if '[' in g.name else g.name }}
             </td>
             <td class="td-num">
               <a href="/portal/price/samples?group={{ g.raw_id|urlencode }}" title="查看该组样本明细">{{ g.count }}</a>
