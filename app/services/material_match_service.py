@@ -282,11 +282,25 @@ def confirm_match(db: Session, payload: dict) -> dict[str, Any]:
             item_name = (boq.item_name or '').strip()
             if item_name and d.id:
                 current_syns = d.synonyms or {}
-                # synonyms 可能是 dict 或 list，统一成 list 处理
+                # synonyms 可能是 dict 或 list，统一成 list 处理。
+                # dict 形态：取值集合（同义词列表），而非字段名键（规格/材质/型号/单位），
+                # 避免把字段名键误当同义词覆盖结构化 dict（P1-1 修复）。
                 if isinstance(current_syns, dict):
-                    syn_list = list(current_syns.keys())
+                    # 优先取约定的 list 值（常见 'list'/'synonyms' 键）；否则扁平化所有值
+                    syn_list = []
+                    for key in ('list', 'synonyms'):
+                        v = current_syns.get(key)
+                        if isinstance(v, (list, tuple)):
+                            syn_list = [x for x in v if isinstance(x, str)]
+                            break
+                    if not syn_list:
+                        syn_list = [x for vals in current_syns.values()
+                                     if isinstance(vals, (list, tuple))
+                                     for x in vals if isinstance(x, str)]
+                        if not syn_list:
+                            syn_list = [k for k in current_syns.keys() if isinstance(k, str)]
                 elif isinstance(current_syns, list):
-                    syn_list = list(current_syns)
+                    syn_list = [x for x in current_syns if isinstance(x, str)]
                 else:
                     syn_list = []
                 if item_name not in syn_list:

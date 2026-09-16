@@ -28,7 +28,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any, Iterator
 
 from sqlalchemy import String, cast, case, func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from data.field_spec import DATA_SOURCE_TYPES as _FIELD_SPEC_TYPES
 from data.gb_code import parse_gb_code
@@ -88,6 +88,10 @@ SOURCE_CHIP = {
 USE_MOCK_DATA = os.getenv("USE_MOCK_DATA", "0").lower() in ("1", "true", "yes")
 
 PAGE_SIZE = 50
+
+# 性能铁律：检索/单价分析等「相关度需 Python 侧打分」路径的候选池上限，
+# 防止百万行全量拉入内存（禁止全量加载）。取价格期最新的有界候选池做打分 + 分页。
+MAX_SEARCH_POOL = 2000
 
 
 # ============================================================================
@@ -594,6 +598,7 @@ def search_boq_items(
                 and not kw_parts[0].strip().isdigit()
                 and total < 3
             )
+            fuzzy_used = False
             if kw and should_fuzzy:
                 try:
                     # pg_trgm 模糊匹配兜底：用PG similarity()替代Python端rapidfuzz
@@ -631,6 +636,10 @@ def search_boq_items(
                     result = fuzzy_q.all()
                     scored_rows = [(row.sim_score, row[0]) for row in result]  # (score, BoqItem)
                     total = len(scored_rows)
+                    # P1-5：模糊分支 std_count 同口径（在 fuzzy_q 结果集上统计，与 hitCount=total 一致）
+                    std_count = sum(1 for _, r in scored_rows if r.std_name is not None)
+                    pending_count = total - std_count
+                    fuzzy_used = True
                     pages = max(1, (total + per_page - 1) // per_page)
                     page = max(1, min(page, pages))
                     items = [r for _, r in scored_rows[(page - 1) * per_page:page * per_page]]
@@ -645,8 +654,9 @@ def search_boq_items(
                     q = q.order_by(BoqItem.item_name.asc(), BoqItem.id.desc())
                     items = q.offset((page - 1) * per_page).limit(per_page).all()
                 else:
-                    # 默认和相关性都拉全部在Python侧排序：名称命中优先，其次时间
-                    all_items = q.order_by(BoqItem.price_period.desc().nulls_last()).all()
+                    # 默认和相关性排序：相关度打分必须 Python 侧做，但候选池必须设上限
+                    # 防止百万行全量拉入内存（性能铁律：禁止全量加载树形/检索结果集）。
+                    # 取「价格期最新」的有界候选池做相关度排序 + 分页，池上限 MAX_SEARCH_POOL。
                     kw_words = [w.strip() for w in kw.split() if w.strip()]
                     import re as _re
                     def _norm2(t):
@@ -668,11 +678,18 @@ def search_boq_items(
                             return 2
                         else:
                             return 3
+                    # joinedload(import_batch) 消除 _boq_row 里 r.import_batch.name 的 N+1
+                    # 候选池按价格期最新取上限，排序键=(相关度, -时间)，时间序与取池序一致
+                    pool_q = q.order_by(BoqItem.price_period.desc().nulls_last())
+                    all_items = pool_q.options(joinedload(BoqItem.import_batch)) \
+                            .limit(MAX_SEARCH_POOL).all()
                     all_items.sort(key=lambda r: (_score(r), -(r.price_period.toordinal() if r.price_period else 0)))
                     items = all_items[(page - 1) * per_page:page * per_page]
 
-            std_count = q.filter(BoqItem.std_name != None).count()  # noqa: E711
-            pending_count = total - std_count
+            if not fuzzy_used:
+                # 非模糊分支：std/pending 在精确 q 上统计（口径 = hitCount=total）
+                std_count = q.filter(BoqItem.std_name != None).count()  # noqa: E711
+                pending_count = max(0, total - std_count)
 
             return _empty_result(
                 rows=[_boq_row(r) for r in items],
@@ -1297,7 +1314,9 @@ def get_price_analysis(
                     q = q_month
 
             # 指定聚合组时，KPI/趋势/直方图只统计该组；groups 列表仍显示全部
-            items = q.all()
+            # 性能铁律：禁止全量加载。取「价格期最新」的有界候选池做正则分类 + Python 聚合，
+            # 池上限 MAX_SEARCH_POOL，防止百万行全量拉入内存。
+            items = q.order_by(BoqItem.price_period.desc().nulls_last()).limit(MAX_SEARCH_POOL).all()
             from app.services.material_classifier import classify_boq
             rows_all = []
             for r in items:

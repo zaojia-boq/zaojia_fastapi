@@ -23,6 +23,10 @@ from sqlalchemy.orm import Session
 from app.models.boq_item import BoqItem
 from data.price_calc import compute_kpis, analyze_group
 
+# 性能铁律：单价分析只读展示，禁止全量加载。取「价格期最新」的有界候选池做 KPI/分组聚合，
+# 池上限 MAX_POOL_ROWS，防止百万行全量拉入内存（同 page_services.get_price_analysis 口径）。
+MAX_POOL_ROWS = 2000
+
 # 默认域：已完工程口径，排除 pending_review / control_price / bid_price / info_price，
 # 且必须有数值单价（M3 §3.2 ⚠️「不在此重复定义」——全模块唯一出处）。
 DEFAULT_COMPLETED_DOMAIN = [
@@ -105,7 +109,8 @@ def get_kpis(db: Session, domain=None) -> dict[str, Any]:
         domain = _resolve_domain(domain)
         query = db.query(BoqItem).filter(BoqItem.active == True)
         query = _apply_domain(query, domain)
-        recs = query.all()
+        # 有界候选池（价格期最新 MAX_POOL_ROWS 条），避免全量加载
+        recs = query.order_by(BoqItem.price_period.desc().nulls_last()).limit(MAX_POOL_ROWS).all()
 
         # 喂纯函数 compute_kpis（逐行 unit_rate_num）
         rows = [{'unit_rate_num': float(r.unit_rate_num) if r.unit_rate_num is not None else None}
@@ -135,7 +140,8 @@ def get_analysis(db: Session, domain=None, threshold: float = 0.30) -> dict[str,
         domain = _resolve_domain(domain)
         query = db.query(BoqItem).filter(BoqItem.active == True)
         query = _apply_domain(query, domain)
-        recs = query.all()
+        # 有界候选池（价格期最新 MAX_POOL_ROWS 条），避免全量加载
+        recs = query.order_by(BoqItem.price_period.desc().nulls_last()).limit(MAX_POOL_ROWS).all()
 
         # 规整逐行：price_period(date) 转 str，保证信封 JSON 可序列化
         rows = []
