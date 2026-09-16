@@ -70,22 +70,39 @@
 
     function uniq(arr){ var seen={}; return arr.filter(function(x){ if(!x) return false; if(seen[x]) return false; seen[x]=true; return true; }); }
 
-    // 填充 datalist（可搜索）
+    // 填充 datalist（可搜索，按大类分组，显示样本数）
     function renderLeaf(){
       leafList.innerHTML = '';
-      groups.forEach(function(g){
-        var o = document.createElement('option');
-        o.value = g.name;
-        o.setAttribute('data-value', g.raw_id);
-        leafList.appendChild(o);
-      });
-      // 同步到隐藏 select
       sel3.innerHTML = '<option value="">全部材料</option>';
+      // 按大类分组
+      var groupsByCat = {};
       groups.forEach(function(g){
-        var o = document.createElement('option');
-        o.value = g.raw_id;
-        o.textContent = g.name;
-        sel3.appendChild(o);
+        var m = g.name.match(/^([^\[]+)\s*\[(.*)\]$/);
+        var cat = m ? m[1] : "其他";
+        var spec = m ? m[2] : g.name;
+        if (!groupsByCat[cat]) groupsByCat[cat] = [];
+        groupsByCat[cat].push({g: g, spec: spec});
+      });
+      // 渲染 datalist option（value 用完整 name 用于匹配，label 显示短名+样本数）
+      Object.keys(groupsByCat).forEach(function(cat){
+        groupsByCat[cat].forEach(function(item){
+          var o = document.createElement('option');
+          o.value = item.g.name;
+          o.setAttribute('data-value', item.g.raw_id);
+          leafList.appendChild(o);
+        });
+      });
+      // 渲染隐藏 select（用 optgroup 分组，显示短名+样本数）
+      Object.keys(groupsByCat).forEach(function(cat){
+        var og = document.createElement('optgroup');
+        og.label = cat;
+        groupsByCat[cat].forEach(function(item){
+          var o = document.createElement('option');
+          o.value = item.g.raw_id;
+          o.textContent = item.spec + '  (' + item.g.count + '条)';
+          og.appendChild(o);
+        });
+        sel3.appendChild(og);
       });
       if (currentGroup) {
         leafInput.value = currentName; sel3.value = currentGroup;
