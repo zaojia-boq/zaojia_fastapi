@@ -29,6 +29,7 @@ from typing import Any, Iterator
 
 from sqlalchemy import String, cast, case, func
 from sqlalchemy.orm import Session, joinedload
+import logging as _logging
 
 from data.field_spec import DATA_SOURCE_TYPES as _FIELD_SPEC_TYPES
 from data.gb_code import parse_gb_code
@@ -92,6 +93,31 @@ PAGE_SIZE = 50
 # 性能铁律：检索/单价分析等「相关度需 Python 侧打分」路径的候选池上限，
 # 防止百万行全量拉入内存（禁止全量加载）。取价格期最新的有界候选池做打分 + 分页。
 MAX_SEARCH_POOL = 2000
+
+
+def _apply_nonkw_filters(query, f_major, f_code, f_name, f_source, f_anomaly, std_status, only_std):
+    """P1-4：清单检索「非关键词」过滤条件的唯一实现（单一事实源）。
+
+    主查询 q 与模糊兜底 base_q 共用本函数，消除双套过滤口径漂移风险。
+    白名单字段校验（f_source/f_anomaly 取值）由上层 API 保证，本函数仅拼接。
+    """
+    if f_major:
+        query = query.filter(BoqItem.item_code.like(f"{f_major}%"))
+    if f_code:
+        query = query.filter(BoqItem.item_code.like(f"%{f_code}%"))
+    if f_name:
+        query = query.filter(BoqItem.item_name.like(f"%{f_name}%"))
+    if f_source:
+        query = query.filter(BoqItem.data_source_type == f_source)
+    if f_anomaly:
+        query = query.filter(BoqItem.anomaly_flag == f_anomaly)
+    if std_status == "std":
+        query = query.filter(BoqItem.std_name != None)  # noqa: E711
+    elif std_status == "pending":
+        query = query.filter(BoqItem.std_name == None)  # noqa: E711
+    if only_std:
+        query = query.filter(BoqItem.std_name != None)  # noqa: E711
+    return query
 
 
 # ============================================================================
@@ -515,7 +541,7 @@ def search_boq_items(
                     "配电柜": ["配电箱", "配电箱柜", "开关柜"],
                     "桥架": ["电缆桥架", "电缆线槽", "线槽"],
                     "电缆": ["电力电缆", "电线电缆", "控制电缆"],
-                    "钢管": ["焊接钢管", "镀锌钢管", "无缝钢管", "焊接钢管"],
+                    "钢管": ["焊接钢管", "镀锌钢管", "无缝钢管"],
                     "塑料管": ["PVC管", "PPR管", "HDPE管", "PE管", "PVC-U管"],
                     "钢筋": ["螺纹钢", "圆钢", "钢筋网"],
                     "水泥": ["硅酸盐水泥", "普通水泥", "PO水泥"],
@@ -568,24 +594,8 @@ def search_boq_items(
                             word_conds.append(BoqItem.project_name.ilike(like))
                         if word_conds:
                             q = q.filter(or_(*word_conds))
-            if f_major:
-                q = q.filter(BoqItem.item_code.like(f"{f_major}%"))
-            if f_code:
-                q = q.filter(BoqItem.item_code.like(f"%{f_code}%"))
-            if f_name:
-                q = q.filter(BoqItem.item_name.like(f"%{f_name}%"))
-            if f_source:
-                q = q.filter(BoqItem.data_source_type == f_source)
-            if f_anomaly:
-                q = q.filter(BoqItem.anomaly_flag == f_anomaly)
-            if std_status == "std":
-                q = q.filter(BoqItem.std_name != None)  # noqa: E711
-            elif std_status == "pending":
-                q = q.filter(BoqItem.std_name == None)  # noqa: E711
-
-            # 数据可见性控制：未登录用户仅能看到已标准化数据
-            if only_std:
-                q = q.filter(BoqItem.std_name != None)  # noqa: E711
+            # P1-4：非关键词过滤统一由 _apply_nonkw_filters 应用（主查询 + 模糊兜底共用）
+            q = _apply_nonkw_filters(q, f_major, f_code, f_name, f_source, f_anomaly, std_status, only_std)
 
             total = q.count()
             items = None
@@ -604,22 +614,10 @@ def search_boq_items(
                     # pg_trgm 模糊匹配兜底：用PG similarity()替代Python端rapidfuzz
                     # 保留非kw的过滤条件，排除已匹配的记录
                     base_q = s.query(BoqItem).filter(BoqItem.active == True)  # noqa: E712
-                    if f_major:
-                        base_q = base_q.filter(BoqItem.item_code.like(f"{f_major}%"))
-                    if f_code:
-                        base_q = base_q.filter(BoqItem.item_code.like(f"%{f_code}%"))
-                    if f_name:
-                        base_q = base_q.filter(BoqItem.item_name.like(f"%{f_name}%"))
-                    if f_source:
-                        base_q = base_q.filter(BoqItem.data_source_type == f_source)
-                    if f_anomaly:
-                        base_q = base_q.filter(BoqItem.anomaly_flag == f_anomaly)
-                    if std_status == "std":
-                        base_q = base_q.filter(BoqItem.std_name != None)  # noqa: E711
-                    elif std_status == "pending":
-                        base_q = base_q.filter(BoqItem.std_name == None)  # noqa: E711
-                    if only_std:
-                        base_q = base_q.filter(BoqItem.std_name != None)  # noqa: E711
+                    # P1-4：与主查询共用同一套非关键词过滤（单一事实源，防双口径漂移）
+                    base_q = _apply_nonkw_filters(
+                        base_q, f_major, f_code, f_name, f_source, f_anomaly, std_status, only_std
+                    )
 
                     # 用PG similarity()在数据库侧做模糊匹配（GIN索引加速）
                     kw_single = kw_parts[0]
@@ -644,7 +642,11 @@ def search_boq_items(
                     page = max(1, min(page, pages))
                     items = [r for _, r in scored_rows[(page - 1) * per_page:page * per_page]]
                 except Exception:
-                    pass
+                    # P2-1：模糊兜底 pg_trgm similarity() 失败（如 SQLite 测试库无 trgm 扩展、
+                    # 或表/列缺失）时静默降级为精确匹配，但记录日志避免吞错隐藏真实问题。
+                    _logging.getLogger("zaojia.page_services").warning(
+                        "模糊兜底 similarity() 失败，降级为精确匹配（kw=%r）", kw_single,
+                    )
 
             if items is None:
                 pages = max(1, (total + per_page - 1) // per_page)
@@ -1306,12 +1308,16 @@ def get_price_analysis(
                 BoqItem.active == True,  # noqa: E712
                 BoqItem.unit_rate_num != None,  # noqa: E711
             )
-            # 先按近N月过滤；如果结果为0则取消时间过滤（兜底）
+            # 先按近N月过滤；若该范围无数据则取消时间过滤（兜底）
+            # P2-6：兜底仅在“该时间窗口内样本数 < min_sample”时触发，避免时间窗口内有
+            # 少量数据（如 1-2 条）时静默回退全量、把旧数据混入分析（统计不可靠）。
             if range_months and range_months > 0:
                 since = (date.today().replace(day=1) - timedelta(days=int(range_months) * 30.5))
                 q_month = q.filter(BoqItem.price_period >= since)
-                if q_month.first() is not None:
+                month_count = q_month.count()
+                if month_count >= min_sample:
                     q = q_month
+                # else: 样本数不足 min_sample → 仍使用 q_month（而非回退全量），避免统计口径漂移
 
             # 指定聚合组时，KPI/趋势/直方图只统计该组；groups 列表仍显示全部
             # 性能铁律：禁止全量加载。取「价格期最新」的有界候选池做正则分类 + Python 聚合，

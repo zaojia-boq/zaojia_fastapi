@@ -18,6 +18,20 @@ class ClassifyResult:
     material_type: str
 
 
+# P1-2 优化：模块级 LRU 缓存（dict 实现，进程内安全；单价分析逐行调用重复率高）。
+# 上限 100k，避免内存无界增长；FIFO 淘汰策略足够（清单项名称多样性有限）。
+_CLASSIFY_CACHE: dict = {}
+_CLASSIFY_CACHE_MAX = 100_000
+
+
+def _classify_cache_put(key, result):
+    if len(_CLASSIFY_CACHE) >= _CLASSIFY_CACHE_MAX:
+        # 简单 FIFO：清除最早一半
+        for k in list(_CLASSIFY_CACHE.keys())[: _CLASSIFY_CACHE_MAX // 2]:
+            _CLASSIFY_CACHE.pop(k, None)
+    _CLASSIFY_CACHE[key] = result
+
+
 # 电缆型号前缀（按优先级排序，短的放后面避免误匹配）
 _CABLE_MODELS_ORDERED = [
     # 矿物电缆
@@ -162,6 +176,21 @@ def _extract_pipe_spec(name: str, feature: str) -> str:
 
 
 def classify_boq(name: str, feature: str) -> ClassifyResult:
+    """P1-2 优化：lru_cache 记忆化，相同 (name, feature) 重复调用直接命中缓存。
+
+    单价分析路径对同一清单项逐行调 classify_boq，百万行时重复 (name, feature)
+    占比高，记忆化可消除大量重复正则开销。
+    """
+    key = (name or '', feature or '')
+    cached = _CLASSIFY_CACHE.get(key)
+    if cached is not None:
+        return ClassifyResult(cached.category, cached.spec, cached.material_type)
+    result = _classify_boq_impl(name, feature)
+    _classify_cache_put(key, result)
+    return ClassifyResult(result.category, result.spec, result.material_type)
+
+
+def _classify_boq_impl(name: str, feature: str) -> ClassifyResult:
     text = f"{name or ''} {feature or ''}"
     is_tray = bool(re.search(r'桥架|托盘|梯架|线槽', name or '', re.IGNORECASE))
 

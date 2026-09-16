@@ -31,11 +31,14 @@ _prematch_status = {
     "started_at": None,
     "finished_at": None,
 }
+# P2-3：保护 _prematch_status 读写的线程锁（异步线程 + 多请求并发场景）
+_prematch_status_lock = threading.Lock()
 
 
 def get_prematch_status() -> dict:
     """获取预匹配任务状态。"""
-    return dict(_prematch_status)
+    with _prematch_status_lock:
+        return dict(_prematch_status)
 
 
 def _build_dict_rows(db: Session) -> list[dict]:
@@ -101,17 +104,19 @@ def precompute_pending_matches(db: Session, batch_id: Optional[int] = None, limi
     """
     global _prematch_status
 
-    if _prematch_status["running"]:
-        logger.info("预匹配任务已在运行中，跳过")
-        return {"status": "already_running", **_prematch_status}
+    # P2-3：线程锁保护状态更新（异步线程 + 多请求并发）
+    with _prematch_status_lock:
+        if _prematch_status["running"]:
+            logger.info("预匹配任务已在运行中，跳过")
+            return {"status": "already_running", **_prematch_status}
 
-    _prematch_status.update({
-        "running": True,
-        "total": 0,
-        "processed": 0,
-        "started_at": datetime.now(timezone.utc).isoformat(),
-        "finished_at": None,
-    })
+        _prematch_status.update({
+            "running": True,
+            "total": 0,
+            "processed": 0,
+            "started_at": datetime.now(timezone.utc).isoformat(),
+            "finished_at": None,
+        })
 
     try:
         # 查询待匹配条目
@@ -125,11 +130,13 @@ def precompute_pending_matches(db: Session, batch_id: Optional[int] = None, limi
             query = query.limit(limit)
 
         pending_ids = [r[0] for r in query.all()]
-        _prematch_status["total"] = len(pending_ids)
+        with _prematch_status_lock:
+            _prematch_status["total"] = len(pending_ids)
         logger.info(f"开始预匹配：{len(pending_ids)} 条待匹配")
 
         if not pending_ids:
-            _prematch_status.update({"running": False, "finished_at": datetime.now(timezone.utc).isoformat()})
+            with _prematch_status_lock:
+                _prematch_status.update({"running": False, "finished_at": datetime.now(timezone.utc).isoformat()})
             return {"status": "no_pending", "total": 0}
 
         dict_rows = _build_dict_rows(db)
@@ -144,15 +151,18 @@ def precompute_pending_matches(db: Session, batch_id: Optional[int] = None, limi
             except Exception as e:
                 logger.error(f"预匹配失败 boq_id={boq_id}: {e}")
                 db.rollback()
-            _prematch_status["processed"] = i
+            with _prematch_status_lock:
+                _prematch_status["processed"] = i
 
         db.commit()
-        _prematch_status.update({"running": False, "finished_at": datetime.now(timezone.utc).isoformat()})
+        with _prematch_status_lock:
+            _prematch_status.update({"running": False, "finished_at": datetime.now(timezone.utc).isoformat()})
         logger.info(f"预匹配完成：{len(pending_ids)} 条")
         return {"status": "completed", "total": len(pending_ids), "processed": len(pending_ids)}
 
     except Exception as e:
-        _prematch_status.update({"running": False, "finished_at": datetime.now(timezone.utc).isoformat()})
+        with _prematch_status_lock:
+            _prematch_status.update({"running": False, "finished_at": datetime.now(timezone.utc).isoformat()})
         logger.error(f"预匹配任务失败: {e}")
         return {"status": "failed", "error": str(e)}
 

@@ -88,6 +88,10 @@ def analyze_group(rows, group_key, measures=None):
     每组返回 {group, avg, min, max, count, anomaly_count}：
     - avg 按工程量加权；min/max/count 基于 unit_rate_num（忽略 None）；
     - anomaly_count 相对该组自身加权 avg 判定。
+
+    measures 参数当前未使用（历史遗留死参数，P2-5 已标注）；保留形参以维持
+    调用方位置传参兼容（price_service 以关键字 measures=None 传入），实现固定为
+    单度量（unit_rate_num 加权）。如需多度量，待扩展后移除本参数。
     """
     if group_key not in GROUP_KEYS:
         raise ValueError('非法分组维度: %r，应为 %s 之一' % (group_key, GROUP_KEYS))
