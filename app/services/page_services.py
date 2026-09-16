@@ -1315,15 +1315,23 @@ def get_price_analysis(
 
             # 指定聚合组时，KPI/趋势/直方图只统计该组；groups 列表仍显示全部
             items = q.all()
-            rows_all = [{
-                "unit_rate_num": _f(r.unit_rate_num),
-                "price_period": _period(r.price_period),
-                "project_name": r.project_name or "—",
-                "aggregate_id": r.aggregate_id or "",
-                "item_code": r.item_code or "",
-                "item_name": r.item_name or "",
-                "material_dict_id": r.material_dict_id,
-            } for r in items]
+            from app.services.material_classifier import classify_boq
+            rows_all = []
+            for r in items:
+                c = classify_boq(r.item_name, r.item_feature)
+                # 只保留 5 大类命中的行，长尾材料不进单价分析
+                if not c.category:
+                    continue
+                agg = f"regex:{c.category}:{c.spec}"
+                rows_all.append({
+                    "unit_rate_num": _f(r.unit_rate_num),
+                    "price_period": _period(r.price_period),
+                    "project_name": r.project_name or "—",
+                    "aggregate_id": agg,
+                    "item_code": r.item_code or "",
+                    "item_name": r.item_name or "",
+                    "material_dict_id": r.material_dict_id,
+                })
 
             # KPI/趋势用的 rows：指定 group 时过滤
             if group:
@@ -1431,6 +1439,12 @@ def get_price_analysis(
                 """
                 if not agg:
                     return "—"
+                if agg.startswith("regex:"):
+                    # regex:<大类>:<规格>
+                    parts = agg.split(":", 2)
+                    if len(parts) == 3:
+                        return f"{parts[1]} [{parts[2]}]"
+                    return agg
                 if agg.startswith("dict:"):
                     try:
                         # dict:<did>[:<规格>]
