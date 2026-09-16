@@ -17,9 +17,9 @@ class ClassifyResult:
 # 电缆型号前缀
 _CABLE_MODELS = [
     r'WDZ[AB]N?-?YJY', r'WDZ[AB]N?-?YJV', r'WDZ[AB]?-?YJY', r'WDZ[AB]?-?YJV',
-    r'YJV', r'YJY', r'VV', r'VV22',
-    r'ZR-YJV', r'ZR-YJY', r'NH-YJV', r'NH-YJY', r'ZRC-YJV', r'ZRC-YJY',
+    r'ZR-?YJV', r'ZR-?YJY', r'NH-?YJV', r'NH-?YJY', r'ZRC-?YJV', r'ZRC-?YJY',
     r'BTLY', r'NG-A', r'BTTW', r'矿物绝缘', r'矿物电缆',
+    r'YJV', r'YJY', r'VV', r'VV22',
     r'BV', r'BVR', r'RVV', r'RVVP', r'BVVB',
     r'控制电缆', r'电力电缆', r'布电线',
 ]
@@ -29,7 +29,7 @@ _REBAR_PAT = re.compile(
     r'(HRB400|HRB500|HPB300|HRBF400|螺纹钢|圆钢|钢筋)',
     re.IGNORECASE,
 )
-_REBAR_DIA_PAT = re.compile(r'[Φφ]\s*(\d{2,3})')
+_REBAR_DIA_PAT = re.compile(r'[Φφ]\s*(\d{1,3})')
 
 # 混凝土强度
 _CONCRETE_PAT = re.compile(r'\b(C\d{2}(?:\.\d)?)\b')
