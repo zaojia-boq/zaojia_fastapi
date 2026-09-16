@@ -1433,6 +1433,7 @@ def get_price_analysis(
                     "deviation": round(deviation_pct(g.get("avg") or 0, kpis_raw["avg"]), 1),
                 })
             groups.sort(key=lambda x: -abs(x["deviation"]))
+            raw_groups_list = list(groups)  # 存一份原始 groups 用于 selected_name 查询
 
             # 选中具体聚合组时，表格改为该组在各价格期的样本明细
             if group and rows:
@@ -1445,9 +1446,6 @@ def get_price_analysis(
                     period_rows.append({
                         "name": f"第{pname}期",
                         "raw_id": group,
-                        "l1": "",
-                        "l2": "",
-                        "l3": "",
                         "avg": round(pavg, 2),
                         "min": round(pg.get("min") or 0, 2),
                         "max": round(pg.get("max") or 0, 2),
@@ -1465,8 +1463,8 @@ def get_price_analysis(
                     detail_rows.append({
                         "code": r.get("item_code", ""),
                         "name": r.get("item_name", ""),
-                        "feature": "",  # 暂不返回完整特征，避免数据过大
-                        "unit": "",
+                        "feature": r.get("item_feature", ""),
+                        "unit": r.get("unit", ""),
                         "qty": r.get("quantity_num", 0),
                         "price": r.get("unit_rate_num", 0),
                         "period": r.get("price_period", ""),
@@ -1486,7 +1484,7 @@ def get_price_analysis(
             # 选中的聚合组名称（用于标题显示）
             selected_name = ""
             if group:
-                for g in groups:
+                for g in raw_groups_list:
                     if g["raw_id"] == group:
                         selected_name = g["name"]
                         break
