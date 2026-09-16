@@ -1219,7 +1219,12 @@ def auto_confirm_high_conf() -> int:
             if not r.std_spec and (hit.cat_l3 or hit.name or '').strip():
                 r.std_spec = (hit.cat_l3 or hit.name).strip()
             r.match_key = f"dict:{hit.id}|{unit}"
-            r.aggregate_id = f"dict:{hit.id}:{hit.name}"
+            # 聚合键必须带真实规格（从 item_feature 提取），否则同材料不同规格全混一组
+            from app.models.boq_item import _extract_spec
+            spec = _extract_spec(r.item_feature or "")
+            if r.std_spec and r.std_spec not in spec:
+                spec = (spec + "|" if spec else "") + r.std_spec
+            r.aggregate_id = f"dict:{hit.id}:{spec}" if spec else f"dict:{hit.id}"
             r.match_key_source = 'dict_auto'
             try:
                 log_audit(
