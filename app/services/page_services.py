@@ -1185,7 +1185,7 @@ def auto_confirm_high_conf() -> int:
     with _session_scope() as s:
         # 候选池 l3+l4，名称长度>=3
         dict_rows = s.query(
-            MaterialDict.id, MaterialDict.name,
+            MaterialDict.id, MaterialDict.name, MaterialDict.cat_l3
         ).filter(MaterialDict.level.in_(['l3', 'l4'])).all()
         pool_by_name = {n.name.strip(): n for n in dict_rows if n.name and len(n.name.strip()) >= 3}
 
@@ -1213,6 +1213,11 @@ def auto_confirm_high_conf() -> int:
                 continue
             unit = r.unit_std or r.unit or ''
             r.material_dict_id = hit.id
+            # 同步写 std_name/std_spec，与人工确认口径一致（否则"已标准化"统计漏算）
+            if not r.std_name and (hit.name or '').strip():
+                r.std_name = hit.name.strip()
+            if not r.std_spec and (hit.cat_l3 or hit.name or '').strip():
+                r.std_spec = (hit.cat_l3 or hit.name).strip()
             r.match_key = f"dict:{hit.id}|{unit}"
             r.aggregate_id = f"dict:{hit.id}:{hit.name}"
             r.match_key_source = 'dict_auto'
@@ -1227,6 +1232,7 @@ def auto_confirm_high_conf() -> int:
                 pass
             auto_done += 1
         if auto_done:
+            s.commit()
             print(f"[auto-confirm] 批量自动确认 {auto_done} 条")
         return auto_done
 
