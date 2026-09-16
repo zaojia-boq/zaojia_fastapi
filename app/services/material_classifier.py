@@ -102,6 +102,11 @@ def _extract_cement_spec(text: str) -> str:
 
 
 def _extract_pipe_spec(text: str) -> str:
+    # 线管场景：SC25/SC20 转 DN25/DN20（焊接穿线管）
+    is_conduit = bool(re.search(r'穿线|线管|配管|SC\s*\d+', text, re.IGNORECASE))
+    sc_m = re.search(r'SC\s*(\d+)', text, re.IGNORECASE)
+    if is_conduit and sc_m:
+        return f"焊接钢管 DN{sc_m.group(1)}"
     m = _PIPE_PAT.search(text)
     if m:
         material = m.group(0)
@@ -158,8 +163,10 @@ def classify_boq(name: str, feature: str) -> ClassifyResult:
                     material_type="电力电缆",
                 )
 
-    # 5. 管道
-    if _PIPE_PAT.search(text):
+    # 5. 管道（含 SC 焊接穿线管）
+    is_pipe = bool(_PIPE_PAT.search(text))
+    is_conduit_sc = bool(re.search(r'(穿线|线管|配管)', name or '', re.IGNORECASE)) and bool(re.search(r'SC\s*\d+', text, re.IGNORECASE))
+    if is_pipe or is_conduit_sc:
         return ClassifyResult(
             category="管道",
             spec=_extract_pipe_spec(text),
