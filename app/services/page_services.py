@@ -1346,6 +1346,8 @@ def get_price_analysis(
                     "category": c.category,
                     "item_code": r.item_code or "",
                     "item_name": r.item_name or "",
+                    "item_feature": r.item_feature or "",
+                    "unit": r.unit or "",
                     "material_dict_id": r.material_dict_id,
                 })
 
