@@ -341,7 +341,8 @@
               {{ g.name }}
             </td>
             <td class="td-num">
-              {% set kw = g.name.split('[')|last|replace(']','')|trim %}
+              {% set spec_kw = g.name.split('[')|last|replace(']','')|trim %}
+              {% set kw = spec_kw.split('-')[0] %}
               <a href="/portal/search?kw={{ kw|urlencode }}" title="查看清单检索">{{ g.count }}</a>
             </td>
             <td class="td-num">{{ "{:,.2f}".format(g.min) }}</td>
