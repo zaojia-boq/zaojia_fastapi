@@ -340,7 +340,10 @@
               {% if g.l2 %}<span class="muted small" style="margin-right:6px">{{ g.l2 }}</span>{% endif %}
               {{ g.name }}
             </td>
-            <td class="td-num">{{ g.count }}</td>
+            <td class="td-num">
+              {% set kw = g.name.split('[')|last|replace(']','')|trim %}
+              <a href="/portal/search?kw={{ kw|urlencode }}" title="查看清单检索">{{ g.count }}</a>
+            </td>
             <td class="td-num">{{ "{:,.2f}".format(g.min) }}</td>
             <td class="td-num"><b>{{ "{:,.2f}".format(g.avg) }}</b></td>
             <td class="td-num">{{ "{:,.2f}".format(g.max) }}</td>
