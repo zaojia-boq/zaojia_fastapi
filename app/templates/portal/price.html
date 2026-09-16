@@ -52,8 +52,11 @@
   {% if groups %}
   <div class="card" id="material-bar" style="margin-bottom:16px;padding:12px 20px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
     <span style="font-size:13px;font-weight:600;color:var(--c-text);white-space:nowrap">🔍 规格选择</span>
-    <input list="sel-leaf-list" id="sel-leaf-input" placeholder="输入关键词搜索规格，如 YJY-5*10" style="padding:6px 12px;border:1px solid var(--c-sep);border-radius:var(--r-sm);font-size:13px;flex:1;min-width:260px;max-width:500px;background:var(--c-app-bg);color:var(--c-text);outline:none">
-    <datalist id="sel-leaf-list"></datalist>
+    <div style="position:relative;flex:1;min-width:260px;max-width:500px">
+      <input id="sel-leaf-input" placeholder="输入关键词搜索规格，如 YJY-5*10" style="width:100%;padding:8px 12px;border:1px solid var(--c-sep);border-radius:var(--r-sm);font-size:13px;background:var(--c-card);color:var(--c-text);outline:none;box-sizing:border-box">
+      <div id="sel-leaf-dropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;max-height:320px;overflow-y:auto;background:#1A2138;border:1px solid var(--c-card-border);border-radius:var(--r-sm);box-shadow:var(--sh-2);z-index:100">
+      </div>
+    </div>
     <button id="btn-reset" class="btn btn-sm btn-sec" style="margin-left:auto">重置</button>
   </div>
   <select id="sel-leaf" style="display:none"></select>
@@ -61,7 +64,7 @@
   (function(){
     var groups = {{ groups | tojson }};
     var leafInput = document.getElementById('sel-leaf-input');
-    var leafList = document.getElementById('sel-leaf-list');
+    var leafList = document.getElementById('sel-leaf-dropdown');
     var sel3 = document.getElementById('sel-leaf');  // 隐藏的 select，兼容旧代码
     var currentGroup = {{ selected_group|default('')|tojson }};
     var currentName = {{ selected_group_name|default('')|tojson }};
@@ -70,36 +73,63 @@
 
     function uniq(arr){ var seen={}; return arr.filter(function(x){ if(!x) return false; if(seen[x]) return false; seen[x]=true; return true; }); }
 
-    // 填充 datalist（可搜索，按大类分组，显示样本数）
-    function renderLeaf(){
+    // 渲染自定义下拉（深色 + 蓝色，按大类分组）
+    var allItems = [];  // 所有选项 {g, spec, cat}
+    function renderDropdown(filter){
+      filter = (filter || '').toLowerCase();
       leafList.innerHTML = '';
+      // 按大类分组
+      var groupsByCat = {};
+      allItems.forEach(function(item){
+        if (filter && item.spec.toLowerCase().indexOf(filter) < 0) return;
+        if (!groupsByCat[item.cat]) groupsByCat[item.cat] = [];
+        groupsByCat[item.cat].push(item);
+      });
+      // 渲染分组
+      Object.keys(groupsByCat).forEach(function(cat){
+        // 分组标题
+        var divCat = document.createElement('div');
+        divCat.style.cssText = 'padding:6px 12px;font-size:11px;color:var(--c-text-3);text-transform:uppercase;letter-spacing:.5px;background:rgba(255,255,255,.03)';
+        divCat.textContent = cat;
+        leafList.appendChild(divCat);
+        // 选项
+        groupsByCat[cat].forEach(function(item){
+          var div = document.createElement('div');
+          div.style.cssText = 'padding:8px 12px;cursor:pointer;font-size:13px;color:var(--c-text);display:flex;justify-content:space-between;align-items:center';
+          div.innerHTML = '<span>' + item.spec + '</span><span style="font-size:11px;color:var(--c-text-3)">' + item.g.count + '条</span>';
+          div.onmouseenter = function(){ this.style.background = 'var(--c-accent-soft)'; };
+          div.onmouseleave = function(){ this.style.background = 'transparent'; };
+          div.onclick = function(){
+            leafInput.value = item.spec;
+            sel3.value = item.g.raw_id;
+            leafList.style.display = 'none';
+            sel3.dispatchEvent(new Event('change'));
+          };
+          leafList.appendChild(div);
+        });
+      });
+    }
+
+    function renderLeaf(){
       sel3.innerHTML = '<option value="">全部材料</option>';
+      allItems = [];
       // 按大类分组
       var groupsByCat = {};
       groups.forEach(function(g){
         var m = g.name.match(/^([^\[]+)\s*\[(.*)\]$/);
         var cat = m ? m[1] : "其他";
         var spec = m ? m[2] : g.name;
+        allItems.push({g: g, spec: spec, cat: cat});
         if (!groupsByCat[cat]) groupsByCat[cat] = [];
-        groupsByCat[cat].push({g: g, spec: spec});
+        groupsByCat[cat].push(g);
       });
-      // 渲染 datalist option（value 用完整 name 用于匹配，label 显示短名+样本数）
-      Object.keys(groupsByCat).forEach(function(cat){
-        groupsByCat[cat].forEach(function(item){
-          var o = document.createElement('option');
-          o.value = item.g.name;
-          o.setAttribute('data-value', item.g.raw_id);
-          leafList.appendChild(o);
-        });
-      });
-      // 渲染隐藏 select（用 optgroup 分组，显示短名+样本数）
+      // 渲染隐藏 select（用 optgroup 分组）
       Object.keys(groupsByCat).forEach(function(cat){
         var og = document.createElement('optgroup');
         og.label = cat;
-        groupsByCat[cat].forEach(function(item){
+        groupsByCat[cat].forEach(function(g){
           var o = document.createElement('option');
-          o.value = item.g.raw_id;
-          o.textContent = item.spec + '  (' + item.g.count + '条)';
+          o.value = g.raw_id;
           og.appendChild(o);
         });
         sel3.appendChild(og);
@@ -107,17 +137,26 @@
       if (currentGroup) {
         leafInput.value = currentName; sel3.value = currentGroup;
       }
+      renderDropdown('');
     }
     renderLeaf();
 
-    // input 选择后同步到隐藏 select 并触发 change
-    leafInput.addEventListener('change', function(){
-      var opt = leafList.querySelector('option[value="'+this.value+'"]');
-      if (opt) {
-        sel3.value = opt.getAttribute('data-value');
-        sel3.dispatchEvent(new Event('change'));
+    // 输入时过滤 + 显示下拉
+    leafInput.addEventListener('focus', function(){
+      renderDropdown(this.value);
+      leafList.style.display = 'block';
+    });
+    leafInput.addEventListener('input', function(){
+      renderDropdown(this.value);
+      leafList.style.display = 'block';
+    });
+    // 点击外部关闭下拉
+    document.addEventListener('click', function(e){
+      if (!leafList.contains(e.target) && e.target !== leafInput) {
+        leafList.style.display = 'none';
       }
     });
+
 
     function fmt(n){ return n ? n.toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—'; }
 
