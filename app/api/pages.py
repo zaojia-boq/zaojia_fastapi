@@ -375,6 +375,40 @@ async def portal_search(request: Request, db: Session = Depends(get_db),
     ))
 
 
+@router.get("/portal/price/samples", response_class=HTMLResponse)
+async def portal_price_samples(request: Request, db: Session = Depends(get_db),
+                               user: dict | None = Depends(get_page_user_optional)):
+    """单价分析聚合组样本明细 —— 展示该组下的原始清单项。"""
+    group = request.query_params.get("group", "")
+    from app.services.material_classifier import classify_boq
+    from app.models.boq_item import BoqItem
+    rows = []
+    group_name = group
+    if group.startswith("regex:"):
+        parts = group.split(":", 2)
+        if len(parts) == 3:
+            group_name = f"{parts[1]} [{parts[2]}]"
+            target_cat, target_spec = parts[1], parts[2]
+            items = db.query(BoqItem).filter(BoqItem.active == True, BoqItem.unit_rate_num != None).all()
+            for r in items:
+                c = classify_boq(r.item_name, r.item_feature)
+                if c.category == target_cat and c.spec == target_spec:
+                    rows.append({
+                        "code": r.item_code or "",
+                        "name": r.item_name or "",
+                        "feature": r.item_feature or "",
+                        "unit": r.unit or "",
+                        "qty": r.quantity_num or 0,
+                        "price": r.unit_rate_num or 0,
+                        "period": r.price_period.strftime("%Y-%m") if r.price_period else "",
+                        "project": r.project_name or "",
+                    })
+    return _render("portal/price_samples.html", _ctx_portal(
+        request, db, "price", "样本明细", user,
+        group_name=group_name, rows=rows, count=len(rows),
+    ))
+
+
 @router.get("/portal/price", response_class=HTMLResponse)
 async def portal_price(request: Request, db: Session = Depends(get_db),
                        user: dict | None = Depends(get_page_user_optional)):

@@ -1,0 +1,39 @@
+{% extends "portal/base_portal.html" %}
+{% block title %}样本明细 · 单价分析{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h2>样本明细</h2>
+    <div class="muted">{{ group_name }} · 共 {{ count }} 条</div>
+  </div>
+  <a class="btn btn-sec" href="/portal/price">← 返回单价分析</a>
+</div>
+
+<div class="card">
+  <table class="tbl">
+    <thead>
+      <tr>
+        <th>清单编码</th><th>项目名称</th><th>项目特征</th>
+        <th>单位</th><th class="td-num">工程量</th><th class="td-num">综合单价</th>
+        <th>价格期</th><th>所属工程</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td class="mono small">{{ r.code }}</td>
+        <td>{{ r.name }}</td>
+        <td class="small muted">{{ r.feature[:80] }}{% if r.feature|length > 80 %}…{% endif %}</td>
+        <td>{{ r.unit }}</td>
+        <td class="td-num">{{ "{:,.2f}".format(r.qty) }}</td>
+        <td class="td-num">{{ "{:,.2f}".format(r.price) }}</td>
+        <td class="small">{{ r.period }}</td>
+        <td class="small">{{ r.project }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="8" class="empty">无样本数据</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

@@ -341,9 +341,7 @@
               {{ g.name }}
             </td>
             <td class="td-num">
-              {% set spec_kw = g.name.split('[')|last|replace(']','')|trim %}
-              {% set kw = spec_kw.split('-')[0] %}
-              <a href="/portal/search?kw={{ kw|urlencode }}" title="查看清单检索">{{ g.count }}</a>
+              <a href="/portal/price/samples?group={{ g.raw_id|urlencode }}" title="查看该组样本明细">{{ g.count }}</a>
             </td>
             <td class="td-num">{{ "{:,.2f}".format(g.min) }}</td>
             <td class="td-num"><b>{{ "{:,.2f}".format(g.avg) }}</b></td>
