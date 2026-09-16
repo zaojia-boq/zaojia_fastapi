@@ -1458,6 +1458,21 @@ def get_price_analysis(
                 period_rows.sort(key=lambda x: x["name"])
                 groups = period_rows
 
+            # 选中 group 时，返回原始明细行（清单项级别）
+            detail_rows = []
+            if group and rows:
+                for r in rows:
+                    detail_rows.append({
+                        "code": r.get("item_code", ""),
+                        "name": r.get("item_name", ""),
+                        "feature": "",  # 暂不返回完整特征，避免数据过大
+                        "unit": "",
+                        "qty": r.get("quantity_num", 0),
+                        "price": r.get("unit_rate_num", 0),
+                        "period": r.get("price_period", ""),
+                        "project": r.get("project_name", ""),
+                    })
+
             # 门禁（M4 准入：覆盖率 + 异常率）
             raw_metrics = [{
                 "material_dict_id": r.material_dict_id,
@@ -1492,6 +1507,7 @@ def get_price_analysis(
                 metrics=metrics,
                 selected_group=group,
                 selected_group_name=selected_name,
+                detail_rows=detail_rows,
             )
     except Exception as exc:
         return _fail(exc,

@@ -367,6 +367,40 @@
     {% endif %}
   </div>
 
+  {# 选中规格时显示原始清单项明细 #}
+  {% if selected_group and detail_rows %}
+  <div class="card" style="margin-top:16px">
+    <div class="card-head">
+      <div class="card-title">原始清单项明细</div>
+      <div class="right"><span class="muted small">共 {{ detail_rows|length }} 条</span></div>
+    </div>
+    <div class="tbl-wrap">
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th>清单编码</th><th>项目名称</th><th>单位</th>
+            <th class="td-num">工程量</th><th class="td-num">综合单价</th>
+            <th>价格期</th><th>所属工程</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in detail_rows %}
+          <tr>
+            <td class="mono small">{{ r.code }}</td>
+            <td>{{ r.name }}</td>
+            <td>{{ r.unit }}</td>
+            <td class="td-num">{{ "{:,.2f}".format(r.qty) }}</td>
+            <td class="td-num">{{ "{:,.2f}".format(r.price) }}</td>
+            <td class="small">{{ r.period }}</td>
+            <td class="small">{{ r.project }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
   <!-- ======= 质量门禁（M4 准入）======= -->
   {% if gate %}
   <div class="card">
