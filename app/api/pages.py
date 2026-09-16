@@ -378,10 +378,27 @@ async def portal_search(request: Request, db: Session = Depends(get_db),
 @router.get("/portal/price/samples", response_class=HTMLResponse)
 async def portal_price_samples(request: Request, db: Session = Depends(get_db),
                                user: dict | None = Depends(get_page_user_optional)):
-    """单价分析聚合组样本明细 —— 展示该组下的原始清单项。"""
+    """单价分析聚合组样本明细 —— 展示该组下的原始清单项。
+
+    口径与聚合页 get_price_analysis 完全对齐（任务1.2）：
+    - 同一条基础过滤：active + unit_rate_num not null + range_months 时间窗口
+    - 同一个有界池：MAX_SEARCH_POOL，防止全量加载（任务1.3）
+    - 明细页显示原始条数（不去重），与聚合页 raw_count_by_agg 一致
+    """
     group = request.query_params.get("group", "")
+    # 时间窗口参数与聚合页一致
+    try:
+        range_months = int(request.query_params.get("range", 24))
+    except ValueError:
+        range_months = 24
+    if range_months not in (0, 6, 12, 24, 36):
+        range_months = 24
+
     from app.services.material_classifier import classify_boq
+    from app.services.page_services import MAX_SEARCH_POOL
     from app.models.boq_item import BoqItem
+    from datetime import date, timedelta
+
     rows = []
     group_name = group
     if group.startswith("regex:"):
@@ -389,7 +406,17 @@ async def portal_price_samples(request: Request, db: Session = Depends(get_db),
         if len(parts) == 3:
             group_name = f"{parts[1]} [{parts[2]}]"
             target_cat, target_spec = parts[1], parts[2]
-            items = db.query(BoqItem).filter(BoqItem.active == True, BoqItem.unit_rate_num != None).all()
+            # 与聚合页同一条基础过滤
+            q = db.query(BoqItem).filter(
+                BoqItem.active == True,  # noqa: E712
+                BoqItem.unit_rate_num != None,  # noqa: E711
+            )
+            # 时间窗口（与聚合页同逻辑）
+            if range_months and range_months > 0:
+                since = (date.today().replace(day=1) - timedelta(days=range_months * 30.5))
+                q = q.filter(BoqItem.price_period >= since)
+            # 有界池（与聚合页同上限）
+            items = q.order_by(BoqItem.price_period.desc().nulls_last()).limit(MAX_SEARCH_POOL).all()
             for r in items:
                 c = classify_boq(r.item_name, r.item_feature, r.item_code, r.item_code_version)
                 if c.category == target_cat and c.spec == target_spec:
