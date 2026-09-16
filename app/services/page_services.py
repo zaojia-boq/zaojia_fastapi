@@ -1315,6 +1315,7 @@ def get_price_analysis(
                 agg = f"regex:{c.category}:{c.spec}"
                 rows_all.append({
                     "unit_rate_num": _f(r.unit_rate_num),
+                    "quantity_num": _f(r.quantity_num),
                     "price_period": _period(r.price_period),
                     "project_name": r.project_name or "—",
                     "aggregate_id": agg,

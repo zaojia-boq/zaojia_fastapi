@@ -51,12 +51,11 @@ def is_anomaly(current, historical_avg, threshold=DEFAULT_THRESHOLD,
 def compute_kpis(rows):
     """逐行计算 KPI（M3 §3.2 卡片）。
 
-    rows: list[dict]，每行的 'unit_rate_num' 为 float 或 None。
-    过滤 None 后计算：样本数 / 均价 / 最低 / 最高 / 异常数。
-    anomaly_count = 相对「本批计算的 avg」被标记为异常的值个数
-                    （阈值 0.30、样本下限 3，与 §3.4 一致）。
+    rows: list[dict]，每行的 'unit_rate_num' 为 float 或 None，'quantity_num' 可选。
+    过滤 None 后计算：样本数 / 加权均价（按工程量）/ 最低 / 最高 / 异常数。
+    anomaly_count = 相对「加权均价」被标记为异常的值个数。
     """
-    vals = [r['unit_rate_num'] for r in rows
+    vals = [(r['unit_rate_num'], r.get('quantity_num') or 1) for r in rows
             if r.get('unit_rate_num') is not None]
     sample_count = len(vals)
     if sample_count == 0:
@@ -67,16 +66,17 @@ def compute_kpis(rows):
             'max': 0.0,
             'anomaly_count': 0,
         }
-    avg = sum(vals) / sample_count
+    total_qty = sum(q for _, q in vals)
+    avg = sum(v * q for v, q in vals) / total_qty if total_qty else sum(v for _, v in vals) / sample_count
     anomaly_count = sum(
-        1 for v in vals
+        1 for v, _ in vals
         if is_anomaly(v, avg, DEFAULT_THRESHOLD, sample_count, DEFAULT_MIN_SAMPLE)
     )
     return {
         'sample_count': sample_count,
         'avg': avg,
-        'min': min(vals),
-        'max': max(vals),
+        'min': min(v for v, _ in vals),
+        'max': max(v for v, _ in vals),
         'anomaly_count': anomaly_count,
     }
 
@@ -86,10 +86,8 @@ def analyze_group(rows, group_key, measures=None):
 
     group_key ∈ {'aggregate_id','match_key_source','province','price_period'}。
     每组返回 {group, avg, min, max, count, anomaly_count}：
-    - avg/min/max/count 基于该组 unit_rate_num（忽略 None）；
-    - anomaly_count 相对该组自身 avg 判定（阈值 0.30、样本下限 3）。
-
-    measures 参数保留为前向兼容（未来支持 quantity_num sum 等），当前未使用。
+    - avg 按工程量加权；min/max/count 基于 unit_rate_num（忽略 None）；
+    - anomaly_count 相对该组自身加权 avg 判定。
     """
     if group_key not in GROUP_KEYS:
         raise ValueError('非法分组维度: %r，应为 %s 之一' % (group_key, GROUP_KEYS))
@@ -97,11 +95,11 @@ def analyze_group(rows, group_key, measures=None):
     buckets = {}
     for r in rows:
         key = r.get(group_key)
-        buckets.setdefault(key, []).append(r.get('unit_rate_num'))
+        buckets.setdefault(key, []).append((r.get('unit_rate_num'), r.get('quantity_num') or 1))
 
     result = []
     for group_val, raw_vals in buckets.items():
-        vals = [v for v in raw_vals if v is not None]
+        vals = [(v, q) for v, q in raw_vals if v is not None]
         count = len(vals)
         if count == 0:
             result.append({
@@ -109,16 +107,17 @@ def analyze_group(rows, group_key, measures=None):
                 'max': 0.0, 'count': 0, 'anomaly_count': 0,
             })
             continue
-        avg = sum(vals) / count
+        total_qty = sum(q for _, q in vals)
+        avg = sum(v * q for v, q in vals) / total_qty if total_qty else sum(v for v, _ in vals) / count
         anomaly_count = sum(
-            1 for v in vals
+            1 for v, _ in vals
             if is_anomaly(v, avg, DEFAULT_THRESHOLD, count, DEFAULT_MIN_SAMPLE)
         )
         result.append({
             'group': group_val,
             'avg': avg,
-            'min': min(vals),
-            'max': max(vals),
+            'min': min(v for v, _ in vals),
+            'max': max(v for v, _ in vals),
             'count': count,
             'anomaly_count': anomaly_count,
         })
