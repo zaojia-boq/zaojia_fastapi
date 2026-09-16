@@ -26,9 +26,10 @@ _CABLE_MODELS = [
 
 # 钢筋
 _REBAR_PAT = re.compile(
-    r'(HRB400|HRB500|HPB300|HRBF400|螺纹钢|圆钢|钢筋)\s*[ΦφA]?\s*(\d{1,3})?',
+    r'(HRB400|HRB500|HPB300|HRBF400|螺纹钢|圆钢|钢筋)',
     re.IGNORECASE,
 )
+_REBAR_DIA_PAT = re.compile(r'[Φφ]\s*(\d{2,3})')
 
 # 混凝土强度
 _CONCRETE_PAT = re.compile(r'\b(C\d{2}(?:\.\d)?)\b')
@@ -78,13 +79,11 @@ def _extract_cable_spec(text: str) -> str:
 
 def _extract_rebar_spec(text: str) -> str:
     m = _REBAR_PAT.search(text)
-    if m:
-        grade = m.group(1) or "钢筋"
-        dia = m.group(2)
-        if dia:
-            return f"{grade} Φ{dia}"
-        return grade
-    return "钢筋"
+    grade = m.group(1) if m else "钢筋"
+    dm = _REBAR_DIA_PAT.search(text)
+    if dm:
+        return f"{grade} Φ{dm.group(1)}"
+    return grade
 
 
 def _extract_concrete_spec(text: str) -> str:

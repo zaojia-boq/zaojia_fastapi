@@ -1289,7 +1289,6 @@ def get_price_analysis(
             q = s.query(BoqItem).filter(
                 BoqItem.active == True,  # noqa: E712
                 BoqItem.unit_rate_num != None,  # noqa: E711
-                BoqItem.price_period != None,  # noqa: E711
             )
             # 先按近N月过滤；如果结果为0则取消时间过滤（兜底）
             if range_months and range_months > 0:
@@ -1302,15 +1301,6 @@ def get_price_analysis(
                 from sqlalchemy import or_ as sa_or
                 from app.models.material_dict import MaterialDict as MD
                 major_dict_ids = s.query(MD.id).filter(MD.code.like(f"{major}%"))
-                q = q.filter(BoqItem.material_dict_id.in_(major_dict_ids))
-
-            # A档核心材料白名单过滤：默认只统计 A 档大类下的 boq_item
-            # 通过 material_dict_id 关联到 material_dict.code 前缀匹配（l1/l2/l3/l4/l5 code 都以 l1 code 开头）
-            if not show_all:
-                from sqlalchemy import or_ as sa_or
-                from app.models.material_dict import MaterialDict as MD
-                major_cond = sa_or(*[MD.code.like(f"{prefix}%") for prefix in MAJOR_CATEGORY_PREFIXES])
-                major_dict_ids = s.query(MD.id).filter(major_cond)
                 q = q.filter(BoqItem.material_dict_id.in_(major_dict_ids))
 
             # 指定聚合组时，KPI/趋势/直方图只统计该组；groups 列表仍显示全部
