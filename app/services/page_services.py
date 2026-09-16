@@ -1332,7 +1332,7 @@ def get_price_analysis(
             from app.services.material_classifier import classify_boq
             rows_all = []
             for r in items:
-                c = classify_boq(r.item_name, r.item_feature)
+                c = classify_boq(r.item_name, r.item_feature, r.item_code, r.item_code_version)
                 # 只保留 5 大类命中的行，长尾材料不进单价分析
                 if not c.category:
                     continue

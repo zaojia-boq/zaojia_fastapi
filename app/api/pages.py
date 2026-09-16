@@ -391,7 +391,7 @@ async def portal_price_samples(request: Request, db: Session = Depends(get_db),
             target_cat, target_spec = parts[1], parts[2]
             items = db.query(BoqItem).filter(BoqItem.active == True, BoqItem.unit_rate_num != None).all()
             for r in items:
-                c = classify_boq(r.item_name, r.item_feature)
+                c = classify_boq(r.item_name, r.item_feature, r.item_code, r.item_code_version)
                 if c.category == target_cat and c.spec == target_spec:
                     rows.append({
                         "code": r.item_code or "",
