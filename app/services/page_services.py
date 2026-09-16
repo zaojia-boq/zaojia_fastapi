@@ -1407,7 +1407,7 @@ def get_price_analysis(
             # 各聚合组对比（aggregate_id 维度）
             raw_groups = analyze_group(rows_all, "aggregate_id")
 
-            def _friendly_agg_name(agg: str, sample_row: dict | None = None) -> str:
+            def _friendly_agg_name(agg: str) -> str:
                 """将 aggregate_id 转为友好显示名称。regex:<大类>:<规格> → 大类 [规格]"""
                 if not agg:
                     return "—"
@@ -1417,24 +1417,14 @@ def get_price_analysis(
                         return f"{parts[1]} [{parts[2]}]"
                 return agg
 
-            # 构建 aggregate_id -> 样本行 映射
-            agg_sample_map = {}
-            for r in rows:
-                agg = r.get("aggregate_id", "")
-                if agg and agg not in agg_sample_map:
-                    agg_sample_map[agg] = r
-
             groups = []
             for g in raw_groups:
                 agg_raw = g.get("group") or "—"
-                sample_row = agg_sample_map.get(agg_raw)
-                g_l1, g_l2, g_l3 = "", "", ""
                 groups.append({
-                    "name": _friendly_agg_name(agg_raw, sample_row),
+                    "name": _friendly_agg_name(agg_raw),
                     "raw_id": agg_raw,
-                    "l1": g_l1,
-                    "l2": g_l2,
-                    "l3": g_l3,
+                    "avg": round(g.get("avg") or 0, 2),
+                    "raw_id": agg_raw,
                     "avg": round(g.get("avg") or 0, 2),
                     "min": round(g.get("min") or 0, 2),
                     "max": round(g.get("max") or 0, 2),

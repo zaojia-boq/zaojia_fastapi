@@ -183,7 +183,7 @@
             var btn = d.selected_group
               ? '<a class="btn btn-xs btn-sec" href="/portal/price?range={{ current_range }}&major={{ current_major }}{% if current_show_all %}&show_all=1{% endif %}">返回全部</a>'
               : '<a class="btn btn-xs btn-sec" href="/portal/price?range={{ current_range }}&major={{ current_major }}{% if current_show_all %}&show_all=1{% endif %}&group='+encodeURIComponent(g.raw_id)+'">趋势</a>';
-            return '<tr><td class="mono">'+(g.l2?'<span class="muted small" style="margin-right:6px">'+g.l2+'</span>':'')+g.name+'</td>'
+            return '<tr><td class="mono">'+g.name+'</td>'
               +'<td class="td-num">'+g.count+'</td>'
               +'<td class="td-num">'+Number(g.min).toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td>'
               +'<td class="td-num"><b>'+Number(g.avg).toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2})+'</b></td>'
@@ -314,9 +314,9 @@
   <!-- ======= 各聚合组对比 / 选中组样本明细 ======= -->
   <div class="card">
     <div class="card-head">
-      <div class="card-title">{% if selected_group %}样本明细（按价格期）{% else %}聚合组报价对比{% endif %}</div>
+      <div class="card-title">{% if selected_group %}样本明细{% else %}聚合组报价对比{% endif %}</div>
       <div class="right">
-        <span class="muted small">{% if selected_group %}该聚合组在各价格期的单价分布{% else %}按 aggregate_id 聚合 · 偏离相对全区间均价{% endif %}</span>
+        <span class="muted small">{% if selected_group %}该规格的全部原始清单项{% else %}按 aggregate_id 聚合 · 偏离相对全区间均价{% endif %}</span>
       </div>
     </div>
     {% if groups %}
@@ -331,7 +331,6 @@
           {% for g in groups %}
           <tr>
             <td class="mono">
-              {% if g.l2 %}<span class="muted small" style="margin-right:6px">{{ g.l2 }}</span>{% endif %}
               {{ g.name }}
             </td>
             <td class="td-num">

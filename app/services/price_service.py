@@ -154,7 +154,7 @@ def get_analysis(db: Session, domain=None, threshold: float = 0.30) -> dict[str,
                 'price_period': r.price_period.isoformat() if r.price_period else None,
             })
 
-        data = {dim: analyze_group(rows, dim, measures=None)
+        data = {dim: analyze_group(rows, dim)
                 for dim in _ANALYSIS_DIMS}
 
         return {
