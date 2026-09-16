@@ -17,7 +17,7 @@
 import math
 
 # 默认偏离阈值 / 样本下限（与 M3 §3.4 一致，阈值 30%、样本下限 3）
-DEFAULT_THRESHOLD = 0.50
+DEFAULT_THRESHOLD = 0.95
 DEFAULT_MIN_SAMPLE = 3
 
 # analyze_group 支持的合法分组维度（M3 §3.3 透视表分组维度）
