@@ -211,6 +211,30 @@
 
       status.textContent = d.selected_group_name ? '✓ 已筛选：'+d.selected_group_name : '';
 
+      // 更新原始清单项明细
+      var detailCard = document.getElementById('detail-rows-card');
+      var detailBody = document.getElementById('detail-rows-body');
+      var detailCount = document.getElementById('detail-rows-count');
+      var detailRows = d.detail_rows || [];
+      if (d.selected_group && detailRows.length > 0) {
+        detailCard.style.display = '';
+        detailCount.textContent = '共 ' + detailRows.length + ' 条';
+        detailBody.innerHTML = detailRows.map(function(r){
+          var feat = r.feature || '';
+          var featShort = feat.length > 80 ? feat.substring(0,80) + '…' : feat;
+          return '<tr><td class="mono small">'+r.code+'</td>'
+            + '<td>'+r.name+'</td>'
+            + '<td class="small muted">'+featShort+'</td>'
+            + '<td>'+r.unit+'</td>'
+            + '<td class="td-num">'+Number(r.qty).toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td>'
+            + '<td class="td-num">'+Number(r.price).toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td>'
+            + '<td class="small">'+r.period+'</td>'
+            + '<td class="small">'+r.project+'</td></tr>';
+        }).join('');
+      } else {
+        detailCard.style.display = 'none';
+      }
+
       // 重建聚合组表格
       var tblCard = document.querySelectorAll('.card');
       var groupCard = null;
@@ -423,11 +447,10 @@
   </div>
 
   {# 选中规格时显示原始清单项明细 #}
-  {% if selected_group and detail_rows %}
-  <div class="card" style="margin-top:16px">
+  <div class="card" id="detail-rows-card" style="margin-top:16px;{% if not (selected_group and detail_rows) %}display:none;{% endif %}">
     <div class="card-head">
       <div class="card-title">原始清单项明细</div>
-      <div class="right"><span class="muted small">共 {{ detail_rows|length }} 条</span></div>
+      <div class="right"><span class="muted small" id="detail-rows-count">共 {{ detail_rows|length }} 条</span></div>
     </div>
     <div class="tbl-wrap">
       <table class="tbl">
@@ -438,7 +461,7 @@
             <th>价格期</th><th>所属工程</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody id="detail-rows-body">
           {% for r in detail_rows %}
           <tr>
             <td class="mono small">{{ r.code }}</td>
@@ -455,7 +478,6 @@
       </table>
     </div>
   </div>
-  {% endif %}
 
   <!-- ======= 质量门禁（M4 准入）======= -->
   {% if gate %}

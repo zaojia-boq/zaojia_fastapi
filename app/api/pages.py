@@ -494,6 +494,7 @@ async def portal_price_data(request: Request, db: Session = Depends(get_db)):
         "groups": data.get("groups"),
         "selected_group": data.get("selected_group", ""),
         "selected_group_name": data.get("selected_group_name", ""),
+        "detail_rows": data.get("detail_rows", []),
     }
 
 
