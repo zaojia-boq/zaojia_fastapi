@@ -94,6 +94,62 @@ PAGE_SIZE = 50
 # 防止百万行全量拉入内存（禁止全量加载）。取价格期最新的有界候选池做打分 + 分页。
 MAX_SEARCH_POOL = 2000
 
+# ============================================================================
+# 模块级缓存（匹配确认页面性能优化）
+# 候选池 12651 条 + TF-IDF 索引 + 映射表，每次请求重建耗时 ~2s
+# 改为首次请求时构建一次，后续复用（5分钟过期）
+# ============================================================================
+_match_pool_cache = None
+_match_tfidf_cache = None
+_match_mapping_cache = None
+_match_cache_built_at = 0.0
+_MATCH_CACHE_TTL = 300.0
+
+
+def _get_match_caches(s):
+    """获取匹配确认页面的缓存（候选池 + TF-IDF + 映射表）。"""
+    global _match_pool_cache, _match_tfidf_cache, _match_mapping_cache, _match_cache_built_at
+    import time
+    now = time.time()
+    if (_match_pool_cache is not None and _match_mapping_cache is not None and
+        (now - _match_cache_built_at) < _MATCH_CACHE_TTL):
+        return _match_pool_cache, _match_tfidf_cache, _match_mapping_cache
+    from app.models.material_dict import MaterialDict
+    from app.models.list_material_mapping import ListMaterialMapping
+    dict_rows = s.query(
+        MaterialDict.id, MaterialDict.name, MaterialDict.spec_whitelist,
+        MaterialDict.parent_id, MaterialDict.level
+    ).filter(MaterialDict.level.in_(['l3', 'l4'])).all()
+    cat_by_id = {n.id: n for n in dict_rows}
+    pool = [{
+        "id": n.id, "name": n.name,
+        "spec": (n.spec_whitelist or {}).get("list", [None])[0]
+                if isinstance(n.spec_whitelist, dict) and n.spec_whitelist.get("list") else "",
+        "category_path": _category_path_of(n, cat_by_id),
+    } for n in dict_rows if n.name and len(n.name.strip()) >= 3]
+    tfidf = TfidfMatcher(pool) if pool else None
+    mapping_rows = s.query(ListMaterialMapping.list_item_code, ListMaterialMapping.material_name).all()
+    mapping = {}
+    for code, name in mapping_rows:
+        if code and name:
+            code9 = code[:9] if len(code) >= 9 else code
+            if code9 not in mapping:
+                mapping[code9] = name.strip()
+    _match_pool_cache = pool
+    _match_tfidf_cache = tfidf
+    _match_mapping_cache = mapping
+    _match_cache_built_at = now
+    return pool, tfidf, mapping
+
+
+def invalidate_match_cache():
+    """失效匹配确认页面缓存（新增映射/材料字典后调用）。"""
+    global _match_pool_cache, _match_tfidf_cache, _match_mapping_cache, _match_cache_built_at
+    _match_pool_cache = None
+    _match_tfidf_cache = None
+    _match_mapping_cache = None
+    _match_cache_built_at = 0.0
+
 
 def _apply_nonkw_filters(query, f_major, f_code, f_name, f_source, f_anomaly, std_status, only_std):
     """P1-4：清单检索「非关键词」过滤条件的唯一实现（单一事实源）。
@@ -1075,37 +1131,32 @@ def get_pending_matches(db: Session | None = None, limit: int = 50) -> dict[str,
         from app.models.material_dict import MaterialDict
 
         with _session_scope(db) as s:
-            # 候选池：取 l3+l4 级（l3大类如"槽式桥架及配件"，l4材料名称如"照明配电箱"）
-            # 不取 l5 叶子节点（spec 字段会导致匹配到无意义碎片）
-            dict_rows = s.query(
-                MaterialDict.id, MaterialDict.name, MaterialDict.spec_whitelist,
-                MaterialDict.parent_id, MaterialDict.level
-            ).filter(MaterialDict.level.in_(['l3', 'l4'])).all()
-            cat_by_id = {n.id: n for n in dict_rows}
-            pool = [{
-                "id": n.id,
-                "name": n.name,
-                "spec": (n.spec_whitelist or {}).get("list", [None])[0]
-                        if isinstance(n.spec_whitelist, dict) and n.spec_whitelist.get("list")
-                        else "",
-                "category_path": _category_path_of(n, cat_by_id),
-            } for n in dict_rows if n.name and len(n.name.strip()) >= 3]
+            # 性能优化：使用模块级缓存（候选池 + TF-IDF + 映射表）
+            # 避免每次请求重建 12651 条候选池 + TF-IDF 索引（耗时 ~2s）
+            pool, tfidf_matcher, mapping_cache = _get_match_caches(s)
 
-            # 候选池已构建（复用上面的pool）
             pending = s.query(BoqItem).filter(
                 BoqItem.active == True,  # noqa: E712
                 BoqItem.material_dict_id == None,  # noqa: E711
             ).order_by(BoqItem.id).limit(limit).all()
 
-            # 构建 TF-IDF 索引（复用，避免每个清单项重新构建）
-            tfidf_matcher = TfidfMatcher(pool) if pool else None
-
             items = []
             cache_hits = 0
+            # 批量查询缓存（避免 N+1 查询）
+            from app.models.match_cache import MatchCache
+            pending_ids = [r.id for r in pending]
+            cache_rows = s.query(MatchCache.boq_item_id, MatchCache.candidates, MatchCache.computed_at).filter(
+                MatchCache.boq_item_id.in_(pending_ids)
+            ).all() if pending_ids else []
+            from datetime import datetime, timezone, timedelta
+            cache_map = {}
+            for boq_id, cands, computed_at in cache_rows:
+                if computed_at and (datetime.now(timezone.utc) - computed_at) < timedelta(hours=24):
+                    cache_map[boq_id] = cands
+
             for r in pending:
                 # 优先从缓存读取候选（后台预匹配）
-                from app.services.prematch_service import get_cached_candidates
-                cached = get_cached_candidates(s, r.id)
+                cached = cache_map.get(r.id)
                 if cached is not None:
                     # 缓存结果也按 name 去重
                     seen = set()
@@ -1121,30 +1172,24 @@ def get_pending_matches(db: Session | None = None, limit: int = 50) -> dict[str,
                     # 缓存未命中，实时计算（rapidfuzz + TF-IDF 融合）
                     query_name = r.item_name or ''
                     query_spec = r.std_spec or r.item_feature or ''
-                    rf_cands = score_candidates(query_name, query_spec, pool)
 
-                    # 第一层：按清单前9位查映射，预期材料名直接设为第一候选项（100分）
+                    # 第一层：按清单前9位查映射（使用缓存，避免 N+1 查询）
                     code9 = (r.item_code or '')[:9]
                     expected_mat = None
                     expected_cand = None
-                    if code9 and len(code9) == 9:
-                        from app.models.list_material_mapping import ListMaterialMapping
-                        mm = s.query(ListMaterialMapping.material_name).filter(
-                            ListMaterialMapping.list_item_code.like(code9 + '%')
-                        ).first()
-                        if mm and mm[0]:
-                            expected_mat = mm[0].strip()
-                            # 在候选池中找预期材料名，直接设为100分排第一
-                            for c in pool:
-                                if (c.get('name') or '').strip() == expected_mat:
-                                    expected_cand = {
-                                        'dict_id': c['id'],
-                                        'name': c['name'],
-                                        'spec': c.get('spec', ''),
-                                        'score': 100.0,
-                                        'category_path': c.get('category_path', ''),
-                                    }
-                                    break
+                    if code9 and len(code9) == 9 and code9 in mapping_cache:
+                        expected_mat = mapping_cache[code9]
+                        # 在候选池中找预期材料名，直接设为100分排第一
+                        for c in pool:
+                            if (c.get('name') or '').strip() == expected_mat:
+                                expected_cand = {
+                                    'dict_id': c['id'],
+                                    'name': c['name'],
+                                    'spec': c.get('spec', ''),
+                                    'score': 100.0,
+                                    'category_path': c.get('category_path', ''),
+                                }
+                                break
 
                     if expected_cand:
                         # 有映射：只显示映射结果，不做模糊匹配补充（避免不相关候选项）
