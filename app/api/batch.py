@@ -27,7 +27,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.core.security import get_current_user, require_role, ROLE_ADMIN
-from app.core.audit import log_audit, ACTION_SOFT_DELETE, ACTION_RESTORE, ACTION_HARD_DELETE
+from app.core.audit import log_audit, ACTION_SOFT_DELETE, ACTION_RESTORE, ACTION_HARD_DELETE, ACTION_WRITE
 from app.models.import_batch import ImportBatch
 from app.models.boq_item import BoqItem
 from app.services import archive_service
