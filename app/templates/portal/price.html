@@ -50,11 +50,11 @@
 
   {# 规格选择器（可搜索） #}
   {% if groups %}
-  <div class="card" id="material-bar" style="margin-bottom:16px;padding:12px 20px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+  <div class="card" id="material-bar" style="margin-bottom:16px;padding:12px 20px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;overflow:visible">
     <span style="font-size:13px;font-weight:600;color:var(--c-text);white-space:nowrap">🔍 规格选择</span>
     <div style="position:relative;flex:1;min-width:260px;max-width:500px">
       <input id="sel-leaf-input" autocomplete="off" placeholder="输入关键词搜索规格，如 YJY-5*10" style="width:100%;padding:8px 12px;border:1px solid var(--c-sep);border-radius:var(--r-sm);font-size:13px;background:var(--c-card);color:var(--c-text);outline:none;box-sizing:border-box">
-      <div id="sel-leaf-dropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;max-height:320px;overflow-y:auto;background:#1A2138;border:1px solid var(--c-card-border);border-radius:var(--r-sm);box-shadow:var(--sh-2);z-index:100">
+      <div id="sel-leaf-dropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;max-height:320px;overflow-y:auto;background:#1A2138;border:1px solid var(--c-card-border);border-radius:var(--r-sm);box-shadow:var(--sh-2);z-index:9999">
       </div>
     </div>
     <button id="btn-reset" class="btn btn-sm btn-sec" style="margin-left:auto">重置</button>
