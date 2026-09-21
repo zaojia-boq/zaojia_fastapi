@@ -1151,8 +1151,12 @@ def get_pending_matches(db: Session | None = None, limit: int = 50) -> dict[str,
             from datetime import datetime, timezone, timedelta
             cache_map = {}
             for boq_id, cands, computed_at in cache_rows:
-                if computed_at and (datetime.now(timezone.utc) - computed_at) < timedelta(hours=24):
-                    cache_map[boq_id] = cands
+                if computed_at:
+                    # computed_at 可能是 naive datetime，转为 aware 再比较
+                    if computed_at.tzinfo is None:
+                        computed_at = computed_at.replace(tzinfo=timezone.utc)
+                    if (datetime.now(timezone.utc) - computed_at) < timedelta(hours=24):
+                        cache_map[boq_id] = cands
 
             for r in pending:
                 # 优先从缓存读取候选（后台预匹配）
