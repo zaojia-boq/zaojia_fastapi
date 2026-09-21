@@ -58,21 +58,26 @@ PREFIX_WHITELIST_2024 = {
 # 电缆型号前缀
 _CABLE_MODELS_ORDERED = [
     (r'BTLY|NG-A|BTTW|矿物绝缘|矿物电缆', 'BTLY'),
+    (r'BPGGP|BPGGR|YGGP|YGGR|硅橡胶', 'BPGGP'),
+    (r'KVVP2?|KVV|KVVR|控制电缆', 'KVV'),
     (r'WDZ[AB]N?-?YJY', 'YJY'),
     (r'WDZ[AB]N?-?YJV', 'YJV'),
     (r'ZR-?YJV|ZRC?-?YJV|ZRN?-?YJV', 'YJV'),
     (r'ZR-?YJY|ZRC?-?YJY|ZRN?-?YJY', 'YJY'),
     (r'NH-?YJV', 'NH-YJV'),
     (r'NH-?YJY', 'NH-YJY'),
+    (r'YJV22', 'YJV22'),
+    (r'YJY22', 'YJY22'),
     (r'YJV', 'YJV'),
     (r'YJY', 'YJY'),
     (r'VV22', 'VV22'),
     (r'VV', 'VV'),
     (r'BVVB', 'BVVB'),
-    (r'BV', 'BV'),
     (r'BVR', 'BVR'),
+    (r'BV', 'BV'),
     (r'RVV', 'RVV'),
     (r'RVVP', 'RVVP'),
+    (r'RVS|RVB', 'RVS'),
 ]
 
 _CABLE_EXCLUDE = re.compile(
@@ -118,6 +123,16 @@ _CABLE_SECTION_PAT = re.compile(
     r'(\d+\s*[×x*]\s*\d+(?:\s*[+]\s*\d+\s*[×x*]\s*\d+)?(?:\s*mm2?)?)',
     re.IGNORECASE,
 )
+# 单芯电线截面（BV-2.5、BVR-4、RV-1.5 等）
+_CABLE_SINGLE_SECTION_PAT = re.compile(
+    r'(?:^|[\s\-])((?:\d+(?:\.\d+)?)\s*mm2?)(?:\s|$|[,，;；])',
+    re.IGNORECASE,
+)
+# 型号后直接跟数字（BV2.5、BV4、BVR6）
+_CABLE_MODEL_SIZE_PAT = re.compile(
+    r'(?:BV|BVR|RV|RVV|RVVP|BVVB)\s*[-]?\s*(\d+(?:\.\d+)?)',
+    re.IGNORECASE,
+)
 
 
 # ===== 大类专用规格提取 =====
@@ -137,6 +152,20 @@ def _extract_cable_spec(name: str, feature: str) -> str:
     if sec:
         sec_str = sec.group(1).replace(" ", "").replace("×", "*").replace("x", "*")
         sec_str = re.sub(r'mm2?$', '', sec_str, flags=re.IGNORECASE)
+        if model:
+            return f"{model}-{sec_str}"
+        return sec_str
+    # 单芯电线：先匹配 mm² 格式，再匹配型号后直接跟数字
+    single = _CABLE_SINGLE_SECTION_PAT.search(text)
+    if single:
+        sec_str = single.group(1).replace(" ", "")
+        sec_str = re.sub(r'mm2?$', '', sec_str, flags=re.IGNORECASE)
+        if model:
+            return f"{model}-{sec_str}"
+        return sec_str
+    model_size = _CABLE_MODEL_SIZE_PAT.search(text)
+    if model_size:
+        sec_str = model_size.group(1)
         if model:
             return f"{model}-{sec_str}"
         return sec_str
