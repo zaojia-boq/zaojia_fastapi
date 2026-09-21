@@ -296,3 +296,86 @@ def _export_snapshot(batch: ImportBatch, items: list) -> str | None:
         logger.error('硬删除快照导出失败：%s', e)
         return None
     return path
+
+
+@router.post("/batches/{batch_id}/rename")
+async def rename_batch(
+    batch_id: int,
+    new_name: str = Body(..., embed=True),
+    user=Depends(require_role(ROLE_ADMIN)),
+    db: Session = Depends(get_db),
+):
+    """重命名批次（仅 admin）。"""
+    batch = db.query(ImportBatch).filter(ImportBatch.id == batch_id).first()
+    if not batch:
+        raise HTTPException(status_code=404, detail="批次不存在")
+    if not batch.active:
+        raise HTTPException(status_code=400, detail="已删除批次不可重命名，请先还原")
+
+    new_name = (new_name or "").strip()
+    if not new_name:
+        raise HTTPException(status_code=400, detail="批次名不能为空")
+    if len(new_name) > 200:
+        raise HTTPException(status_code=400, detail="批次名不能超过 200 字符")
+
+    old_name = batch.name
+    batch.name = new_name
+    db.commit()
+    db.refresh(batch)
+
+    log_audit(
+        action="rename",
+        target_type="import_batch",
+        target_id=batch.id,
+        operator=user.get("username") if user else "unknown",
+        detail=f"批次重命名：{old_name!r} → {new_name!r}",
+    )
+
+    return {"ok": True, "id": batch.id, "name": batch.name, "old_name": old_name}
+
+
+@router.post("/batches/{batch_id}/update-period")
+async def update_batch_period(
+    batch_id: int,
+    price_period: str = Body(..., embed=True),
+    user=Depends(require_role(ROLE_ADMIN)),
+    db: Session = Depends(get_db),
+):
+    """更新批次价格期（仅 admin）。price_period 格式 YYYY-MM 或 YYYY-MM-DD。"""
+    batch = db.query(ImportBatch).filter(ImportBatch.id == batch_id).first()
+    if not batch:
+        raise HTTPException(status_code=404, detail="批次不存在")
+    if not batch.active:
+        raise HTTPException(status_code=400, detail="已删除批次不可修改，请先还原")
+
+    price_period = (price_period or "").strip()
+    if not price_period:
+        batch.price_period = None
+    else:
+        # 解析 YYYY-MM 或 YYYY-MM-DD
+        try:
+            from datetime import date as _date
+            parts = price_period.split('-')
+            if len(parts) == 2:
+                pd = _date(int(parts[0]), int(parts[1]), 1)
+            elif len(parts) == 3:
+                pd = _date(int(parts[0]), int(parts[1]), int(parts[2]))
+            else:
+                raise ValueError
+            batch.price_period = pd
+        except (ValueError, IndexError):
+            raise HTTPException(status_code=400, detail="价格期格式应为 YYYY-MM 或 YYYY-MM-DD")
+
+    old_period = batch.price_period
+    db.commit()
+    db.refresh(batch)
+
+    log_audit(
+        action="update_period",
+        target_type="import_batch",
+        target_id=batch.id,
+        operator=user.get("username") if user else "unknown",
+        detail=f"批次价格期更新：{old_period} → {batch.price_period}",
+    )
+
+    return {"ok": True, "id": batch.id, "price_period": batch.price_period.isoformat() if batch.price_period else None}

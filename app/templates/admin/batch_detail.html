@@ -17,7 +17,15 @@
   <div class="card mb">
     <div class="card-head">
       <div>
-        <div class="card-title">{{ batch.name }}</div>
+        <div class="card-title" id="batch-name-display" style="display:flex;align-items:center;gap:8px;">
+          <span id="batch-name-text">{{ batch.name }}</span>
+          <button class="btn btn-ghost btn-sm" id="btn-edit-name" onclick="startRename()" title="重命名">✎ 编辑</button>
+        </div>
+        <div id="batch-name-edit" style="display:none;align-items:center;gap:8px;">
+          <input class="inp" id="input-new-name" value="{{ batch.name }}" style="min-width:320px;" onkeydown="if(event.key==='Enter')saveRename()">
+          <button class="btn btn-primary btn-sm" onclick="saveRename()">保存</button>
+          <button class="btn btn-ghost btn-sm" onclick="cancelRename()">取消</button>
+        </div>
         <div class="card-sub">ID #{{ batch.id }} · {{ batch.typeLabel }} · {{ batch.status }}</div>
       </div>
       <div class="right">
@@ -30,7 +38,12 @@
       <div class="field"><label>异常行</label><input class="inp" value="{{ "{:,}".format(batch.anomaly) }}" readonly></div>
       <div class="field"><label>跳过行</label><input class="inp" value="{{ "{:,}".format(batch.skipped) }}" readonly></div>
       <div class="field"><label>导入时间</label><input class="inp" value="{{ batch.at }}" readonly></div>
-      <div class="field"><label>价格期</label><input class="inp" value="{{ batch.period or '—' }}" readonly></div>
+      <div class="field"><label>价格期</label>
+        <div style="display:flex;gap:4px;align-items:center;">
+          <input class="inp" id="input-period" value="{{ batch.period or '' }}" placeholder="YYYY-MM" style="flex:1;">
+          <button class="btn btn-ghost btn-sm" onclick="savePeriod()" title="保存价格期">✓</button>
+        </div>
+      </div>
       <div class="field"><label>地区</label><input class="inp" value="{{ batch.province }}" readonly></div>
       <div class="field"><label>操作人</label><input class="inp" value="{{ batch.operator }}" readonly></div>
       <div class="field"><label>数据性质</label><input class="inp" value="{{ batch.typeLabel }}" readonly></div>
@@ -107,4 +120,62 @@
     </div>
   </div>
   {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function startRename() {
+  document.getElementById('batch-name-display').style.display = 'none';
+  var editBox = document.getElementById('batch-name-edit');
+  editBox.style.display = 'flex';
+  var input = document.getElementById('input-new-name');
+  input.focus();
+  input.select();
+}
+function cancelRename() {
+  document.getElementById('batch-name-edit').style.display = 'none';
+  document.getElementById('batch-name-display').style.display = 'flex';
+  document.getElementById('input-new-name').value = document.getElementById('batch-name-text').textContent;
+}
+async function saveRename() {
+  var newName = document.getElementById('input-new-name').value.trim();
+  if (!newName) { alert('批次名不能为空'); return; }
+  if (newName.length > 200) { alert('批次名不能超过 200 字符'); return; }
+  try {
+    var resp = await fetch('/api/import/batches/{{ batch.id }}/rename', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({new_name: newName})
+    });
+    var data = await resp.json();
+    if (data.ok) {
+      document.getElementById('batch-name-text').textContent = data.name;
+      cancelRename();
+    } else {
+      alert('重命名失败：' + (data.detail || '未知错误'));
+    }
+  } catch (e) {
+    alert('请求失败：' + e.message);
+  }
+}
+async function savePeriod() {
+  var period = document.getElementById('input-period').value.trim();
+  try {
+    var resp = await fetch('/api/import/batches/{{ batch.id }}/update-period', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({price_period: period})
+    });
+    var data = await resp.json();
+    if (data.ok) {
+      document.getElementById('input-period').value = data.price_period || '';
+      alert('价格期已更新');
+    } else {
+      alert('更新失败：' + (data.detail || '未知错误'));
+    }
+  } catch (e) {
+    alert('请求失败：' + e.message);
+  }
+}
+</script>
 {% endblock %}
