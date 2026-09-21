@@ -324,11 +324,10 @@ async def rename_batch(
     db.refresh(batch)
 
     log_audit(
-        action="rename",
-        target_type="import_batch",
-        target_id=batch.id,
+        db, model="import_batch", res_id=batch.id, action=ACTION_WRITE,
         operator=user.get("username") if user else "unknown",
-        detail=f"批次重命名：{old_name!r} → {new_name!r}",
+        reason=f"批次重命名：{old_name!r} → {new_name!r}",
+        field_name="name", old_value=old_name, new_value=new_name,
     )
 
     return {"ok": True, "id": batch.id, "name": batch.name, "old_name": old_name}
@@ -371,11 +370,10 @@ async def update_batch_period(
     db.refresh(batch)
 
     log_audit(
-        action="update_period",
-        target_type="import_batch",
-        target_id=batch.id,
+        db, model="import_batch", res_id=batch.id, action=ACTION_WRITE,
         operator=user.get("username") if user else "unknown",
-        detail=f"批次价格期更新：{old_period} → {batch.price_period}",
+        reason=f"批次价格期更新：{old_period} → {batch.price_period}",
+        field_name="price_period", old_value=str(old_period), new_value=str(batch.price_period),
     )
 
     return {"ok": True, "id": batch.id, "price_period": batch.price_period.isoformat() if batch.price_period else None}
