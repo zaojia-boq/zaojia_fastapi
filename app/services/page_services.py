@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """页面服务层 —— 对标 Odoo 版 zaojia_boq/static/src/* 的查询逻辑。
 
 设计目标：
@@ -1182,30 +1182,25 @@ def get_pending_matches(db: Session | None = None, limit: int = 50) -> dict[str,
                     expected_mat = None
                     expected_cand = None
                     if code9 and len(code9) == 9 and code9 in mapping_cache:
-                        expected_mat = mapping_cache[code9]
-                        # 在候选池中找预期材料名，直接设为100分排第一
-                        for c in pool:
-                            if (c.get('name') or '').strip() == expected_mat:
-                                expected_cand = {
-                                    'dict_id': c['id'],
-                                    'name': c['name'],
-                                    'spec': c.get('spec', ''),
-                                    'score': 100.0,
-                                    'category_path': c.get('category_path', ''),
-                                }
-                                break
+                        expected_cat = mapping_cache[code9]
+                        # 新映射表：material_name 存的是大类名称，直接返回大类分类
+                        # 不绑定具体 material_dict，标记 is_category: True
+                        expected_cand = {
+                            'dict_id': None,
+                            'name': expected_cat,
+                            'spec': '',
+                            'score': 100.0,
+                            'category_path': expected_cat,
+                            'is_category': True,
+                        }
 
                     if expected_cand:
                         # 有映射：只显示映射结果，不做模糊匹配补充（避免不相关候选项）
                         cands = [expected_cand]
                     else:
-                        # 无映射：走模糊匹配
-                        rf_cands = score_candidates(query_name, query_spec, pool)
-                        if tfidf_matcher:
-                            tf_cands = tfidf_matcher.match(query_name, query_spec, top_n=10)
-                            cands = fuse_scores(rf_cands, tf_cands)
-                        else:
-                            cands = rf_cands
+                        # 无映射：非 5 大类项目，不做模糊匹配，不显示候选
+                        # 这些项目（土石方、回填、门窗、防水等）不做单价分析
+                        cands = []
                     # 按 name 去重 + 最低分过滤：同名候选项只保留分数最高的。
                     # D级（0<score<50）也推荐最多3条参考候选；仅全0分（无任何相似）视为无候选。
                     seen = set()
@@ -1381,18 +1376,26 @@ def get_price_analysis(
             from app.services.material_classifier import classify_boq
             rows_all = []
             for r in items:
+                # 优先使用 std_name 字段（已按新映射表更新），否则实时分类
                 c = classify_boq(r.item_name, r.item_feature, r.item_code, r.item_code_version)
+                if r.std_name and r.std_name in ("电线电缆", "管道", "钢筋", "水泥", "混凝土", "配管配线"):
+                    category = r.std_name
+                    spec = c.spec if c else ""
+                else:
+                    category = c.category if c else ""
+                    spec = c.spec if c else ""
+                
                 # 只保留 5 大类命中的行，长尾材料不进单价分析
-                if not c.category:
+                if not category:
                     continue
-                agg = f"regex:{c.category}:{c.spec}"
+                agg = f"regex:{category}:{spec}"
                 rows_all.append({
                     "unit_rate_num": _f(r.unit_rate_num),
                     "quantity_num": _f(r.quantity_num),
                     "price_period": _period(r.price_period),
                     "project_name": r.project_name or "—",
                     "aggregate_id": agg,
-                    "category": c.category,
+                    "category": category,
                     "item_code": r.item_code or "",
                     "item_name": r.item_name or "",
                     "item_feature": r.item_feature or "",

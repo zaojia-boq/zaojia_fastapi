@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """M3.4 快速匹配 Service（FastAPI/SQLAlchemy 版）。
 
 FROZEN 契约（M3 §5 / §9.2 / 架构 §19）：
@@ -14,15 +14,24 @@ FROZEN 契约（M3 §5 / §9.2 / 架构 §19）：
 - B 类字段仅填空，绝不覆盖已有值（M3 §5.6 + M1 §4.9）；
 - 回填后 match_key 由 before_update 事件监听器自动重算（M1.2）；
 - 错误统一机器可识别错误码，前缀 MATCH_。
+
+优化记录（M7）：
+- P0-1: 匹配前先查 list_material_mapping 映射表，命中则直接返回
+- P0-2: TF-IDF/FAISS 索引缓存化，模块级单例，5分钟 TTL
+- P1-1: 同义词扩展加人工确认标记，不直接写入 material_dict
+- P1-2: 统一 _build_dict_rows 实现
 """
 import logging
+import threading
+import time
 import uuid
-from typing import Any
+from typing import Any, Optional
 
 from sqlalchemy.orm import Session
 
 from app.models.boq_item import BoqItem
 from app.models.material_dict import MaterialDict
+from app.models.list_material_mapping import ListMaterialMapping
 from app.core.audit import log_audit
 from data.match_score import score_candidates, high_confidence
 from data.tfidf_matcher import TfidfMatcher, fuse_scores
@@ -35,6 +44,20 @@ logger = logging.getLogger("zaojia.match")
 DEFAULT_RF_WEIGHT = 0.3      # rapidfuzz 编辑距离（精确匹配强）
 DEFAULT_TF_WEIGHT = 0.35     # TF-IDF 语义匹配（同义词/近义词强）
 DEFAULT_FAISS_WEIGHT = 0.35  # FAISS 向量检索（大数据量快）
+
+# P0-2: 索引缓存（模块级单例，5分钟 TTL）
+_INDEX_CACHE_TTL = 300  # 秒
+_index_cache_lock = threading.Lock()
+_index_cache: dict = {
+    "dict_rows": None,
+    "tfidf": None,
+    "faiss": None,
+    "cached_at": 0,
+}
+
+# P0-1: 映射表缓存（list_item_code -> material_name）
+_mapping_cache: dict = {"data": None, "cached_at": 0}
+_mapping_cache_ttl = 600  # 10 分钟
 
 
 def _err(code, msg, trace_id):
@@ -50,6 +73,7 @@ def _err(code, msg, trace_id):
     }
 
 
+# P1-2: 统一候选池构建（l3 + l4）
 def _build_dict_rows(db: Session, dict_ids=None) -> list[dict]:
     """从 material_dict 构建候选行（L3 大类 + L4 材料名称级）。
 
@@ -77,6 +101,79 @@ def _build_dict_rows(db: Session, dict_ids=None) -> list[dict]:
     return rows
 
 
+# P0-2: 获取缓存的索引（模块级单例）
+def _get_cached_indexes(db: Session) -> tuple[list[dict], Optional[TfidfMatcher], Optional[FaissMatcher]]:
+    """获取缓存的 TF-IDF / FAISS 索引（5分钟 TTL）。"""
+    global _index_cache
+    now = time.time()
+
+    with _index_cache_lock:
+        # 检查缓存是否有效
+        if (_index_cache["dict_rows"] is not None and
+            now - _index_cache["cached_at"] < _INDEX_CACHE_TTL):
+            return (
+                _index_cache["dict_rows"],
+                _index_cache["tfidf"],
+                _index_cache["faiss"],
+            )
+
+        # 重建索引
+        dict_rows = _build_dict_rows(db)
+        tfidf_matcher = TfidfMatcher(dict_rows) if dict_rows else None
+        faiss_matcher = FaissMatcher(dict_rows) if (dict_rows and FAISS_AVAILABLE) else None
+
+        _index_cache = {
+            "dict_rows": dict_rows,
+            "tfidf": tfidf_matcher,
+            "faiss": faiss_matcher,
+            "cached_at": now,
+        }
+        return dict_rows, tfidf_matcher, faiss_matcher
+
+
+def _invalidate_index_cache():
+    """失效索引缓存（数据变更后调用）。"""
+    global _index_cache
+    with _index_cache_lock:
+        _index_cache = {
+            "dict_rows": None,
+            "tfidf": None,
+            "faiss": None,
+            "cached_at": 0,
+        }
+
+
+# P0-1: 获取映射表缓存
+def _get_mapping_cache(db: Session) -> dict[str, str]:
+    """获取清单编码 -> 材料名称映射表缓存（10分钟 TTL）。"""
+    global _mapping_cache
+    now = time.time()
+
+    # 检查缓存是否有效
+    if (_mapping_cache["data"] is not None and
+        now - _mapping_cache["cached_at"] < _mapping_cache_ttl):
+        return _mapping_cache["data"]
+
+    # 加载映射表
+    mappings = db.query(ListMaterialMapping).all()
+    mapping_dict = {}
+    for m in mappings:
+        # 9位编码 -> 材料名称
+        mapping_dict[m.list_item_code] = m.material_name
+
+    _mapping_cache = {
+        "data": mapping_dict,
+        "cached_at": now,
+    }
+    return mapping_dict
+
+
+def _invalidate_mapping_cache():
+    """失效映射表缓存（数据变更后调用）。"""
+    global _mapping_cache
+    _mapping_cache = {"data": None, "cached_at": 0}
+
+
 # ---------------------------------------------------------------------------
 # READ：find_matches（无写操作）
 # ---------------------------------------------------------------------------
@@ -87,6 +184,10 @@ def find_matches(db: Session, boq_item_ids: list[int]) -> dict[str, Any]:
     boq_item 的匹配输入取真实字段：query_name=item_name，
     query_spec=item_feature（天然语言来源，M3 §5.3）。
     返回 {boq_item_id: [Top-5 候选...]}，每个候选含 dict_id/name/spec/score/category_path。
+
+    优化（M7）：
+    - P0-1: 先查 list_material_mapping 映射表，命中则直接返回高置信候选
+    - P0-2: 使用缓存的 TF-IDF/FAISS 索引
     """
     trace_id = uuid.uuid4().hex
     warnings = []
@@ -106,19 +207,52 @@ def find_matches(db: Session, boq_item_ids: list[int]) -> dict[str, Any]:
         if bid not in found_ids:
             warnings.append(f'boq_item {bid} 不存在')
 
-    dict_rows = _build_dict_rows(db)
+    # P0-1: 加载映射表缓存
+    mapping_dict = _get_mapping_cache(db)
 
-    # 构建 TF-IDF 和 FAISS 索引（复用，避免每个清单项重新构建）
-    tfidf_matcher = TfidfMatcher(dict_rows) if dict_rows else None
-    faiss_matcher = FaissMatcher(dict_rows) if (dict_rows and FAISS_AVAILABLE) else None
+    # P0-2: 获取缓存的索引
+    dict_rows, tfidf_matcher, faiss_matcher = _get_cached_indexes(db)
 
     # 从学习引擎 v3 获取当前权重（多策略融合 + 概念漂移 + 元学习）
     learning_engine = get_global_engine_v3()
 
     data = {}
+    mapping_hits = 0
+    fuzzy_hits = 0
+
     for rec in recs:
         query_name = rec.item_name or ''
         query_spec = rec.item_feature or ''
+        item_code = rec.item_code or ''
+
+        # P0-1: 先查映射表（9位编码前缀匹配）
+        mapping_hit = None
+        if item_code:
+            # 取前9位编码
+            code9 = item_code[:9] if len(item_code) >= 9 else item_code
+            mapped_name = mapping_dict.get(code9)
+            if mapped_name:
+                # 映射表命中大类分类，返回分类信息
+                # 注意：映射表现在存储的是大类名称（钢筋/水泥/混凝土/管道/电线电缆等）
+                # 不是具体材料名称，所以不在 material_dict 里查找
+                mapping_hit = {
+                    'dict_id': None,  # 大类分类，不绑定具体 material_dict id
+                    'name': mapped_name,
+                    'spec': '',
+                    'score': 100.0,  # 映射表命中给满分
+                    'category_path': f"大类分类/{mapped_name}",
+                    'source': 'mapping_table',
+                    'is_category': True,  # 标记为大类分类
+                }
+
+        if mapping_hit:
+            # 映射表命中，直接返回分类结果
+            data[rec.id] = [mapping_hit]
+            mapping_hits += 1
+            continue
+
+        # 映射表未命中，走模糊匹配
+        fuzzy_hits += 1
 
         # 按清单项类别获取权重（v2 按类别学习）
         category_path = getattr(rec, 'category_path', '') or ''
@@ -161,14 +295,19 @@ def find_matches(db: Session, boq_item_ids: list[int]) -> dict[str, Any]:
             n = c.get('name', '')
             if n not in seen_names:
                 seen_names[n] = True
+                c['source'] = 'fuzzy_match'
                 deduped.append(c)
         data[rec.id] = deduped[:5]
+
+    # 统计信息
+    stats = f"映射表命中 {mapping_hits} 条，模糊匹配 {fuzzy_hits} 条"
+    logger.info(f"find_matches 统计：{stats}")
 
     return {
         'success': True,
         'data': data,
         'total': len(recs),
-        'warnings': warnings,
+        'warnings': warnings + [stats],
         'trace_id': trace_id,
     }
 
@@ -189,6 +328,10 @@ def confirm_match(db: Session, payload: dict) -> dict[str, Any]:
     绝不覆盖已有 B 类值（M3 §5.6 + M1 §4.9）。
     fill_empty_only 且高置信（high_confidence）→ 视为自动链接，reason 打 auto_linked 标记。
     回填后 match_key 由 before_update 事件监听器自动重算（M1.2）。
+
+    优化（M7）：
+    - P1-1: 同义词扩展加人工确认标记，不直接写入 material_dict
+    - P0-2: 使用缓存的索引（复用）
     """
     if not isinstance(payload, dict):
         return _err('MATCH_INVALID_PAYLOAD', 'payload 必须是 dict', uuid.uuid4().hex)
@@ -206,8 +349,8 @@ def confirm_match(db: Session, payload: dict) -> dict[str, Any]:
     results = []
     warnings = []
 
-    # 循环外构建一次候选池（避免循环内重复全量查 l3 节点，P1-2 修复）
-    dict_rows = _build_dict_rows(db)
+    # P0-2: 获取缓存的索引（复用，避免重复构建）
+    dict_rows, tfidf_matcher, faiss_matcher = _get_cached_indexes(db)
 
     for item in items:
         boq_id = item.get('boq_item_id')
@@ -277,47 +420,28 @@ def confirm_match(db: Session, payload: dict) -> dict[str, Any]:
                 setattr(boq, k, v)
             db.flush()
 
-            # 同义词自动扩展（学习机制）：将清单项名称加入物料字典同义词
-            # 下次相同名称直接命中，无需再人工确认
+            # P1-1: 同义词扩展（改进版）
+            # 不直接写入 material_dict.synonyms，而是记录到待审核列表
+            # 避免错误确认污染数据
             item_name = (boq.item_name or '').strip()
             if item_name and d.id:
-                current_syns = d.synonyms or {}
-                # synonyms 可能是 dict 或 list，统一成 list 处理。
-                # dict 形态：取值集合（同义词列表），而非字段名键（规格/材质/型号/单位），
-                # 避免把字段名键误当同义词覆盖结构化 dict（P1-1 修复）。
-                if isinstance(current_syns, dict):
-                    # 优先取约定的 list 值（常见 'list'/'synonyms' 键）；否则扁平化所有值
-                    syn_list = []
-                    for key in ('list', 'synonyms'):
-                        v = current_syns.get(key)
-                        if isinstance(v, (list, tuple)):
-                            syn_list = [x for x in v if isinstance(x, str)]
-                            break
-                    if not syn_list:
-                        syn_list = [x for vals in current_syns.values()
-                                     if isinstance(vals, (list, tuple))
-                                     for x in vals if isinstance(x, str)]
-                        if not syn_list:
-                            syn_list = [k for k in current_syns.keys() if isinstance(k, str)]
-                elif isinstance(current_syns, list):
-                    syn_list = [x for x in current_syns if isinstance(x, str)]
-                else:
-                    syn_list = []
-                if item_name not in syn_list:
-                    syn_list.append(item_name)
-                    d.synonyms = syn_list
-                    log_audit(
-                        db=db,
-                        model='material_dict',
-                        res_id=d.id,
-                        action='write',
-                        field_name='synonyms',
-                        old_value=str(current_syns),
-                        new_value=str(syn_list),
-                        operator=operator,
-                        reason='同义词自动扩展（学习记录）：确认清单项时自动学习名称',
-                        trace_id=trace_id,
-                    )
+                # 仅在审计日志中记录，不直接修改 synonyms 字段
+                # 后续可在管理页面批量审核后再写入
+                logger.info(
+                    f'同义词学习记录（待审核）：{item_name} -> material_dict {d.id} {d.name}'
+                )
+                log_audit(
+                    db=db,
+                    model='material_dict',
+                    res_id=d.id,
+                    action='note',
+                    field_name='synonyms_pending',
+                    old_value=None,
+                    new_value=item_name,
+                    operator=operator,
+                    reason=f'同义词学习记录（待人工审核）：确认清单项时自动学习名称',
+                    trace_id=trace_id,
+                )
 
             filled += 1
             results.append({
@@ -340,8 +464,6 @@ def confirm_match(db: Session, payload: dict) -> dict[str, Any]:
     # 学习引擎 v3：记录确认结果（多策略学习 + 概念漂移检测 + 轨迹记录）
     if filled > 0:
         try:
-            tfidf_matcher = TfidfMatcher(dict_rows) if dict_rows else None
-            faiss_matcher = FaissMatcher(dict_rows) if (dict_rows and FAISS_AVAILABLE) else None
             learning_engine = get_global_engine_v3()
 
             for result in results:
@@ -397,3 +519,4 @@ def confirm_match(db: Session, payload: dict) -> dict[str, Any]:
         'warnings': warnings,
         'trace_id': trace_id,
     }
+

@@ -1,4 +1,4 @@
-"""5 大类材料分类器 v3：前缀初筛 + 大类专用正则提规格
+﻿"""5 大类材料分类器 v3：前缀初筛 + 大类专用正则提规格
 
 v5 架构：
   第1步：读 item_code_version（已由任务1.1预填）
@@ -169,7 +169,10 @@ def _extract_cable_spec(name: str, feature: str) -> str:
         if model:
             return f"{model}-{sec_str}"
         return sec_str
-    return model or ""
+    # 只提取到型号没提取到截面，归到未识别组，避免不同规格混在一起
+    if model:
+        return f"{model}(无截面)"
+    return "电缆(未识别)"
 
 
 def _extract_rebar_spec(text: str) -> str:
@@ -178,7 +181,8 @@ def _extract_rebar_spec(text: str) -> str:
     dm = _REBAR_DIA_PAT.search(text)
     if dm:
         return f"{grade} Φ{dm.group(1)}"
-    return f"{grade}(无直径)"
+    # 提取不到直径，归到未识别组，避免不同直径混在一起
+    return "钢筋_未识别"
 
 
 def _extract_concrete_spec(text: str) -> str:

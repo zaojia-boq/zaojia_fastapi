@@ -377,3 +377,44 @@ async def update_batch_period(
     )
 
     return {"ok": True, "id": batch.id, "price_period": batch.price_period.isoformat() if batch.price_period else None}
+
+
+@router.post("/batches/{batch_id}/update-data-type")
+async def update_batch_data_type(
+    batch_id: int,
+    data_source_type: str = Body(..., embed=True),
+    user=Depends(require_role(ROLE_ADMIN)),
+    db: Session = Depends(get_db),
+):
+    """更新批次数据性质（仅 admin）。data_source_type: completed/control_price/bid_price/pending_review/info_price"""
+    batch = db.query(ImportBatch).filter(ImportBatch.id == batch_id).first()
+    if not batch:
+        raise HTTPException(status_code=404, detail="批次不存在")
+    if not batch.active:
+        raise HTTPException(status_code=400, detail="已删除批次不可修改，请先还原")
+
+    # 验证数据性质
+    valid_types = ["completed", "control_price", "bid_price", "pending_review", "info_price"]
+    if data_source_type not in valid_types:
+        raise HTTPException(status_code=400, detail=f"数据性质无效，应为：{'/'.join(valid_types)}")
+
+    old_type = batch.data_source_type
+    batch.data_source_type = data_source_type
+
+    # 同时更新该批次下所有清单项的 data_source_type
+    from app.models.boq_item import BoqItem
+    db.query(BoqItem).filter(BoqItem.import_batch_id == batch_id).update(
+        {BoqItem.data_source_type: data_source_type}
+    )
+
+    db.commit()
+    db.refresh(batch)
+
+    log_audit(
+        db, model="import_batch", res_id=batch.id, action=ACTION_WRITE,
+        operator=user.get("username") if user else "unknown",
+        reason=f"批次数据性质更新：{old_type} → {data_source_type}",
+        field_name="data_source_type", old_value=old_type, new_value=data_source_type,
+    )
+
+    return {"ok": True, "id": batch.id, "data_source_type": batch.data_source_type}

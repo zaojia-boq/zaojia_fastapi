@@ -46,7 +46,18 @@
       </div>
       <div class="field"><label>地区</label><input class="inp" value="{{ batch.province }}" readonly></div>
       <div class="field"><label>操作人</label><input class="inp" value="{{ batch.operator }}" readonly></div>
-      <div class="field"><label>数据性质</label><input class="inp" value="{{ batch.typeLabel }}" readonly></div>
+      <div class="field"><label>数据性质</label>
+        <div style="display:flex;gap:4px;align-items:center;">
+          <select class="inp" id="select-data-type" style="flex:1;">
+            <option value="completed" {% if batch.data_source_type == 'completed' %}selected{% endif %}>已完工程</option>
+            <option value="control_price" {% if batch.data_source_type == 'control_price' %}selected{% endif %}>控制价</option>
+            <option value="bid_price" {% if batch.data_source_type == 'bid_price' %}selected{% endif %}>投标报价</option>
+            <option value="pending_review" {% if batch.data_source_type == 'pending_review' %}selected{% endif %}>待审</option>
+            <option value="info_price" {% if batch.data_source_type == 'info_price' %}selected{% endif %}>信息价</option>
+          </select>
+          <button class="btn btn-ghost btn-sm" onclick="saveDataType()" title="保存数据性质">✓</button>
+        </div>
+      </div>
     </div>
     {% if batch_raw %}
     <div class="sep"></div>
@@ -150,6 +161,26 @@ async function saveRename() {
       cancelRename();
     } else {
       alert('重命名失败：' + (data.detail || '未知错误'));
+    }
+  } catch (e) {
+    alert('请求失败：' + e.message);
+  }
+}
+async function saveDataType() {
+  var dataType = document.getElementById('select-data-type').value;
+  try {
+    var resp = await fetch('/api/import/batches/{{ batch.id }}/update-data-type', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({data_source_type: dataType})
+    });
+    var data = await resp.json();
+    if (data.ok) {
+      alert('数据性质已更新');
+      // 刷新页面显示
+      location.reload();
+    } else {
+      alert('更新失败：' + (data.detail || '未知错误'));
     }
   } catch (e) {
     alert('请求失败：' + e.message);
