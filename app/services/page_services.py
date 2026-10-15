@@ -92,7 +92,7 @@ PAGE_SIZE = 50
 
 # 性能铁律：检索/单价分析等「相关度需 Python 侧打分」路径的候选池上限，
 # 防止百万行全量拉入内存（禁止全量加载）。取价格期最新的有界候选池做打分 + 分页。
-MAX_SEARCH_POOL = 2000
+MAX_SEARCH_POOL = 10000
 
 # ============================================================================
 # 模块级缓存（匹配确认页面性能优化）
@@ -590,31 +590,66 @@ def search_boq_items(
 
             if kw:
                 import re as _re
-                # 关键词归一化：去横杠/下划线，统一 ×/x/* → *
+                # 关键词归一化：统一所有常见写法差异
                 def _norm(t):
                     t = (t or "").upper()
-                    t = _re.sub(r'[\-_—－]', '', t)
+                    # 去掉所有分隔符：横杠/下划线/破折号/空格
+                    t = _re.sub(r'[\-_—－\s]', '', t)
+                    # 统一截面符号：× / X / x → *
                     t = t.replace('×', '*').replace('X', '*')
+                    # 统一钢筋符号：Φ / φ / ￠ / Φ → Φ
+                    t = t.replace('φ', 'Φ').replace('￠', 'Φ')
                     return t
+
+                # 生成所有型号变体：横杠/空格/分隔符的各种组合
+                def _gen_all_variants(raw):
+                    """给一个型号生成所有可能的写法变体"""
+                    variants = {raw, _norm(raw)}
+
+                    # 匹配 字母前缀 + 数字截面 的电缆型号，生成横杠分隔的变体
+                    m = _re.match(r'^([A-Z]+)(\d.*)$', raw.upper())
+                    if m:
+                        prefix, rest = m.group(1), m.group(2)
+                        # 加横杠
+                        variants.add(f"{prefix}-{rest}")
+                        # 加空格
+                        variants.add(f"{prefix} {rest}")
+                        # 归一化后
+                        variants.add(_norm(f"{prefix}-{rest}"))
+
+                    # 钢筋直径变体：Φ16 ↔ Φ 16 ↔ Φ-16
+                    m2 = _re.match(r'^Φ\s?(\d+)$', raw.upper())
+                    if m2:
+                        variants.add(f"Φ{m2.group(1)}")
+                        variants.add(f"Φ {m2.group(1)}")
+                        variants.add(f"Φ-{m2.group(1)}")
+
+                    return variants
                 # 同义词扩展表（造价常用材料别名）
                 _SYNONYMS = {
-                    "配电箱": ["配电柜", "配电箱柜", "照明箱", "动力箱", "开关柜"],
+                    # 电气
+                    "配电箱": ["配电柜", "配电箱柜", "照明箱", "动力箱", "开关柜", "箱式变电站"],
                     "配电柜": ["配电箱", "配电箱柜", "开关柜"],
-                    "桥架": ["电缆桥架", "电缆线槽", "线槽"],
-                    "电缆": ["电力电缆", "电线电缆", "控制电缆"],
-                    "钢管": ["焊接钢管", "镀锌钢管", "无缝钢管"],
-                    "塑料管": ["PVC管", "PPR管", "HDPE管", "PE管", "PVC-U管"],
-                    "钢筋": ["螺纹钢", "圆钢", "钢筋网"],
-                    "水泥": ["硅酸盐水泥", "普通水泥", "PO水泥"],
-                    "砼": ["混凝土", "商品砼", "商品混凝土"],
+                    "桥架": ["电缆桥架", "电缆线槽", "线槽", "梯式桥架", "槽式桥架"],
+                    "电缆": ["电力电缆", "电线电缆", "控制电缆", "电缆线"],
+                    "电线": ["绝缘导线", "布电线", "BV线", "BVR线"],
+                    # 管道
+                    "钢管": ["焊接钢管", "镀锌钢管", "无缝钢管", "焊管", "镀锌管"],
+                    "塑料管": ["PVC管", "PPR管", "HDPE管", "PE管", "PVC-U管", "UPVC管"],
+                    "阀门": ["闸阀", "截止阀", "球阀", "蝶阀", "止回阀"],
+                    # 土建
+                    "钢筋": ["螺纹钢", "圆钢", "钢筋网", "热轧带肋钢筋"],
+                    "水泥": ["硅酸盐水泥", "普通水泥", "PO水泥", "复合硅酸盐水泥"],
+                    "砼": ["混凝土", "商品砼", "商品混凝土", "现浇混凝土"],
+                    "砂浆": ["水泥砂浆", "混合砂浆", "抹灰砂浆"],
+                    "土方": ["挖沟槽", "挖土方", "回填土", "土石方"],
                 }
                 # 按空格拆分多词，AND 匹配（每个词都要命中）
                 kw_words = [w.strip() for w in kw.split() if w.strip()]
                 if len(kw_words) == 1:
                     # 单词：OR 匹配（原逻辑）+ 同义词扩展
                     kw0 = kw_words[0]
-                    kw_norm = _norm(kw0)
-                    variants = {kw0, kw_norm}
+                    variants = _gen_all_variants(kw0)
                     # 同义词扩展
                     for syn_key, syn_list in _SYNONYMS.items():
                         if kw0 in syn_list or kw0 == syn_key:
@@ -691,8 +726,9 @@ def search_boq_items(
                     fuzzy_q = fuzzy_q.add_columns(
                         _text("GREATEST(similarity(item_name, :kw), similarity(item_feature, :kw)) AS sim_score")
                     ).params(kw=kw_single)
-                    fuzzy_q = fuzzy_q.having(_text("GREATEST(similarity(item_name, :kw), similarity(item_feature, :kw)) > 0.3"))
+                    fuzzy_q = fuzzy_q.having(_text("GREATEST(similarity(item_name, :kw), similarity(item_feature, :kw)) > 0.2"))
                     fuzzy_q = fuzzy_q.order_by(_text("sim_score DESC"))
+                    fuzzy_q = fuzzy_q.limit(MAX_SEARCH_POOL)  # 加 limit 防止全表扫描
                     result = fuzzy_q.all()
                     scored_rows = [(row.sim_score, row[0]) for row in result]  # (score, BoqItem)
                     total = len(scored_rows)
@@ -703,11 +739,16 @@ def search_boq_items(
                     pages = max(1, (total + per_page - 1) // per_page)
                     page = max(1, min(page, pages))
                     items = [r for _, r in scored_rows[(page - 1) * per_page:page * per_page]]
-                except Exception:
-                    # P2-1：模糊兜底 pg_trgm similarity() 失败（如 SQLite 测试库无 trgm 扩展、
-                    # 或表/列缺失）时静默降级为精确匹配，但记录日志避免吞错隐藏真实问题。
+                except Exception as e:
+                    # 模糊兜底 pg_trgm similarity() 失败时，必须先 rollback session，
+                    # 否则 session 处于异常状态，后面再查询会报 InternalError
+                    try:
+                        s.rollback()
+                    except Exception:
+                        pass
                     _logging.getLogger("zaojia.page_services").warning(
-                        "模糊兜底 similarity() 失败，降级为精确匹配（kw=%r）", kw_single,
+                        "模糊兜底 similarity() 失败，已 rollback 降级为精确匹配（kw=%r, err=%s）",
+                        kw_single, str(e),
                     )
 
             if items is None:
@@ -1357,6 +1398,8 @@ def get_price_analysis(
             q = s.query(BoqItem).filter(
                 BoqItem.active == True,  # noqa: E712
                 BoqItem.unit_rate_num != None,  # noqa: E711
+                # 先在数据库过滤 5 大类，避免 limit 后 5 大类样本不足
+                BoqItem.std_name.in_(('电线电缆', '管道', '钢筋', '水泥', '混凝土'))
             )
             # 先按近N月过滤；若该范围无数据则取消时间过滤（兜底）
             # P2-6：兜底仅在“该时间窗口内样本数 < min_sample”时触发，避免时间窗口内有
@@ -1549,6 +1592,9 @@ def get_price_analysis(
                     "avg": round(kpis_raw["avg"], 2),
                     "min": round(kpis_raw["min"], 2),
                     "max": round(kpis_raw["max"], 2),
+                    "p25": round(kpis_raw.get("p25", 0), 2),
+                    "p50": round(kpis_raw.get("p50", 0), 2),
+                    "p75": round(kpis_raw.get("p75", 0), 2),
                     "anomalyCount": kpis_raw["anomaly_count"],
                     "hasSamples": has_samples,
                     "cv": cv,

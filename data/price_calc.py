@@ -70,9 +70,11 @@ def compute_kpis(rows, category: str = ""):
     """逐行计算 KPI（M3 §3.2 卡片）。
 
     rows: list[dict]，每行的 'unit_rate_num' 为 float 或 None，'quantity_num' 可选。
-    过滤 None 后计算：样本数 / 加权均价（按工程量）/ 最低 / 最高 / 异常数。
+    过滤 None 后计算：样本数 / 加权均价（按工程量）/ 最低 / 最高 / 异常数 / P25/P50/P75。
     anomaly_count = 相对「加权均价」被标记为异常的值个数。
     category: 大类名（M7 任务1.5），传入则按大类阈值判定异常，不传用默认 0.30。
+
+    M7 优化：IQR 方法剔除极端异常值（单位错误/录入错误），再计算统计量。
     """
     threshold = get_threshold_for_category(category)
     vals = [(r['unit_rate_num'], r.get('quantity_num') or 1) for r in rows
@@ -85,9 +87,49 @@ def compute_kpis(rows, category: str = ""):
             'min': 0.0,
             'max': 0.0,
             'anomaly_count': 0,
+            'p25': 0.0,
+            'p50': 0.0,
+            'p75': 0.0,
+            'outlier_count': 0,
         }
+
+    # M7 优化：IQR 方法剔除极端异常值（单位错误/录入错误）
+    prices = sorted([v for v, _ in vals])
+    outlier_count = 0
+    if len(prices) >= 8:  # 样本够多才做 IQR
+        q1_idx = len(prices) // 4
+        q3_idx = len(prices) * 3 // 4
+        q1 = prices[q1_idx]
+        q3 = prices[q3_idx]
+        iqr = q3 - q1
+        lower = q1 - 3 * iqr  # 3倍IQR，极端异常才剔除
+        upper = q3 + 3 * iqr
+        # 过滤掉异常值
+        filtered = [(v, q) for v, q in vals if lower <= v <= upper]
+        outlier_count = len(vals) - len(filtered)
+        vals = filtered
+        sample_count = len(vals)
+        if sample_count == 0:
+            vals = [(r['unit_rate_num'], r.get('quantity_num') or 1) for r in rows
+                    if r.get('unit_rate_num') is not None]
+            sample_count = len(vals)
+            outlier_count = 0
+
     total_qty = sum(q for _, q in vals)
     avg = sum(v * q for v, q in vals) / total_qty if total_qty else sum(v for _, v in vals) / sample_count
+
+    # 计算分位数
+    sorted_prices = sorted([v for v, _ in vals])
+    n = len(sorted_prices)
+    if n >= 4:
+        p25 = sorted_prices[n // 4]
+        p50 = sorted_prices[n // 2]
+        p75 = sorted_prices[n * 3 // 4]
+    else:
+        p25 = avg
+        p50 = avg
+        p75 = avg
+
     anomaly_count = sum(
         1 for v, _ in vals
         if is_anomaly(v, avg, threshold, sample_count, DEFAULT_MIN_SAMPLE)
@@ -99,6 +141,10 @@ def compute_kpis(rows, category: str = ""):
         'max': max(v for v, _ in vals),
         'anomaly_count': anomaly_count,
         'threshold': threshold,
+        'p25': p25,
+        'p50': p50,
+        'p75': p75,
+        'outlier_count': outlier_count,
     }
 
 

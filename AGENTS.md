@@ -21,6 +21,20 @@
 - **发现大量未提交改动时先抢救**：第一动作是提交保护（或 `git stash`），而非任何"整理"操作。
 - **破坏性 git 操作前先建备份分支**：`git branch backup-<date>` 成本极低，必做。
 
+
+### 公共代码修改影响范围铁律（2026-09-22 事故教训，永久生效）
+
+> 背景：修改 `page_services.py` 的单价分析查询逻辑时，只测试了单价分析页面，未测试清单检索页面，导致搜索"电缆"报 InternalError（模糊匹配查询未加 limit）。用户批评"改一处坏一片"。
+
+- **公共服务层文件改完必须全页面测试**：修改 `app/services/page_services.py`、`app/services/material_classifier.py`、`app/services/material_match_service.py` 等被多个页面共用的服务文件后，必须同时测试所有受影响页面：
+  1. 单价分析页 `/portal/price`
+  2. 清单检索页 `/portal/search`
+  3. 匹配确认页 `/admin/match`
+  4. 仪表盘 `/portal/dashboard`
+- **禁止只测当前要改的页面**：公共函数被多个地方调用，改了这里，那里可能就坏了。
+- **小步快跑，每次改完就测**：不要一次性改一大堆功能，改一个功能测一个功能，确认没问题再继续。
+- **模糊匹配 / pg_trgm 查询必须加 limit**：所有用 similarity() / ILIKE 全表扫描的查询，必须加 `limit(MAX_SEARCH_POOL)`，防止全表扫描导致 InternalError。
+
 ### 大数据量页面性能铁律（2026-09-14 字典页面事故教训，永久生效）
 
 > 背景：material_dict 表 156,733 条数据（5 级结构），原页面全量加载 + 递归展开，导致页面加载超时（>60 秒）甚至服务无响应。以下铁律对本仓库所有涉及大数据量（>1000 条）的页面永久适用。

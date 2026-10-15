@@ -163,9 +163,9 @@
     function updateUI(d){
       var k = d.kpis || {};
       document.getElementById('kpi-sample').textContent = (k.sampleCount||0).toLocaleString();
-      document.getElementById('kpi-avg').textContent = k.hasSamples ? fmt(k.avg) : '—';
-      document.getElementById('kpi-min').textContent = fmt(k.min);
-      document.getElementById('kpi-max').textContent = fmt(k.max);
+      document.getElementById('kpi-avg').textContent = k.hasSamples ? fmt(k.p50) : '—';
+      document.getElementById('kpi-p25').textContent = fmt(k.p25);
+      document.getElementById('kpi-p75').textContent = fmt(k.p75);
       document.getElementById('kpi-anomaly').textContent = (k.anomalyCount||0).toLocaleString();
       document.getElementById('kpi-cv').textContent = k.cv + (k.cv!=='—'?'%':'');
       document.getElementById('kpi-anomaly-foot').innerHTML = k.anomalyCount>0
@@ -307,9 +307,9 @@
       <div class="kpi-foot">{% if current_range == 0 %}全部时间{% else %}近 {{ current_range }} 个月{% endif %}有效单价行</div>
     </div>
     <div class="card kpi"><div class="kpi-bar k-ok"></div>
-      <div class="kpi-label">区间均价（元）</div>
-      <div class="kpi-val" id="kpi-avg" style="font-size:26px">{{ "{:,.2f}".format(kpis.avg) if kpis.hasSamples else '—' }}</div>
-      <div class="kpi-foot"><span class="muted">最低 <span id="kpi-min">{{ "{:,.2f}".format(kpis.min) }}</span> · 最高 <span id="kpi-max">{{ "{:,.2f}".format(kpis.max) }}</span></span></div>
+      <div class="kpi-label">价格区间（元）</div>
+      <div class="kpi-val" id="kpi-avg" style="font-size:26px">{{ "{:,.2f}".format(kpis.p50) if kpis.hasSamples else '—' }}</div>
+      <div class="kpi-foot"><span class="muted">P25 <span id="kpi-p25">{{ "{:,.2f}".format(kpis.p25) }}</span> · P75 <span id="kpi-p75">{{ "{:,.2f}".format(kpis.p75) }}</span>（中间50%数据）</span></div>
     </div>
     <div class="card kpi"><div class="kpi-bar k-info"></div>
       <div class="kpi-label">异常样本</div>

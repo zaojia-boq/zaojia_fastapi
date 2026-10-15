@@ -361,11 +361,16 @@ def classify_boq(name: str, feature: str, item_code: str = "", item_code_version
 
 
 def _classify_boq_impl(name: str, feature: str, item_code: str = "", item_code_version: str = "") -> ClassifyResult:
-    # v5 前缀初筛
-    if item_code and item_code_version:
+    # v5 前缀初筛（只有已知版本才走前缀初筛）
+    if item_code and item_code_version in ("2013", "2024"):
         prefix_result = _classify_by_prefix(item_code, item_code_version, name, feature)
         if prefix_result is not None:
             return prefix_result
 
-    # v2 纯文本兜底
+    # unknown 版本：不走纯文本兜底，避免误判（找平层提到钢筋、吊顶提到钢筋吊环等）
+    # 宁可少分，不要错分
+    if not item_code_version or item_code_version == "unknown":
+        return ClassifyResult(category="", spec="", material_type="")
+
+    # v2 纯文本兜底（仅用于版本已知但前缀未命中的情况）
     return _classify_by_text(name, feature)

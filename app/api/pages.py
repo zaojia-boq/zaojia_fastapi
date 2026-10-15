@@ -316,7 +316,7 @@ async def old_settings():
 async def portal_dashboard(request: Request, db: Session = Depends(get_db),
                            user: dict | None = Depends(get_page_user_optional)):
     """Portal 数据概览 —— 未登录可访问（只读，仅已标准化数据）。"""
-    data = svc.get_dashboard_data(db, only_std=(user is None))
+    data = svc.get_dashboard_data(db, only_std=False)
     return _render("portal/dashboard.html", _ctx_portal(request, db, "dash", "数据概览", user, **data))
 
 
@@ -343,7 +343,7 @@ async def portal_search(request: Request, db: Session = Depends(get_db),
     data = svc.search_boq_items(
         db, kw=kw, f_major=f_major, f_code=f_code, f_name=f_name,
         f_source=f_source, f_anomaly=f_anomaly, std_status=std_status, page=page,
-        only_std=(user is None), sort=sort,
+        only_std=False, sort=sort,
     )
 
     # 关键词高亮（复用字典页 .tree-hl 样式）
